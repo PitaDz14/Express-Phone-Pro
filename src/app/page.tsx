@@ -10,7 +10,8 @@ import {
   ArrowDownRight,
   Plus,
   Search,
-  ChevronLeft
+  ChevronLeft,
+  Loader2
 } from "lucide-react"
 import {
   Bar,
@@ -33,8 +34,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, query, limit, orderBy } from "firebase/firestore"
 
-const data = [
+const chartData = [
   { name: "السبت", total: 4500, profit: 1200 },
   { name: "الأحد", total: 5200, profit: 1500 },
   { name: "الاثنين", total: 3800, profit: 1000 },
@@ -44,6 +47,19 @@ const data = [
 ]
 
 export default function Dashboard() {
+  const db = useFirestore()
+  
+  const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
+  const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
+  const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
+  
+  const { data: products } = useCollection(productsRef)
+  const { data: customers } = useCollection(customersRef)
+  const { data: recentInvoices } = useCollection(useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef]))
+
+  const totalSales = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
+  const lowStockCount = products?.filter(p => p.quantity <= 5).length || 0
+
   return (
     <SidebarProvider>
       <DashboardSidebar />
@@ -57,16 +73,12 @@ export default function Dashboard() {
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث عن فاتورة، منتج أو عميل..." 
+                placeholder="ابحث سريعا..." 
                 className="pl-10 h-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
               />
             </div>
           </div>
           <div className="flex items-center gap-3">
-             <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-2">
-               <Plus className="h-4 w-4" />
-               إضافة سريعة
-             </Button>
              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                KD
              </div>
@@ -78,50 +90,53 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-none shadow-sm bg-primary text-primary-foreground">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium opacity-90">إجمالي المبيعات</CardTitle>
+                <CardTitle className="text-sm font-medium opacity-90">إجمالي المبيعات (مؤخراً)</CardTitle>
                 <TrendingUp className="h-4 w-4 opacity-90" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">128,450 دج</div>
+                <div className="text-2xl font-bold tabular-nums">{totalSales.toLocaleString()} دج</div>
                 <p className="text-xs mt-1 flex items-center opacity-80">
                   <ArrowUpRight className="h-3 w-3 mr-1" />
-                  +12% عن الشهر الماضي
+                  بناءً على آخر الفواتير
                 </p>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">المنتجات المتوفرة</CardTitle>
+                <CardTitle className="text-sm font-medium">المنتجات بالمخزون</CardTitle>
                 <Package className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">1,240</div>
+                <div className="text-2xl font-bold tabular-nums">{products?.length || 0}</div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                  <Badge variant="secondary" className="text-[10px] px-1 h-4">تنبيه</Badge>
-                  <span className="mr-1">3 منتجات منخفضة</span>
+                  {lowStockCount > 0 && (
+                    <Badge variant="destructive" className="text-[10px] px-1 h-4 ml-1">{lowStockCount} منخفضة</Badge>
+                  )}
+                  <span className="mr-1">منتج مسجل</span>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">العملاء النشطون</CardTitle>
+                <CardTitle className="text-sm font-medium">العملاء</CardTitle>
                 <Users className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">482</div>
-                <p className="text-xs text-muted-foreground mt-1">12 عميل جديد هذا الأسبوع</p>
+                <div className="text-2xl font-bold tabular-nums">{customers?.length || 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">قاعدة بيانات العملاء النشطة</p>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm border-r-4 border-orange-500">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">الديون المستحقة</CardTitle>
+                <CardTitle className="text-sm font-medium">حالة المخزون</CardTitle>
                 <Wallet className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600 tabular-nums">34,500 دج</div>
+                <div className="text-2xl font-bold text-orange-600 tabular-nums">
+                  {lowStockCount > 0 ? "يحتاج توريد" : "مستقر"}
+                </div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                  <ArrowDownRight className="h-3 w-3 mr-1 text-orange-500" />
-                  تحتاج لمتابعة فورية
+                  تنبيهات المخزون النشطة
                 </div>
               </CardContent>
             </Card>
@@ -134,15 +149,15 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">إحصائيات المبيعات والأرباح</CardTitle>
-                    <CardDescription>نظرة عامة على الأداء المالي للأسبوع الحالي</CardDescription>
+                    <CardDescription>نظرة عامة على الأداء المالي</CardDescription>
                   </div>
-                  <Badge variant="outline" className="tabular-nums">7 أيام</Badge>
+                  <Badge variant="outline" className="tabular-nums">تقديري</Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data}>
+                    <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis 
                         dataKey="name" 
@@ -167,7 +182,7 @@ export default function Dashboard() {
                         }}
                       />
                       <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                        {data.map((entry, index) => (
+                        {chartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={index === 5 ? '#3960AC' : '#3960AC80'} />
                         ))}
                       </Bar>
@@ -183,36 +198,28 @@ export default function Dashboard() {
               <CardHeader className="bg-white/50 border-b">
                 <div className="flex items-center justify-between">
                    <CardTitle className="text-lg">آخر العمليات</CardTitle>
-                   <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5">عرض الكل</Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y">
-                  {[
-                    { id: 1, type: "sale", item: "iPhone 13 Screen", price: "12,500 دج", status: "Paid", time: "قبل 10 دقائق" },
-                    { id: 2, type: "debt", item: "Battery Replacement", price: "3,200 دج", status: "Partial", time: "قبل ساعة" },
-                    { id: 3, type: "sale", item: "Samsung S22 Ultra Case", price: "2,500 دج", status: "Paid", time: "قبل ساعتين" },
-                    { id: 4, type: "return", item: "USB-C Cable", price: "800 دج", status: "Returned", time: "أمس" },
-                  ].map((activity) => (
-                    <div key={activity.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                  {!recentInvoices ? (
+                    <div className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
+                  ) : recentInvoices.length === 0 ? (
+                    <div className="p-10 text-center text-muted-foreground text-sm">لا توجد عمليات مؤخراً</div>
+                  ) : recentInvoices.map((inv) => (
+                    <div key={inv.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          activity.type === 'sale' ? 'bg-green-100 text-green-700' : 
-                          activity.type === 'debt' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {activity.type === 'sale' ? <ArrowUpRight className="h-5 w-5" /> : 
-                           activity.type === 'debt' ? <Wallet className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center bg-green-100 text-green-700`}>
+                          <ArrowUpRight className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">{activity.item}</p>
-                          <p className="text-xs text-muted-foreground">{activity.time}</p>
+                          <p className="text-sm font-semibold">فاتورة #{inv.id.slice(0, 6)}</p>
+                          <p className="text-xs text-muted-foreground">{inv.customerName}</p>
                         </div>
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-bold tabular-nums">{activity.price}</p>
-                        <Badge variant={activity.status === 'Paid' ? 'secondary' : 'outline'} className="text-[10px] py-0">
-                          {activity.status === 'Paid' ? 'مدفوع' : activity.status === 'Partial' ? 'جزئي' : 'مرتجع'}
-                        </Badge>
+                        <p className="text-sm font-bold tabular-nums">{inv.totalAmount.toLocaleString()} دج</p>
+                        <Badge variant="secondary" className="text-[10px] py-0">مدفوع</Badge>
                       </div>
                     </div>
                   ))}

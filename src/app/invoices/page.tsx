@@ -9,7 +9,9 @@ import {
   Download,
   Trash2,
   Scan,
-  UserPlus
+  UserPlus,
+  Package,
+  Loader2
 } from "lucide-react"
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
 import {
@@ -22,14 +24,140 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Label } from "@/components/ui/label"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
+import { collection, doc, serverTimestamp, increment } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
+
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  qty: number
+}
 
 export default function InvoicesPage() {
-  const [items, setItems] = React.useState([
-    { id: 1, name: "شاشة iPhone 13 Pro Max أصلي", qty: 1, price: 18500 },
-    { id: 2, name: "واقي شاشة نانو سيراميك", qty: 1, price: 1200 },
-  ])
+  const { toast } = useToast()
+  const db = useFirestore()
+  const { user } = useUser()
+  const [cart, setCart] = React.useState<CartItem[]>([])
+  const [searchTerm, setSearchTerm] = React.useState("")
+  const [customerSearch, setCustomerSearch] = React.useState("")
+  const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
+  const [discount, setDiscount] = React.useState(0)
+  const [isProcessing, setIsProcessing] = React.useState(false)
 
-  const total = items.reduce((sum, item) => sum + (item.price * item.qty), 0)
+  const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
+  const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
+  const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
+  
+  const { data: products } = useCollection(productsRef)
+  const { data: customers } = useCollection(customersRef)
+
+  const filteredProducts = products?.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.productCode.toLowerCase().includes(searchTerm.toLowerCase())
+  ).slice(0, 5) || []
+
+  const addToCart = (product: any) => {
+    if (product.quantity <= 0) {
+      toast({ title: "خطأ", description: "هذا المنتج غير متوفر في المخزون", variant: "destructive" })
+      return
+    }
+
+    const existing = cart.find(item => item.id === product.id)
+    if (existing) {
+      if (existing.qty >= product.quantity) {
+        toast({ title: "تنبيه", description: "وصلت للكمية المتاحة في المخزون" })
+        return
+      }
+      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
+    } else {
+      setCart([...cart, { id: product.id, name: product.name, price: product.salePrice, qty: 1 }])
+    }
+    setSearchTerm("")
+  }
+
+  const removeFromCart = (id: string) => {
+    setCart(cart.filter(item => item.id !== id))
+  }
+
+  const updateQty = (id: string, delta: number) => {
+    setCart(cart.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(1, item.qty + delta)
+        return { ...item, qty: newQty }
+      }
+      return item
+    }))
+  }
+
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
+  const total = subtotal - discount
+
+  const handleProcessInvoice = async () => {
+    if (cart.length === 0) {
+      toast({ title: "خطأ", description: "السلة فارغة", variant: "destructive" })
+      return
+    }
+
+    if (!user) {
+      toast({ title: "خطأ", description: "يجب تسجيل الدخول لإصدار فاتورة", variant: "destructive" })
+      return
+    }
+
+    setIsProcessing(true)
+    try {
+      const invoiceData = {
+        customerId: selectedCustomer?.id || "walk-in",
+        customerName: selectedCustomer?.name || "عميل عام",
+        invoiceDate: serverTimestamp(),
+        totalAmount: total,
+        paidAmount: total, // Assuming cash sale for now
+        status: "Paid",
+        generatedByUserId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+
+      const invPromise = addDocumentNonBlocking(invoicesRef, invoiceData)
+      const invRef = await invPromise
+      
+      if (invRef) {
+        // Add Items to invoice subcollection
+        const itemsRef = collection(db, "invoices", invRef.id, "items")
+        cart.forEach(item => {
+          addDocumentNonBlocking(itemsRef, {
+            invoiceId: invRef.id,
+            productId: item.id,
+            productName: item.name,
+            quantity: item.qty,
+            unitPrice: item.price,
+            itemTotal: item.price * item.qty,
+            generatedByUserId: user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          })
+
+          // Deduct from stock
+          const prodRef = doc(db, "products", item.id)
+          updateDocumentNonBlocking(prodRef, {
+            quantity: increment(-item.qty)
+          })
+        })
+
+        toast({ title: "تم إصدار الفاتورة", description: `رقم الفاتورة: ${invRef.id.slice(0, 8)}` })
+        setCart([])
+        setSelectedCustomer(null)
+        setDiscount(0)
+      }
+    } catch (error) {
+      console.error(error)
+      toast({ title: "خطأ", description: "حدث خطأ أثناء معالجة الفاتورة", variant: "destructive" })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -38,16 +166,12 @@ export default function InvoicesPage() {
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white sticky top-0 z-10 no-print">
           <div className="flex items-center gap-4">
             <SidebarTrigger className="-ml-1" />
-            <h1 className="text-xl font-bold tracking-tight">الفواتير والمبيعات</h1>
+            <h1 className="text-xl font-bold tracking-tight">الفواتير والمبيعات (نظام POS)</h1>
           </div>
           <div className="flex items-center gap-3">
              <Button variant="outline" className="gap-2">
                <FileText className="h-4 w-4" />
                سجل الفواتير
-             </Button>
-             <Button className="gap-2 bg-primary">
-               <Plus className="h-4 w-4" />
-               فاتورة جديدة
              </Button>
           </div>
         </header>
@@ -62,18 +186,48 @@ export default function InvoicesPage() {
                    <CardTitle className="text-lg">إضافة منتجات للفاتورة</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="بحث بالاسم أو مسح كود QR..." className="pl-10 h-11" />
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="بحث بالاسم أو الكود..." 
+                          className="pl-10 h-11" 
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      <Button variant="outline" size="icon" className="h-11 w-11">
+                        <Scan className="h-5 w-5" />
+                      </Button>
                     </div>
-                    <Button variant="outline" size="icon" className="h-11 w-11">
-                      <Scan className="h-5 w-5" />
-                    </Button>
+                    
+                    {searchTerm && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-xl z-20 overflow-hidden">
+                        {filteredProducts.map(p => (
+                          <div 
+                            key={p.id} 
+                            className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0"
+                            onClick={() => addToCart(p)}
+                          >
+                            <div>
+                              <p className="font-bold text-sm">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{p.productCode} • متاح: {p.quantity}</p>
+                            </div>
+                            <p className="font-bold text-primary">{p.salePrice.toLocaleString()} دج</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-3 mt-6">
-                    {items.map((item) => (
+                    {cart.length === 0 ? (
+                      <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/20">
+                        <Package className="h-10 w-10 mx-auto text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground mt-2">السلة فارغة، ابدأ بإضافة منتجات</p>
+                      </div>
+                    ) : cart.map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
                         <div className="flex items-center gap-4">
                           <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary">
@@ -81,17 +235,22 @@ export default function InvoicesPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-sm">{item.name}</p>
-                            <p className="text-xs text-muted-foreground tabular-nums">{item.price} دج للقطعة</p>
+                            <p className="text-xs text-muted-foreground tabular-nums">{item.price.toLocaleString()} دج للقطعة</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                            <div className="flex items-center gap-2 border rounded-md px-2 py-1 bg-white">
-                             <button className="text-muted-foreground hover:text-primary">-</button>
+                             <button onClick={() => updateQty(item.id, -1)} className="text-muted-foreground hover:text-primary">-</button>
                              <span className="w-8 text-center font-bold text-sm tabular-nums">{item.qty}</span>
-                             <button className="text-muted-foreground hover:text-primary">+</button>
+                             <button onClick={() => updateQty(item.id, 1)} className="text-muted-foreground hover:text-primary">+</button>
                            </div>
                            <p className="font-bold text-sm tabular-nums w-24 text-left">{(item.price * item.qty).toLocaleString()} دج</p>
-                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                           <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => removeFromCart(item.id)}
+                           >
                              <Trash2 className="h-4 w-4" />
                            </Button>
                         </div>
@@ -106,22 +265,45 @@ export default function InvoicesPage() {
                    <CardTitle className="text-lg">معلومات العميل والخصم</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="space-y-2 relative">
                         <Label>اختيار عميل</Label>
                         <div className="flex gap-2">
-                           <Input placeholder="بحث عن عميل..." />
-                           <Button variant="outline" size="icon"><UserPlus className="h-4 w-4" /></Button>
+                           <Input 
+                            placeholder="بحث عن عميل..." 
+                            value={selectedCustomer ? selectedCustomer.name : customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            disabled={!!selectedCustomer}
+                           />
+                           {selectedCustomer ? (
+                             <Button variant="outline" onClick={() => setSelectedCustomer(null)}>تغيير</Button>
+                           ) : (
+                             <Button variant="outline" size="icon"><UserPlus className="h-4 w-4" /></Button>
+                           )}
                         </div>
+                        {customerSearch && !selectedCustomer && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded shadow-lg z-20">
+                            {customers?.filter(c => c.name.includes(customerSearch)).map(c => (
+                              <div 
+                                key={c.id} 
+                                className="p-2 hover:bg-muted cursor-pointer"
+                                onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}
+                              >
+                                {c.name} - {c.phone}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                      </div>
                      <div className="space-y-2">
                         <Label>تطبيق خصم (دج)</Label>
-                        <Input type="number" placeholder="0" />
+                        <Input 
+                          type="number" 
+                          placeholder="0" 
+                          value={discount}
+                          onChange={(e) => setDiscount(Number(e.target.value))}
+                        />
                      </div>
-                   </div>
-                   <div className="space-y-2">
-                      <Label>ملاحظات الفاتورة</Label>
-                      <Input placeholder="مثال: الضمان لمدة 3 أشهر، يشمل التركيب..." />
                    </div>
                 </CardContent>
               </Card>
@@ -136,11 +318,11 @@ export default function InvoicesPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center opacity-90">
                     <span>المجموع الفرعي:</span>
-                    <span className="font-bold tabular-nums">{total.toLocaleString()} دج</span>
+                    <span className="font-bold tabular-nums">{subtotal.toLocaleString()} دج</span>
                   </div>
-                  <div className="flex justify-between items-center opacity-90">
+                  <div className="flex justify-between items-center opacity-90 text-orange-200">
                     <span>الخصومات:</span>
-                    <span className="font-bold tabular-nums">0 دج</span>
+                    <span className="font-bold tabular-nums">-{discount.toLocaleString()} دج</span>
                   </div>
                   <Separator className="bg-white/20" />
                   <div className="flex justify-between items-center py-2">
@@ -149,8 +331,12 @@ export default function InvoicesPage() {
                   </div>
                   
                   <div className="space-y-3 mt-6">
-                    <Button className="w-full bg-accent text-accent-foreground font-bold hover:bg-accent/90 gap-2 h-12">
-                      <Printer className="h-5 w-5" />
+                    <Button 
+                      className="w-full bg-accent text-accent-foreground font-bold hover:bg-accent/90 gap-2 h-12"
+                      onClick={handleProcessInvoice}
+                      disabled={isProcessing || cart.length === 0}
+                    >
+                      {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
                       تأكيد وطباعة الفاتورة
                     </Button>
                     <Button variant="outline" className="w-full bg-white/10 border-white/20 hover:bg-white/20 text-white gap-2 h-12">
@@ -160,7 +346,9 @@ export default function InvoicesPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex-col gap-2 pt-0 pb-6 text-center">
-                   <p className="text-[10px] opacity-70">رقم الفاتورة التلقائي: INV-2024-0042</p>
+                   <p className="text-[10px] opacity-70">
+                    {selectedCustomer ? `العميل: ${selectedCustomer.name}` : "فاتورة عميل عام"}
+                   </p>
                 </CardFooter>
               </Card>
             </div>
@@ -173,26 +361,5 @@ export default function InvoicesPage() {
         </main>
       </SidebarInset>
     </SidebarProvider>
-  )
-}
-
-function Package(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
-      <path d="M12 22V12" />
-    </svg>
   )
 }
