@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,7 +12,8 @@ import {
   BarChart3,
   Smartphone,
   ChevronLeft,
-  Search
+  History,
+  ShieldCheck
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -35,6 +37,7 @@ const items = [
   { title: "المخزون", url: "/products", icon: Package },
   { title: "العملاء", url: "/customers", icon: Users },
   { title: "نقطة البيع", url: "/invoices", icon: FileText },
+  { title: "سجل الفواتير", url: "/invoices/history", icon: History },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
 ]
 
@@ -90,8 +93,11 @@ export function DashboardSidebar() {
 
         <SidebarFooter className="p-8 mt-auto">
           <div className="rounded-[2rem] bg-gradient-to-br from-primary/5 to-accent/5 p-6 border border-white mb-6">
-            <p className="text-xs font-black text-[#3960AC] mb-2">تحتاج مساعدة؟</p>
-            <p className="text-[10px] text-muted-foreground leading-relaxed">تواصل مع الدعم الفني لترقية نظامك.</p>
+            <div className="flex items-center gap-2 text-primary mb-2">
+              <ShieldCheck className="h-4 w-4" />
+              <p className="text-xs font-black">نظام آمن</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">جميع بياناتك مشفرة ومحمية بسحابة Firebase.</p>
           </div>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -102,7 +108,7 @@ export function DashboardSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
           <div className="mt-4 text-center">
-            <p className="text-[9px] text-muted-foreground/30 font-black">PREMIUM SaaS v2.0</p>
+            <p className="text-[9px] text-muted-foreground/30 font-black tracking-widest">PREMIUM SaaS v2.5</p>
           </div>
         </SidebarFooter>
       </div>

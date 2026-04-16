@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,7 +12,8 @@ import {
   Scan,
   UserPlus,
   Package,
-  Loader2
+  Loader2,
+  History
 } from "lucide-react"
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
 import {
@@ -28,6 +30,7 @@ import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, doc, serverTimestamp, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 interface CartItem {
   id: string
@@ -113,7 +116,7 @@ export default function InvoicesPage() {
         customerName: selectedCustomer?.name || "عميل عام",
         invoiceDate: serverTimestamp(),
         totalAmount: total,
-        paidAmount: total, // Assuming cash sale for now
+        paidAmount: total,
         status: "Paid",
         generatedByUserId: user.uid,
         createdAt: serverTimestamp(),
@@ -124,7 +127,6 @@ export default function InvoicesPage() {
       const invRef = await invPromise
       
       if (invRef) {
-        // Add Items to invoice subcollection
         const itemsRef = collection(db, "invoices", invRef.id, "items")
         cart.forEach(item => {
           addDocumentNonBlocking(itemsRef, {
@@ -139,7 +141,6 @@ export default function InvoicesPage() {
             updatedAt: serverTimestamp()
           })
 
-          // Deduct from stock
           const prodRef = doc(db, "products", item.id)
           updateDocumentNonBlocking(prodRef, {
             quantity: increment(-item.qty)
@@ -162,96 +163,105 @@ export default function InvoicesPage() {
   return (
     <SidebarProvider>
       <DashboardSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white sticky top-0 z-10 no-print">
+      <SidebarInset className="bg-transparent">
+        <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print">
           <div className="flex items-center gap-4">
             <SidebarTrigger className="-ml-1" />
-            <h1 className="text-xl font-bold tracking-tight">الفواتير والمبيعات (نظام POS)</h1>
+            <div className="flex flex-col">
+              <h1 className="text-xl font-black text-gradient">نظام المبيعات الذكي (POS)</h1>
+              <p className="text-[10px] text-muted-foreground font-bold">معالجة فورية وتلقائية للمخزون</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
-             <Button variant="outline" className="gap-2">
-               <FileText className="h-4 w-4" />
-               سجل الفواتير
+             <Button asChild variant="outline" className="h-11 px-6 rounded-2xl glass border-white/20 gap-2 font-black">
+               <Link href="/invoices/history">
+                 <History className="h-4 w-4" />
+                 سجل الفواتير
+               </Link>
              </Button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <main className="flex-1 overflow-auto p-8 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* POS Interface */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="border-none shadow-sm">
-                <CardHeader className="border-b">
-                   <CardTitle className="text-lg">إضافة منتجات للفاتورة</CardTitle>
+            <div className="lg:col-span-2 space-y-8">
+              <Card className="border-none glass shadow-xl rounded-[2.5rem] card-3d">
+                <CardHeader className="border-b border-white/10 p-8">
+                   <CardTitle className="text-xl font-black">إضافة منتجات للفاتورة</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-8 space-y-6">
                   <div className="relative">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <div className="flex gap-4">
+                      <div className="relative flex-1 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input 
-                          placeholder="بحث بالاسم أو الكود..." 
-                          className="pl-10 h-11" 
+                          placeholder="ابحث عن منتج بالاسم أو الكود..." 
+                          className="pl-12 h-14 glass border-none shadow-sm rounded-2xl font-bold" 
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
                       </div>
-                      <Button variant="outline" size="icon" className="h-11 w-11">
-                        <Scan className="h-5 w-5" />
+                      <Button variant="outline" size="icon" className="h-14 w-14 glass border-white/20 rounded-2xl">
+                        <Scan className="h-6 w-6" />
                       </Button>
                     </div>
                     
                     {searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-xl z-20 overflow-hidden">
+                      <div className="absolute top-full left-0 right-0 mt-3 glass border-white/20 rounded-3xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         {filteredProducts.map(p => (
                           <div 
                             key={p.id} 
-                            className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0"
+                            className="p-4 hover:bg-white/40 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors"
                             onClick={() => addToCart(p)}
                           >
-                            <div>
-                              <p className="font-bold text-sm">{p.name}</p>
-                              <p className="text-xs text-muted-foreground">{p.productCode} • متاح: {p.quantity}</p>
+                            <div className="flex items-center gap-3">
+                               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                  <Package className="h-5 w-5" />
+                               </div>
+                               <div>
+                                  <p className="font-black text-sm">{p.name}</p>
+                                  <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode} • متاح: {p.quantity}</p>
+                               </div>
                             </div>
-                            <p className="font-bold text-primary">{p.salePrice.toLocaleString()} دج</p>
+                            <p className="font-black text-primary tabular-nums">{p.salePrice.toLocaleString()} دج</p>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
                   
-                  <div className="space-y-3 mt-6">
+                  <div className="space-y-4 mt-6">
                     {cart.length === 0 ? (
-                      <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/20">
-                        <Package className="h-10 w-10 mx-auto text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground mt-2">السلة فارغة، ابدأ بإضافة منتجات</p>
+                      <div className="text-center py-20 glass border-2 border-dashed border-white/20 rounded-[2rem]">
+                        <Package className="h-16 w-16 mx-auto text-muted-foreground/20" />
+                        <p className="text-sm font-black text-muted-foreground/40 mt-4">السلة فارغة، ابدأ بإضافة منتجات</p>
                       </div>
                     ) : cart.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                      <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl glass border-white/10 group animate-in slide-in-from-right-4 duration-300">
                         <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary">
-                             <Package className="h-5 w-5" />
+                          <div className="h-12 w-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                             <Package className="h-6 w-6" />
                           </div>
                           <div>
-                            <p className="font-semibold text-sm">{item.name}</p>
-                            <p className="text-xs text-muted-foreground tabular-nums">{item.price.toLocaleString()} دج للقطعة</p>
+                            <p className="font-black text-sm">{item.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-bold tabular-nums">{item.price.toLocaleString()} دج للقطعة</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                           <div className="flex items-center gap-2 border rounded-md px-2 py-1 bg-white">
-                             <button onClick={() => updateQty(item.id, -1)} className="text-muted-foreground hover:text-primary">-</button>
-                             <span className="w-8 text-center font-bold text-sm tabular-nums">{item.qty}</span>
-                             <button onClick={() => updateQty(item.id, 1)} className="text-muted-foreground hover:text-primary">+</button>
+                        <div className="flex items-center gap-6">
+                           <div className="flex items-center gap-4 glass border-white/20 rounded-xl px-4 py-2">
+                             <button onClick={() => updateQty(item.id, -1)} className="text-muted-foreground hover:text-primary font-black text-lg">-</button>
+                             <span className="w-8 text-center font-black text-sm tabular-nums">{item.qty}</span>
+                             <button onClick={() => updateQty(item.id, 1)} className="text-muted-foreground hover:text-primary font-black text-lg">+</button>
                            </div>
-                           <p className="font-bold text-sm tabular-nums w-24 text-left">{(item.price * item.qty).toLocaleString()} دج</p>
+                           <p className="font-black text-lg tabular-nums w-32 text-left text-gradient">{(item.price * item.qty).toLocaleString()} دج</p>
                            <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
                             onClick={() => removeFromCart(item.id)}
                            >
-                             <Trash2 className="h-4 w-4" />
+                             <Trash2 className="h-5 w-5" />
                            </Button>
                         </div>
                       </div>
@@ -260,45 +270,47 @@ export default function InvoicesPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-sm">
-                <CardHeader className="border-b">
-                   <CardTitle className="text-lg">معلومات العميل والخصم</CardTitle>
+              <Card className="border-none glass shadow-xl rounded-[2.5rem] card-3d">
+                <CardHeader className="border-b border-white/10 p-8">
+                   <CardTitle className="text-xl font-black">معلومات العميل والخصم</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-2 relative">
-                        <Label>اختيار عميل</Label>
-                        <div className="flex gap-2">
+                <CardContent className="p-8 space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-3 relative">
+                        <Label className="font-black text-primary px-1 uppercase tracking-widest text-[10px]">اختيار عميل</Label>
+                        <div className="flex gap-3">
                            <Input 
-                            placeholder="بحث عن عميل..." 
+                            className="h-12 glass border-none shadow-sm rounded-xl font-bold" 
+                            placeholder="ابحث عن عميل بالاسم..." 
                             value={selectedCustomer ? selectedCustomer.name : customerSearch}
                             onChange={(e) => setCustomerSearch(e.target.value)}
                             disabled={!!selectedCustomer}
                            />
                            {selectedCustomer ? (
-                             <Button variant="outline" onClick={() => setSelectedCustomer(null)}>تغيير</Button>
+                             <Button variant="outline" className="h-12 rounded-xl glass border-white/20" onClick={() => setSelectedCustomer(null)}>تغيير</Button>
                            ) : (
-                             <Button variant="outline" size="icon"><UserPlus className="h-4 w-4" /></Button>
+                             <Button variant="outline" size="icon" className="h-12 w-12 glass border-white/20 rounded-xl"><UserPlus className="h-5 w-5" /></Button>
                            )}
                         </div>
                         {customerSearch && !selectedCustomer && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded shadow-lg z-20">
+                          <div className="absolute top-full left-0 right-0 mt-2 glass border-white/20 rounded-2xl shadow-xl z-20 overflow-hidden">
                             {customers?.filter(c => c.name.includes(customerSearch)).map(c => (
                               <div 
                                 key={c.id} 
-                                className="p-2 hover:bg-muted cursor-pointer"
+                                className="p-3 hover:bg-white/40 cursor-pointer border-b border-white/5 last:border-0 font-bold text-sm"
                                 onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}
                               >
-                                {c.name} - {c.phone}
+                                {c.name} - <span className="text-xs text-muted-foreground">{c.phone}</span>
                               </div>
                             ))}
                           </div>
                         )}
                      </div>
-                     <div className="space-y-2">
-                        <Label>تطبيق خصم (دج)</Label>
+                     <div className="space-y-3">
+                        <Label className="font-black text-primary px-1 uppercase tracking-widest text-[10px]">تطبيق خصم مباشر (دج)</Label>
                         <Input 
                           type="number" 
+                          className="h-12 glass border-none shadow-sm rounded-xl font-black text-orange-600 tabular-nums" 
                           placeholder="0" 
                           value={discount}
                           onChange={(e) => setDiscount(Number(e.target.value))}
@@ -309,54 +321,55 @@ export default function InvoicesPage() {
               </Card>
             </div>
 
-            {/* Invoice Summary */}
             <div className="lg:col-span-1">
-              <Card className="border-none shadow-lg sticky top-24 bg-primary text-primary-foreground">
-                <CardHeader>
-                  <CardTitle>ملخص الفاتورة</CardTitle>
+              <Card className="border-none shadow-2xl sticky top-28 bg-gradient-to-br from-primary to-[#2a4580] text-white rounded-[3rem] p-4 card-3d">
+                <CardHeader className="p-8">
+                  <CardTitle className="text-2xl font-black">ملخص الفاتورة</CardTitle>
+                  <p className="text-xs font-bold text-white/60">تحقق من البيانات قبل التأكيد</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center opacity-90">
-                    <span>المجموع الفرعي:</span>
-                    <span className="font-bold tabular-nums">{subtotal.toLocaleString()} دج</span>
+                <CardContent className="px-8 space-y-6">
+                  <div className="flex justify-between items-center opacity-80">
+                    <span className="font-bold">المجموع الفرعي:</span>
+                    <span className="font-black tabular-nums">{subtotal.toLocaleString()} دج</span>
                   </div>
-                  <div className="flex justify-between items-center opacity-90 text-orange-200">
-                    <span>الخصومات:</span>
-                    <span className="font-bold tabular-nums">-{discount.toLocaleString()} دج</span>
+                  <div className="flex justify-between items-center text-orange-200">
+                    <span className="font-bold">الخصومات:</span>
+                    <span className="font-black tabular-nums">-{discount.toLocaleString()} دج</span>
                   </div>
-                  <Separator className="bg-white/20" />
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-lg font-bold">الإجمالي النهائي:</span>
-                    <span className="text-2xl font-black tabular-nums">{total.toLocaleString()} دج</span>
+                  <Separator className="bg-white/10" />
+                  <div className="flex flex-col gap-2 py-4">
+                    <span className="text-sm font-black text-white/60 uppercase">الإجمالي النهائي</span>
+                    <span className="text-4xl font-black tabular-nums tracking-tighter">{total.toLocaleString()} <span className="text-lg opacity-40">دج</span></span>
                   </div>
                   
-                  <div className="space-y-3 mt-6">
+                  <div className="space-y-4 mt-8">
                     <Button 
-                      className="w-full bg-accent text-accent-foreground font-bold hover:bg-accent/90 gap-2 h-12"
+                      className="w-full bg-white text-primary font-black hover:bg-white/90 gap-3 h-16 rounded-[1.8rem] text-lg shadow-xl shadow-black/20 group"
                       onClick={handleProcessInvoice}
                       disabled={isProcessing || cart.length === 0}
                     >
-                      {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
-                      تأكيد وطباعة الفاتورة
+                      {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6 group-hover:rotate-12 transition-transform" />}
+                      تأكيد وطباعة
                     </Button>
-                    <Button variant="outline" className="w-full bg-white/10 border-white/20 hover:bg-white/20 text-white gap-2 h-12">
+                    <Button variant="outline" className="w-full bg-white/10 border-white/10 hover:bg-white/20 text-white gap-3 h-16 rounded-[1.8rem] font-bold">
                       <Download className="h-5 w-5" />
-                      حفظ كـ PDF
+                      حفظ مسودة PDF
                     </Button>
                   </div>
                 </CardContent>
-                <CardFooter className="flex-col gap-2 pt-0 pb-6 text-center">
-                   <p className="text-[10px] opacity-70">
-                    {selectedCustomer ? `العميل: ${selectedCustomer.name}` : "فاتورة عميل عام"}
-                   </p>
+                <CardFooter className="flex-col gap-4 p-8 text-center">
+                   <div className="glass bg-white/5 border-white/5 px-6 py-3 rounded-2xl w-full">
+                      <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">العميل الحالي</p>
+                      <p className="text-sm font-black">{selectedCustomer ? selectedCustomer.name : "عميل نقدي عام"}</p>
+                   </div>
                 </CardFooter>
               </Card>
             </div>
 
           </div>
           
-          <div className="mt-8 flex justify-center text-muted-foreground/30 text-[10px] gap-2 items-center italic">
-            <span>By Khaled_Deragha - Express Phone Pro</span>
+          <div className="mt-12 flex justify-center text-muted-foreground/30 text-[10px] gap-2 items-center italic font-black uppercase tracking-[0.2em]">
+            <span>EXPRESS PHONE PRO • PREMIUM POS TERMINAL</span>
           </div>
         </main>
       </SidebarInset>
