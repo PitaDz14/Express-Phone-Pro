@@ -9,7 +9,7 @@ import {
   FileText,
   History,
   BarChart3,
-  Settings,
+  Layers,
   LogOut
 } from "lucide-react"
 import Link from "next/link"
@@ -25,6 +25,7 @@ import {
 const items = [
   { title: "الرئيسية", url: "/", icon: LayoutDashboard },
   { title: "المخزون", url: "/products", icon: Package },
+  { title: "التصنيفات", url: "/categories", icon: Layers },
   { title: "العملاء", url: "/customers", icon: Users },
   { title: "نقطة البيع", url: "/invoices", icon: FileText },
   { title: "السجل", url: "/invoices/history", icon: History },

@@ -7,520 +7,92 @@
       "type": "object",
       "description": "Associates an internal application user ID with a specific role, used for access control (RBAC) within the Express Phone system.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserRole entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the external authentication system's user ID (e.g., Supabase auth.users.id). (Relationship: auth.users 1:1 UserRole)"
-        },
-        "role": {
-          "type": "string",
-          "description": "The assigned role for the user, determining their permissions within the application.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the user role record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the user role record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "userId",
-        "role",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "userId", "role", "createdAt", "updatedAt"]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a hierarchical category for products (e.g., Spare Parts -> Screens -> iPhone Screens).",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "The name of the category." },
+        "parentId": { "type": "string", "description": "The ID of the parent category (null for root)." },
+        "path": { "type": "string", "description": "Materialized path for easy querying (e.g., /spare-parts/screens)." },
+        "level": { "type": "number", "description": "Nesting level (0 for root)." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "createdAt", "updatedAt"]
     },
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a physical product or service item available for sale or used in repairs, including spare parts, within the Express Phone shop.",
+      "description": "Represents a physical product or service item available for sale or used in repairs.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the product or service."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category the product belongs to (e.g., 'Screens', 'Batteries', 'Repair Service')."
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The current stock quantity of the product."
-        },
-        "purchasePrice": {
-          "type": "number",
-          "description": "The price at which the product was purchased from a supplier (in Algerian Dinars)."
-        },
-        "salePrice": {
-          "type": "number",
-          "description": "The standard selling price of the product (in Algerian Dinars)."
-        },
-        "repairPrice": {
-          "type": "number",
-          "description": "The price of the product including the repair service (in Algerian Dinars)."
-        },
-        "productCode": {
-          "type": "string",
-          "description": "A unique alphanumeric code for the product, used for inventory management and QR codes."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the product or service, potentially suggested by an AI tool."
-        },
-        "minStockQuantity": {
-          "type": "number",
-          "description": "The minimum stock quantity threshold for triggering low stock alerts."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the product was added to the inventory.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the product information was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string", "description": "Reference to the hierarchical Category." },
+        "categoryName": { "type": "string", "description": "Denormalized category name for display." },
+        "categoryPath": { "type": "string", "description": "Full path of categories for statistics." },
+        "quantity": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "repairPrice": { "type": "number" },
+        "productCode": { "type": "string" },
+        "minStockQuantity": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "category",
-        "quantity",
-        "purchasePrice",
-        "salePrice",
-        "repairPrice",
-        "productCode",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "categoryId", "quantity", "salePrice", "productCode", "createdAt", "updatedAt"]
     },
     "Customer": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Customer",
       "type": "object",
-      "description": "Represents a customer of the Express Phone shop, used for tracking sales, invoices, and outstanding debts.",
+      "description": "Represents a customer of the shop.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Customer entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the customer."
-        },
-        "phone": {
-          "type": "string",
-          "description": "The primary phone number of the customer."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the customer (optional).",
-          "format": "email"
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical address of the customer (optional)."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or comments about the customer."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the customer record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the customer record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "debt": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "phone",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "phone", "createdAt", "updatedAt"]
     },
     "Invoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Invoice",
       "type": "object",
-      "description": "Represents a sales invoice for products and/or services provided to a customer, tracking payment status and history.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Invoice entity, used for generating QR codes for invoices."
-        },
-        "customerId": {
-          "type": "string",
-          "description": "Reference to the customer associated with this invoice. (Relationship: Customer 1:N Invoice)"
-        },
-        "invoiceDate": {
-          "type": "string",
-          "description": "The date and time when the invoice was generated.",
-          "format": "date-time"
-        },
-        "dueDate": {
-          "type": "string",
-          "description": "The date by which the full payment for the invoice is expected.",
-          "format": "date-time"
-        },
-        "totalAmount": {
-          "type": "number",
-          "description": "The total amount of the invoice (sum of all invoice items, in Algerian Dinars). This value is typically derived from InvoiceItem records but may be stored for quick access and reporting."
-        },
-        "paidAmount": {
-          "type": "number",
-          "description": "The total amount paid against this invoice so far (in Algerian Dinars)."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current payment status of the invoice.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or editable details related to the invoice."
-        },
-        "generatedByUserId": {
-          "type": "string",
-          "description": "Reference to the user (from the external authentication system) who generated this invoice. (Relationship: auth.users 1:N Invoice)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the invoice record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the invoice record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "generatedByUserId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "customerId",
-        "invoiceDate",
-        "totalAmount",
-        "paidAmount",
-        "status",
-        "generatedByUserId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "InvoiceItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "InvoiceItem",
-      "type": "object",
-      "description": "Represents a single line item within an invoice, detailing a specific product or service and its quantity and price at the time of sale.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the InvoiceItem entity."
-        },
-        "invoiceId": {
-          "type": "string",
-          "description": "Reference to the invoice this item belongs to. (Relationship: Invoice 1:N InvoiceItem)"
-        },
-        "productId": {
-          "type": "string",
-          "description": "Reference to the product included in this invoice item. (Relationship: Product 1:N InvoiceItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The quantity of the product or service included in this item."
-        },
-        "unitPrice": {
-          "type": "number",
-          "description": "The price per unit of the product/service at the time of sale (in Algerian Dinars)."
-        },
-        "itemTotal": {
-          "type": "number",
-          "description": "The calculated total for this line item (quantity * unitPrice, in Algerian Dinars)."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the invoice item record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the invoice item record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "invoiceId",
-        "productId",
-        "quantity",
-        "unitPrice",
-        "itemTotal",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Payment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Payment",
-      "type": "object",
-      "description": "Records a payment transaction made by a customer against a specific invoice, contributing to debt tracking.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Payment entity."
-        },
-        "invoiceId": {
-          "type": "string",
-          "description": "Reference to the invoice to which this payment is applied. (Relationship: Invoice 1:N Payment)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the payment made (in Algerian Dinars)."
-        },
-        "paymentDate": {
-          "type": "string",
-          "description": "The date and time when the payment was recorded.",
-          "format": "date-time"
-        },
-        "method": {
-          "type": "string",
-          "description": "The method of payment (e.g., 'Cash', 'Card', 'Bank Transfer')."
-        },
-        "note": {
-          "type": "string",
-          "description": "Any additional notes related to the payment transaction."
-        },
-        "recordedByUserId": {
-          "type": "string",
-          "description": "Reference to the user (from the external authentication system) who recorded this payment. (Relationship: auth.users 1:N Payment)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the payment record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the payment record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "invoiceId",
-        "amount",
-        "paymentDate",
-        "method",
-        "recordedByUserId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "AuditLog": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AuditLog",
-      "type": "object",
-      "description": "Records significant actions performed within the application for security, accountability, and debugging purposes.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the AuditLog entity."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "The date and time when the audited action occurred.",
-          "format": "date-time"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the user (from the external authentication system) who performed the action. (Relationship: auth.users 1:N AuditLog)"
-        },
-        "action": {
-          "type": "string",
-          "description": "A concise description of the action performed (e.g., 'Created Product', 'Updated Invoice Status', 'Deleted Customer')."
-        },
-        "entityType": {
-          "type": "string",
-          "description": "The type of entity affected by the action (e.g., 'Product', 'Invoice', 'Customer', 'UserRole')."
-        },
-        "entityId": {
-          "type": "string",
-          "description": "The unique identifier of the specific entity instance affected by the action (can be null for global actions like login/logout)."
-        },
-        "details": {
-          "type": "string",
-          "description": "Additional details about the action, potentially including a JSON string of old and new values for updates, or a descriptive message."
-        },
-        "ipAddress": {
-          "type": "string",
-          "description": "The IP address from which the action was initiated (optional for enhanced security)."
-        },
-        "userAgent": {
-          "type": "string",
-          "description": "The user agent string of the client application that initiated the action (optional for enhanced security)."
-        }
-      },
-      "required": [
-        "id",
-        "timestamp",
-        "userId",
-        "action",
-        "entityType"
-      ]
+      "required": ["id", "customerId", "totalAmount", "createdAt", "generatedByUserId"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
-      {
-        "path": "/user_roles/{userId}",
-        "definition": {
-          "entityName": "UserRole",
-          "schema": {
-            "$ref": "#/backend/entities/UserRole"
-          },
-          "description": "Stores user roles for Role-Based Access Control (RBAC). The document ID '{userId}' directly corresponds to the user's authentication UID, enabling direct path-based authorization. The 'userId' field within the document is also set to this UID.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user (from the external authentication system)."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/backend/entities/Product"
-          },
-          "description": "Inventory of products and services available in the Express Phone shop. All documents in this collection share the same security posture, allowing read/write access based on user roles (Admin/Worker).",
-          "params": [
-            {
-              "name": "productId",
-              "description": "The unique identifier for a specific product or service."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/customers/{customerId}",
-        "definition": {
-          "entityName": "Customer",
-          "schema": {
-            "$ref": "#/backend/entities/Customer"
-          },
-          "description": "Records of customers of the Express Phone shop. All documents in this collection share the same security posture, allowing read/write access based on user roles (Admin/Worker).",
-          "params": [
-            {
-              "name": "customerId",
-              "description": "The unique identifier for a specific customer."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/invoices/{invoiceId}",
-        "definition": {
-          "entityName": "Invoice",
-          "schema": {
-            "$ref": "#/backend/entities/Invoice"
-          },
-          "description": "Main records for sales invoices. Includes 'generatedByUserId' as an intrinsic field for authorization independence, allowing rules to determine access without relying on parent data. Access is governed by user roles (Admin/Worker) and potentially by 'generatedByUserId'.",
-          "params": [
-            {
-              "name": "invoiceId",
-              "description": "The unique identifier for a specific invoice."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/invoices/{invoiceId}/items/{invoiceItemId}",
-        "definition": {
-          "entityName": "InvoiceItem",
-          "schema": {
-            "$ref": "#/backend/entities/InvoiceItem"
-          },
-          "description": "Line items associated with a specific invoice. Includes denormalized 'generatedByUserId' from the parent Invoice for authorization independence, ensuring rules can determine access directly on the item document without fetching the parent.",
-          "params": [
-            {
-              "name": "invoiceId",
-              "description": "The unique identifier of the parent invoice."
-            },
-            {
-              "name": "invoiceItemId",
-              "description": "The unique identifier for a specific invoice line item."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/invoices/{invoiceId}/payments/{paymentId}",
-        "definition": {
-          "entityName": "Payment",
-          "schema": {
-            "$ref": "#/backend/entities/Payment"
-          },
-          "description": "Records of payments made against a specific invoice. Includes denormalized 'generatedByUserId' from the parent Invoice for authorization independence, ensuring rules can determine access directly on the payment document without fetching the parent.",
-          "params": [
-            {
-              "name": "invoiceId",
-              "description": "The unique identifier of the parent invoice."
-            },
-            {
-              "name": "paymentId",
-              "description": "The unique identifier for a specific payment record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/audit_logs/{auditLogId}",
-        "definition": {
-          "entityName": "AuditLog",
-          "schema": {
-            "$ref": "#/backend/entities/AuditLog"
-          },
-          "description": "Records significant actions performed within the application. Access is typically restricted to 'Admin' users for accountability and debugging. 'userId' field provides direct authorization context.",
-          "params": [
-            {
-              "name": "auditLogId",
-              "description": "The unique identifier for an audit log entry."
-            }
-          ]
-        }
-      }
+      { "path": "/user_roles/{userId}", "definition": { "entityName": "UserRole" } },
+      { "path": "/categories/{categoryId}", "definition": { "entityName": "Category" } },
+      { "path": "/products/{productId}", "definition": { "entityName": "Product" } },
+      { "path": "/customers/{customerId}", "definition": { "entityName": "Customer" } },
+      { "path": "/invoices/{invoiceId}", "definition": { "entityName": "Invoice" } }
     ]
   }
 }

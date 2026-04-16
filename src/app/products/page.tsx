@@ -17,7 +17,9 @@ import {
   X,
   Eye,
   Wrench,
-  Tag
+  Tag,
+  Layers,
+  ChevronLeft
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -38,6 +40,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -64,7 +73,7 @@ export default function ProductsPage() {
   // Form States
   const [productName, setProductName] = React.useState("")
   const [productCode, setProductCode] = React.useState("")
-  const [category, setCategory] = React.useState("قطع غيار")
+  const [categoryId, setCategoryId] = React.useState("")
   const [quantity, setQuantity] = React.useState(0)
   const [minStock, setMinStock] = React.useState(5)
   const [purchasePrice, setPurchasePrice] = React.useState(0)
@@ -75,11 +84,14 @@ export default function ProductsPage() {
   const [printName, setPrintName] = React.useState("")
   const [printPrice, setPrintPrice] = React.useState(0)
   const [copies, setCopies] = React.useState(1)
-  const [labelWidth, setLabelWidth] = React.useState(50) // mm
-  const [labelHeight, setLabelHeight] = React.useState(30) // mm
+  const [labelWidth, setLabelWidth] = React.useState(50) 
+  const [labelHeight, setLabelHeight] = React.useState(30) 
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
+  const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
+  
   const { data: products, isLoading } = useCollection(productsRef)
+  const { data: categories } = useCollection(categoriesRef)
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' | null = 'desc';
@@ -94,7 +106,8 @@ export default function ProductsPage() {
     if (!products) return [];
     let items = [...products].filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase())
+      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (sortConfig.key && sortConfig.direction) {
@@ -110,12 +123,18 @@ export default function ProductsPage() {
   }, [products, searchTerm, sortConfig]);
 
   const handleSaveProduct = () => {
-    if (!productName || !productCode || salePrice <= 0) return;
+    if (!productName || !productCode || !categoryId || salePrice <= 0) {
+      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
+      return
+    }
     
+    const selectedCat = categories?.find(c => c.id === categoryId)
+
     const productData = {
       name: productName,
       productCode,
-      category,
+      categoryId,
+      categoryName: selectedCat?.name || "بدون تصنيف",
       quantity: Number(quantity),
       minStockQuantity: Number(minStock),
       purchasePrice: Number(purchasePrice),
@@ -137,7 +156,7 @@ export default function ProductsPage() {
   }
 
   const resetForm = () => {
-    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(5); setPurchasePrice(0);
+    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(5); setPurchasePrice(0); setCategoryId("")
   }
 
   const handleOpenPrint = (p: any) => {
@@ -207,12 +226,28 @@ export default function ProductsPage() {
     return sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />;
   }
 
+  // Helper to build hierarchy for select
+  const getIndentedName = (cats: any[], cat: any, depth = 0): React.ReactNode => {
+    const children = cats.filter(c => c.parentId === cat.id)
+    return (
+      <React.Fragment key={cat.id}>
+        <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6")}>
+          <div className="flex items-center gap-2">
+            {depth > 0 && <ChevronLeft className="h-3 w-3 opacity-30" />}
+            {cat.name}
+          </div>
+        </SelectItem>
+        {children.map(child => getIndentedName(cats, child, depth + 1))}
+      </React.Fragment>
+    )
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 pb-32">
       <header className="flex items-center justify-between">
         <div className="flex flex-col">
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter">إدارة المخزون الذكي</h1>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">تتبع دقيق وتوليد تلقائي للملصقات</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">تتبع دقيق وتصنيفات هرمية متشعبة</p>
         </div>
         <Button onClick={() => { resetForm(); setOpen(true); }} className="h-14 px-8 rounded-2xl bg-primary text-white shadow-2xl hover:scale-105 transition-transform gap-2 font-black">
           <Plus className="h-6 w-6" /> إضافة صنف جديد
@@ -223,7 +258,7 @@ export default function ProductsPage() {
         <div className="relative flex-1 max-w-md group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="ابحث بالاسم، الكود، أو الصنف..." 
+            placeholder="ابحث بالاسم، الكود، أو التصنيف..." 
             className="pl-12 h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -239,6 +274,9 @@ export default function ProductsPage() {
                 <div className="flex items-center gap-2">المنتج <SortIcon column="name" /></div>
               </TableHead>
               <TableHead className="text-center font-black h-16">باركود QR</TableHead>
+              <TableHead className="text-center cursor-pointer font-black h-16" onClick={() => handleSort('categoryName')}>
+                <div className="flex items-center justify-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
+              </TableHead>
               <TableHead className="text-center cursor-pointer font-black h-16" onClick={() => handleSort('quantity')}>
                 <div className="flex items-center justify-center gap-2">الكمية <SortIcon column="quantity" /></div>
               </TableHead>
@@ -250,21 +288,26 @@ export default function ProductsPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : sortedProducts.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">لا توجد منتجات مطابقة للبحث</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">لا توجد منتجات مطابقة للبحث</TableCell></TableRow>
             ) : sortedProducts.map((p) => (
               <TableRow key={p.id} className="group border-white/5 hover:bg-white/40 transition-all duration-300">
                 <TableCell>
                    <div className="flex flex-col">
                       <span className="font-black text-sm">{p.name}</span>
-                      <span className="text-[10px] text-muted-foreground font-bold">#{p.productCode} • {p.category}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</span>
                    </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="h-12 w-12 mx-auto bg-white p-1.5 rounded-xl shadow-inner group-hover:scale-110 transition-transform cursor-pointer">
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${p.productCode}`} className="h-full w-full" alt="QR" />
                   </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge variant="outline" className="px-3 rounded-lg border-primary/20 bg-primary/5 text-primary font-bold">
+                    {p.categoryName}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge className={cn("px-4 rounded-lg font-black tabular-nums border-none", p.quantity <= (p.minStockQuantity || 5) ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600')}>
@@ -292,7 +335,7 @@ export default function ProductsPage() {
                       variant="ghost" 
                       size="icon" 
                       className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
-                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategory(p.category); setOpen(true); }}
+                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true); }}
                       title="تعديل"
                     >
                       <Edit3 className="h-4 w-4" />
@@ -334,11 +377,26 @@ export default function ProductsPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="font-black text-xs text-primary px-1">التصنيف الهرمي</Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold">
+                    <SelectValue placeholder="اختر القسم بدقة..." />
+                  </SelectTrigger>
+                  <SelectContent className="glass border-none rounded-2xl">
+                    {categories?.filter(c => !c.parentId).map(rootCat => getIndentedName(categories, rootCat))}
+                    {!categories?.length && <div className="p-4 text-center text-xs opacity-40">لا توجد تصنيفات معرفة</div>}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر الشراء</Label>
                 <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر البيع</Label>
                 <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-emerald-600" />
@@ -348,20 +406,14 @@ export default function ProductsPage() {
                 <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-primary" />
               </div>
               <div className="space-y-2">
-                <Label className="font-black text-xs text-primary px-1">التصنيف</Label>
-                <Input value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">الكمية الحالية</Label>
                 <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
               </div>
-              <div className="space-y-2">
+            </div>
+
+            <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">تنبيه عند نفاذ (الحد الأدنى)</Label>
                 <Input type="number" value={minStock} onChange={(e) => setMinStock(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-red-500" />
-              </div>
             </div>
           </div>
           <DialogFooter className="mt-4">
@@ -416,7 +468,6 @@ export default function ProductsPage() {
                </div>
             </div>
             
-            {/* Real-time Print Preview */}
             <div className="space-y-3">
                <div className="flex items-center gap-2 px-1 text-emerald-600">
                   <Eye className="h-4 w-4" />
@@ -441,7 +492,6 @@ export default function ProductsPage() {
                      <span className="text-[6px] font-bold mt-1 tracking-widest opacity-40">#{printingProduct?.productCode}</span>
                   </div>
                </div>
-               <p className="text-center text-[10px] font-bold text-muted-foreground">تأكد من توافق الأبعاد مع ورق الملصقات في طابعتك</p>
             </div>
           </div>
           <DialogFooter className="gap-3 p-4 border-t border-white/10 bg-white/5">
