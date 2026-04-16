@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-dashboard",
+      "description": "Phone repair station with professional tools",
+      "imageUrl": "https://picsum.photos/seed/phone-repair/1200/800",
+      "imageHint": "phone repair"
+    },
+    {
+      "id": "avatar-admin",
+      "description": "Professional avatar",
+      "imageUrl": "https://picsum.photos/seed/admin/150/150",
+      "imageHint": "avatar professional"
+    }
+  ]
 }
