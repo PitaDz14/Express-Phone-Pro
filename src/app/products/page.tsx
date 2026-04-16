@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 type SortConfig = {
   key: string;
