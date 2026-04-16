@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,13 +11,13 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 50% 45%; /* Professional Royal Blue #3960AC */
+    --primary: 221 50% 45%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 190 70% 55%; /* Vibrant Turquoise #3CC2DD */
+    --accent: 190 70% 55%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
@@ -32,33 +33,38 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-[#F0F4F8] text-foreground font-sans antialiased overflow-x-hidden;
     background-image: 
-      radial-gradient(at 0% 0%, hsla(221, 50%, 45%, 0.03) 0, transparent 50%),
-      radial-gradient(at 100% 100%, hsla(190, 70%, 55%, 0.03) 0, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(221, 50%, 45%, 0.05) 0, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(190, 70%, 55%, 0.05) 0, transparent 50%);
   }
 }
 
-/* Premium Glass Effect */
+.glass {
+  @apply bg-white/70 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.03)];
+}
+
 .glass-premium {
-  @apply bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_32px_rgba(0,0,0,0.04)];
+  @apply bg-white/80 backdrop-blur-3xl border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.05)];
 }
 
-/* Modern Card Hover */
 .card-hover {
-  @apply transition-all duration-500 ease-in-out hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1;
-}
-
-/* Typography Enhancements */
-.text-balance {
-  text-wrap: balance;
+  @apply transition-all duration-500 hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.1)] hover:-translate-y-2;
 }
 
 .text-gradient-premium {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-[#3960AC] to-[#3CC2DD];
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
 }
 
-/* Layout Utilities */
+.card-3d {
+  transform: perspective(1000px);
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.card-3d:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) scale(1.02);
+}
+
 [dir="rtl"] {
   text-align: right;
 }
@@ -69,13 +75,9 @@
   }
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  width: 4px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary/10 rounded-full hover:bg-primary/20 transition-colors;
+  @apply bg-primary/20 rounded-full hover:bg-primary/40;
 }
