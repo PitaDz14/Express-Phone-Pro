@@ -14,7 +14,8 @@ import {
   Loader2,
   Package,
   Wallet,
-  Target
+  Target,
+  AlertTriangle
 } from "lucide-react"
 import { 
   Bar, 
@@ -59,7 +60,7 @@ export default function ReportsPage() {
 
   const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0) || 0
   const totalSalesCount = invoices?.length || 0
-  const lowStockCount = products?.filter(p => p.quantity <= (p.minStockQuantity || 5)).length || 0
+  const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0
 
   return (
     <SidebarProvider>
@@ -96,7 +97,7 @@ export default function ReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black tabular-nums">{totalRevenue.toLocaleString()} دج</div>
+                <div className="text-3xl font-black tabular-nums">{(totalRevenue || 0).toLocaleString()} دج</div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 mt-2">
                    <ArrowUpRight className="h-3 w-3" />
                    +14.5% عن الشهر الماضي
@@ -199,6 +200,11 @@ export default function ReportsPage() {
                            </div>
                         </div>
                       ))}
+                      {!products?.length && (
+                        <div className="text-center py-10 text-muted-foreground font-bold italic opacity-30">
+                          لا توجد بيانات حالية
+                        </div>
+                      )}
                    </div>
                 </CardContent>
              </Card>
