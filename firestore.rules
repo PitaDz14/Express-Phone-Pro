@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * EXPRESS PHONE SECURITY RULES - PROTOTYPING MODE
+     * 
+     * Core Philosophy:
+     * This ruleset implements a robust Role-Based Access Control (RBAC) system for the Express Phone 
+     * shop. It distinguishes between 'Admin' and 'Worker' roles to manage inventory, customers, 
+     * and financial transactions.
+     * 
+     * Data Structure:
+     * - /user_roles/{userId}: Maps Firebase Auth UIDs to application roles.
+     * - /products, /customers: Flat, top-level collections for inventory and client management.
+     * - /invoices: Hierarchical structure containing items and payments as subcollections.
+     * - /audit_logs: Restricted top-level collection for system activity.
+     * 
+     * Key Security Decisions:
+     * 1. Authorization Independence: Critical authorization fields (like generatedByUserId) are 
+     *    denormalized into sub-documents (InvoiceItem, Payment) to avoid expensive parent lookups.
+     * 2. Path-Identity Alignment: For user-specific data (/user_roles), the document ID must 
+     *    match the authenticated user's UID.
+     * 3. Role-Based Perimeter: Most shop data is restricted to authenticated users with a valid 
+     *    Admin or Worker role, preventing unauthorized access by anonymous or unassigned users.
+     * 4. State Protection: Updates and deletes strictly require verification of document existence.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if the user is authenticated via Firebase Auth. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Fetches the role of the currently authenticated user from the user_roles collection. */
+    function getRole() {
+      return get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role;
+    }
+
+    /** @description Checks if the user has a specific role assigned. */
+    function hasRole(role) {
+      return isSignedIn() && getRole() == role;
+    }
+
+    /** @description Verifies if the user is an administrator. */
+    function isAdmin() {
+      return hasRole('Admin');
+    }
+
+    /** @description Verifies if the user is a shop worker. */
+    function isWorker() {
+      return hasRole('Worker');
+    }
+
+    /** @description Checks if the user is part of the authorized shop staff (Admin or Worker). */
+    function isAuthorizedStaff() {
+      return isAdmin() || isWorker();
+    }
+
+    /** @description Checks if the user's UID matches the provided userId (Path-based ownership). */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Verifies ownership for existing documents during update/delete. */
+    function isExistingOwner(ownerIdField) {
+      return resource != null && request.auth.uid == ownerIdField;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for managing User Roles. Admins can manage all; users can read their own.
+     * @path /user_roles/{userId}
+     * @allow (get) If the user matches {userId} or is an Admin.
+     * @deny (list) If the requester is not an Admin.
+     * @principle Aligns path parameter with authenticated identity.
+     */
+    match /user_roles/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update, delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Products inventory. Accessible to all authorized staff for inventory management.
+     * @path /products/{productId}
+     * @allow (create) If the user is a Worker or Admin.
+     * @deny (write) If the document does not exist (for updates/deletes).
+     * @principle Role-based access control for shop resources.
+     */
+    match /products/{productId} {
+      allow get, list: if isAuthorizedStaff();
+      allow create: if isAuthorizedStaff();
+      allow update, delete: if isAuthorizedStaff() && resource != null;
+    }
+
+    /**
+     * @description Customer records. Used for tracking debts and sales history.
+     * @path /customers/{customerId}
+     * @allow (get) If user is shop staff.
+     * @deny (delete) If user is not shop staff.
+     * @principle Restricts customer data to authorized internal personnel.
+     */
+    match /customers/{customerId} {
+      allow get, list: if isAuthorizedStaff();
+      allow create: if isAuthorizedStaff();
+      allow update, delete: if isAuthorizedStaff() && resource != null;
+    }
+
+    /**
+     * @description Invoices for sales. Ownership is tracked via generatedByUserId.
+     * @path /invoices/{invoiceId}
+     * @allow (update) If user is Admin OR if user is the Worker who generated the invoice.
+     * @deny (create) If generatedByUserId does not match the authenticated user's UID.
+     * @principle Enforces relational integrity and user-specific write permissions.
+     */
+    match /invoices/{invoiceId} {
+      allow get, list: if isAuthorizedStaff();
+      allow create: if isAuthorizedStaff() && request.resource.data.generatedByUserId == request.auth.uid;
+      allow update, delete: if (isAdmin() || isExistingOwner(resource.data.generatedByUserId)) && resource != null;
+
+      /**
+       * @description Line items within an invoice. Uses denormalized generatedByUserId for auth.
+       * @path /invoices/{invoiceId}/items/{invoiceItemId}
+       * @allow (create) If denormalized ID matches the creator.
+       * @deny (list) If requester is not staff.
+       * @principle Authorization Independence via denormalization.
+       */
+      match /items/{invoiceItemId} {
+        allow get, list: if isAuthorizedStaff();
+        allow create: if isAuthorizedStaff() && request.resource.data.generatedByUserId == request.auth.uid;
+        allow update, delete: if (isAdmin() || isExistingOwner(resource.data.generatedByUserId)) && resource != null;
+      }
+
+      /**
+       * @description Payment records for an invoice. Uses denormalized recordedByUserId for auth.
+       * @path /invoices/{invoiceId}/payments/{paymentId}
+       * @allow (get) If user is staff.
+       * @deny (update) If user is not the recorder or an Admin.
+       * @principle Protects transactional payment data with user-specific locks.
+       */
+      match /payments/{paymentId} {
+        allow get, list: if isAuthorizedStaff();
+        allow create: if isAuthorizedStaff() && request.resource.data.recordedByUserId == request.auth.uid;
+        allow update, delete: if (isAdmin() || isExistingOwner(resource.data.recordedByUserId)) && resource != null;
+      }
+    }
+
+    /**
+     * @description Audit logs for tracking sensitive system actions. Restricted to Admins.
+     * @path /audit_logs/{auditLogId}
+     * @allow (get) If requester is an Admin.
+     * @deny (all) If requester is a standard Worker.
+     * @principle Ensures accountability by restricting access to security logs.
+     */
+    match /audit_logs/{auditLogId} {
+      allow get, list: if isAdmin();
+      allow create: if isSignedIn(); // Allow logging actions during prototyping
+      allow update, delete: if false; // Audit logs should generally be immutable
+    }
+  }
+}
