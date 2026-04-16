@@ -17,14 +17,9 @@ import {
   Edit3,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Smartphone
 } from "lucide-react"
-import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -194,12 +189,19 @@ export default function InvoiceHistoryPage() {
   }
 
   return (
-    <SidebarProvider>
-      <DashboardSidebar />
-      <SidebarInset className="bg-transparent">
+    <div className="min-h-screen bg-transparent">
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger className="-ml-1" />
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#3960AC] to-[#3CC2DD] flex items-center justify-center text-white shadow-lg transform -rotate-3">
+                <Smartphone className="h-6 w-6" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-black text-lg tracking-tighter text-[#3960AC]">EXPRESS</span>
+                <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Phone Pro</span>
+              </div>
+            </div>
+            <div className="h-8 w-px bg-black/5" />
             <div className="flex flex-col">
               <h1 className="text-xl font-black text-gradient">سجل الفواتير والمبيعات</h1>
               <p className="text-[10px] text-muted-foreground font-bold italic uppercase tracking-widest">تتبع شامل لجميع العمليات التاريخية</p>
@@ -410,7 +412,6 @@ export default function InvoiceHistoryPage() {
             <span>EXPRESS PHONE PRO • SECURE AUDIT LOGS</span>
           </div>
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+    </div>
   )
 }
