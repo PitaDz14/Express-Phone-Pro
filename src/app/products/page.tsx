@@ -19,7 +19,8 @@ import {
   Wrench,
   Tag,
   Layers,
-  ChevronLeft
+  ChevronLeft,
+  Sparkles
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -52,6 +53,7 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, d
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 type SortConfig = {
   key: string;
@@ -106,14 +108,14 @@ export default function ProductsPage() {
     if (!products) return [];
     let items = [...products].filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.productCode && p.productCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.categoryName && p.categoryName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
+        const aValue = a[sortConfig.key] || "";
+        const bValue = b[sortConfig.key] || "";
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -122,17 +124,25 @@ export default function ProductsPage() {
     return items;
   }, [products, searchTerm, sortConfig]);
 
+  const generateUniqueCode = () => {
+    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `EP-${randomStr}`;
+  }
+
   const handleSaveProduct = () => {
-    if (!productName || !productCode || !categoryId || salePrice <= 0) {
-      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
+    if (!productName || !categoryId || salePrice <= 0) {
+      toast({ title: "خطأ", description: "يرجى ملء الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
       return
     }
+    
+    // Generate code if not provided
+    const finalCode = productCode.trim() || generateUniqueCode();
     
     const selectedCat = categories?.find(c => c.id === categoryId)
 
     const productData = {
       name: productName,
-      productCode,
+      productCode: finalCode,
       categoryId,
       categoryName: selectedCat?.name || "بدون تصنيف",
       quantity: Number(quantity),
@@ -141,6 +151,7 @@ export default function ProductsPage() {
       salePrice: Number(salePrice),
       repairPrice: Number(repairPrice),
       updatedAt: serverTimestamp(),
+      generatedBy: "Khaled_Deragha"
     }
 
     if (editingProduct) {
@@ -148,7 +159,7 @@ export default function ProductsPage() {
       toast({ title: "تم التعديل", description: "تم تحديث بيانات المنتج بنجاح" })
     } else {
       addDocumentNonBlocking(productsRef, { ...productData, createdAt: serverTimestamp() })
-      toast({ title: "تمت الإضافة", description: "تم إضافة المنتج الجديد للمخزون" })
+      toast({ title: "تمت الإضافة", description: `تم إضافة المنتج بالكود: ${finalCode}` })
     }
     
     setOpen(false)
@@ -226,20 +237,20 @@ export default function ProductsPage() {
     return sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />;
   }
 
-  // Helper to build hierarchy for select
-  const getIndentedName = (cats: any[], cat: any, depth = 0): React.ReactNode => {
-    const children = cats.filter(c => c.parentId === cat.id)
-    return (
-      <React.Fragment key={cat.id}>
-        <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6")}>
-          <div className="flex items-center gap-2">
-            {depth > 0 && <ChevronLeft className="h-3 w-3 opacity-30" />}
-            {cat.name}
-          </div>
-        </SelectItem>
-        {children.map(child => getIndentedName(cats, child, depth + 1))}
-      </React.Fragment>
-    )
+  const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0) => {
+    return cats
+      .filter(c => c.parentId === parentId)
+      .map(cat => (
+        <React.Fragment key={cat.id}>
+          <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6")}>
+            <div className="flex items-center gap-2">
+              {depth > 0 && <ChevronLeft className="h-3 w-3 opacity-30" />}
+              {cat.name}
+            </div>
+          </SelectItem>
+          {renderCategoryOptions(cats, cat.id, depth + 1)}
+        </React.Fragment>
+      ))
   }
 
   return (
@@ -247,7 +258,7 @@ export default function ProductsPage() {
       <header className="flex items-center justify-between">
         <div className="flex flex-col">
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter">إدارة المخزون الذكي</h1>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">تتبع دقيق وتصنيفات هرمية متشعبة</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">تتبع دقيق وتصنيفات هرمية متشعبة | Khaled_Deragha</p>
         </div>
         <Button onClick={() => { resetForm(); setOpen(true); }} className="h-14 px-8 rounded-2xl bg-primary text-white shadow-2xl hover:scale-105 transition-transform gap-2 font-black">
           <Plus className="h-6 w-6" /> إضافة صنف جديد
@@ -335,7 +346,7 @@ export default function ProductsPage() {
                       variant="ghost" 
                       size="icon" 
                       className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
-                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true); }}
+                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true); }}
                       title="تعديل"
                     >
                       <Edit3 className="h-4 w-4" />
@@ -359,7 +370,7 @@ export default function ProductsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.2)] max-w-2xl">
+        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl max-w-2xl z-[210]">
           <DialogHeader>
             <DialogTitle className="text-3xl font-black text-gradient-premium mb-4">
               {editingProduct ? 'تحديث بيانات المنتج' : 'إضافة منتج جديد للمخزون'}
@@ -372,35 +383,53 @@ export default function ProductsPage() {
                 <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold" placeholder="مثال: شاشة iPhone 13 Pro" />
               </div>
               <div className="space-y-2">
-                <Label className="font-black text-xs text-primary px-1">كود المنتج (Barcode)</Label>
-                <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold" placeholder="مثال: SCR-I13P" />
+                <Label className="font-black text-xs text-primary px-1 flex justify-between">
+                  <span>كود المنتج (Barcode)</span>
+                  {!editingProduct && <span className="text-[9px] text-muted-foreground animate-pulse">سيولد تلقائياً إذا ترك فارغاً</span>}
+                </Label>
+                <div className="relative">
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold pl-10" placeholder="مثال: SCR-I13P" />
+                  {!productCode && !editingProduct && <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/30" />}
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">التصنيف الهرمي</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold">
-                    <SelectValue placeholder="اختر القسم بدقة..." />
-                  </SelectTrigger>
-                  <SelectContent className="glass border-none rounded-2xl">
-                    {categories?.filter(c => !c.parentId).map(rootCat => getIndentedName(categories, rootCat))}
-                    {!categories?.length && <div className="p-4 text-center text-xs opacity-40">لا توجد تصنيفات معرفة</div>}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Select value={categoryId} onValueChange={setCategoryId}>
+                      <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold">
+                        <SelectValue placeholder="اختر القسم بدقة..." />
+                      </SelectTrigger>
+                      <SelectContent className="glass border-none rounded-2xl z-[220]">
+                        {categories && renderCategoryOptions(categories)}
+                        {(!categories || categories.length === 0) && <div className="p-4 text-center text-xs opacity-40">لا توجد تصنيفات معرفة</div>}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button asChild variant="outline" size="icon" className="h-12 w-12 rounded-2xl glass border-none group" title="إدارة التصنيفات">
+                    <Link href="/categories">
+                      <Layers className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                    </Link>
+                  </Button>
+                </div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر الشراء</Label>
                 <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر البيع</Label>
                 <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-emerald-600" />
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر التصليح</Label>
                 <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-primary" />
@@ -409,11 +438,10 @@ export default function ProductsPage() {
                 <Label className="font-black text-xs text-primary px-1">الكمية الحالية</Label>
                 <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
               </div>
-            </div>
-
-            <div className="space-y-2">
-                <Label className="font-black text-xs text-primary px-1">تنبيه عند نفاذ (الحد الأدنى)</Label>
+              <div className="space-y-2">
+                <Label className="font-black text-xs text-primary px-1">الحد الأدنى</Label>
                 <Input type="number" value={minStock} onChange={(e) => setMinStock(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-red-500" />
+              </div>
             </div>
           </div>
           <DialogFooter className="mt-4">
@@ -426,7 +454,7 @@ export default function ProductsPage() {
 
       {/* Print Label Dialog */}
       <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
-        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] max-w-xl shadow-2xl overflow-hidden">
+        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] max-w-xl shadow-2xl overflow-hidden z-[210]">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black flex items-center gap-3">
               <Printer className="h-6 w-6 text-primary" />

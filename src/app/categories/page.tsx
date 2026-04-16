@@ -26,7 +26,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, doc, serverTimestamp, query, where, getDocs } from "firebase/firestore"
+import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -74,11 +74,21 @@ export default function CategoriesPage() {
   const handleSave = () => {
     if (!categoryName) return
 
+    const level = parentCategory ? (parentCategory.level + 1) : (editingCategory?.level || 0);
+    const parentId = parentCategory ? parentCategory.id : (editingCategory?.parentId || null);
+    
+    // Build path for hierarchy
+    const path = parentCategory 
+      ? `${parentCategory.path}/${categoryName}`
+      : `/${categoryName}`;
+
     const categoryData = {
       name: categoryName,
-      parentId: parentCategory ? parentCategory.id : (editingCategory?.parentId || null),
-      level: parentCategory ? (parentCategory.level + 1) : (editingCategory?.level || 0),
-      updatedAt: serverTimestamp()
+      parentId: parentId,
+      level: level,
+      path: path,
+      updatedAt: serverTimestamp(),
+      updatedBy: "Khaled_Deragha"
     }
 
     if (editingCategory) {
@@ -139,14 +149,14 @@ export default function CategoriesPage() {
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button 
               variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white"
-              onClick={() => { setParentCategory(node); setOpen(true); }}
+              onClick={() => { setParentCategory(node); setEditingCategory(null); setCategoryName(""); setOpen(true); }}
               title="إضافة قسم فرعي"
             >
               <FolderPlus className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
-              onClick={() => { setEditingCategory(node); setCategoryName(node.name); setOpen(true); }}
+              onClick={() => { setEditingCategory(node); setParentCategory(null); setCategoryName(node.name); setOpen(true); }}
               title="تعديل"
             >
               <Edit3 className="h-4 w-4" />
@@ -176,7 +186,7 @@ export default function CategoriesPage() {
       <header className="flex items-center justify-between">
         <div className="flex flex-col">
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter">هيكلية التصنيفات</h1>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">إدارة الفروع، الأقسام، والتشعبات الذكية</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">إدارة الفروع، الأقسام، والتشعبات الذكية | Khaled_Deragha</p>
         </div>
         <Button onClick={() => { setParentCategory(null); setEditingCategory(null); setCategoryName(""); setOpen(true); }} className="h-14 px-8 rounded-2xl bg-primary text-white shadow-2xl hover:scale-105 transition-transform gap-2 font-black">
           <Plus className="h-6 w-6" /> إضافة تصنيف أساسي
@@ -201,7 +211,7 @@ export default function CategoriesPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl">
+        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl z-[210]">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black text-gradient-premium">
               {editingCategory ? "تعديل تصنيف" : parentCategory ? `إضافة قسم فرعي لـ "${parentCategory.name}"` : "إضافة تصنيف أساسي جديد"}
