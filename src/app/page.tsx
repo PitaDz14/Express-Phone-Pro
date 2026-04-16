@@ -13,7 +13,10 @@ import {
   LayoutGrid,
   ShoppingBag,
   Bell,
-  ArrowDownRight
+  ArrowDownRight,
+  Search,
+  Wrench,
+  Tag
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -28,6 +31,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, limit, orderBy } from "firebase/firestore"
 import Link from "next/link"
@@ -45,6 +49,8 @@ const chartData = [
 export default function Dashboard() {
   const db = useFirestore()
   const [mounted, setMounted] = React.useState(false)
+  const [searchTerm, setSearchTerm] = React.useState("")
+  const [showResults, setShowResults] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
@@ -59,6 +65,14 @@ export default function Dashboard() {
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(
     useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(8)), [invoicesRef])
   )
+
+  const filteredProducts = React.useMemo(() => {
+    if (!searchTerm || !products) return []
+    return products.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 5)
+  }, [searchTerm, products])
 
   const totalSalesMonth = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
   const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0
@@ -77,6 +91,66 @@ export default function Dashboard() {
              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الذكي</p>
           </div>
         </div>
+
+        {/* Quick Search Bar */}
+        <div className="hidden md:flex flex-1 max-w-xl mx-12 relative">
+           <div className="relative w-full group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input 
+                placeholder="بحث سريع عن منتج (الاسم أو الكود)..." 
+                className="pl-12 h-14 glass border-none shadow-inner rounded-2xl font-bold text-sm focus:ring-2 focus:ring-primary/20 transition-all"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setShowResults(true)
+                }}
+                onFocus={() => setShowResults(true)}
+              />
+           </div>
+
+           {showResults && searchTerm && (
+              <div className="absolute top-full left-0 right-0 mt-3 glass-premium border-white/20 rounded-[2rem] shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-4 border-b border-black/5 bg-primary/5 flex items-center justify-between">
+                   <span className="text-[10px] font-black text-primary uppercase tracking-widest">نتائج البحث</span>
+                   <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setShowResults(false)}>
+                      <Zap className="h-3 w-3" />
+                   </Button>
+                </div>
+                {filteredProducts.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground font-bold italic text-sm">لا توجد نتائج مطابقة</div>
+                ) : filteredProducts.map(p => (
+                  <div key={p.id} className="p-5 hover:bg-white/60 transition-colors border-b border-black/5 last:border-0">
+                     <div className="flex justify-between items-start mb-3">
+                        <div className="flex flex-col">
+                           <span className="font-black text-base">{p.name}</span>
+                           <span className="text-[10px] text-muted-foreground font-bold uppercase">#{p.productCode}</span>
+                        </div>
+                        <Badge variant={p.quantity <= (p.minStockQuantity || 5) ? "destructive" : "success"} className="rounded-xl px-4 py-1 font-black tabular-nums">
+                           {p.quantity} متوفر
+                        </Badge>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="glass bg-emerald-500/5 p-3 rounded-2xl flex items-center gap-3">
+                           <Tag className="h-4 w-4 text-emerald-600" />
+                           <div className="flex flex-col">
+                              <span className="text-[8px] font-black text-muted-foreground uppercase">سعر البيع</span>
+                              <span className="font-black text-sm text-emerald-700 tabular-nums">{p.salePrice?.toLocaleString()} دج</span>
+                           </div>
+                        </div>
+                        <div className="glass bg-primary/5 p-3 rounded-2xl flex items-center gap-3">
+                           <Wrench className="h-4 w-4 text-primary" />
+                           <div className="flex flex-col">
+                              <span className="text-[8px] font-black text-muted-foreground uppercase">سعر التصليح</span>
+                              <span className="font-black text-sm text-primary tabular-nums">{(p.repairPrice || 0)?.toLocaleString()} دج</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                ))}
+              </div>
+           )}
+        </div>
+
         <div className="flex items-center gap-6">
            <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl relative glass">
               <Bell className="h-5 w-5 text-muted-foreground" />

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,7 +15,9 @@ import {
   Printer,
   Settings2,
   X,
-  Eye
+  Eye,
+  Wrench,
+  Tag
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -66,6 +69,7 @@ export default function ProductsPage() {
   const [minStock, setMinStock] = React.useState(5)
   const [purchasePrice, setPurchasePrice] = React.useState(0)
   const [salePrice, setSalePrice] = React.useState(0)
+  const [repairPrice, setRepairPrice] = React.useState(0)
 
   // Print Config States
   const [printName, setPrintName] = React.useState("")
@@ -90,7 +94,7 @@ export default function ProductsPage() {
     if (!products) return [];
     let items = [...products].filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.productCode.toLowerCase().includes(searchTerm.toLowerCase())
+      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (sortConfig.key && sortConfig.direction) {
@@ -116,6 +120,7 @@ export default function ProductsPage() {
       minStockQuantity: Number(minStock),
       purchasePrice: Number(purchasePrice),
       salePrice: Number(salePrice),
+      repairPrice: Number(repairPrice),
       updatedAt: serverTimestamp(),
     }
 
@@ -132,7 +137,7 @@ export default function ProductsPage() {
   }
 
   const resetForm = () => {
-    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setEditingProduct(null); setMinStock(5); setPurchasePrice(0);
+    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(5); setPurchasePrice(0);
   }
 
   const handleOpenPrint = (p: any) => {
@@ -238,7 +243,7 @@ export default function ProductsPage() {
                 <div className="flex items-center justify-center gap-2">الكمية <SortIcon column="quantity" /></div>
               </TableHead>
               <TableHead className="text-left cursor-pointer font-black h-16" onClick={() => handleSort('salePrice')}>
-                <div className="flex items-center gap-2 justify-end"><SortIcon column="salePrice" /> السعر النهائي</div>
+                <div className="flex items-center gap-2 justify-end"><SortIcon column="salePrice" /> السعر</div>
               </TableHead>
               <TableHead className="text-center font-black h-16 w-48">إجراءات ذكية</TableHead>
             </TableRow>
@@ -266,8 +271,11 @@ export default function ProductsPage() {
                     {p.quantity} {p.quantity <= (p.minStockQuantity || 5) && ' (منخفض)'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-left font-black text-lg text-primary tabular-nums">
-                  {p.salePrice.toLocaleString()} <span className="text-[10px] opacity-40">دج</span>
+                <TableCell className="text-left">
+                  <div className="flex flex-col items-end">
+                     <span className="font-black text-sm text-primary tabular-nums">{p.salePrice?.toLocaleString()} دج</span>
+                     <span className="text-[9px] text-muted-foreground font-bold">تصليح: {p.repairPrice?.toLocaleString()} دج</span>
+                  </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
@@ -284,7 +292,7 @@ export default function ProductsPage() {
                       variant="ghost" 
                       size="icon" 
                       className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
-                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode); setSalePrice(p.salePrice); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategory(p.category); setOpen(true); }}
+                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategory(p.category); setOpen(true); }}
                       title="تعديل"
                     >
                       <Edit3 className="h-4 w-4" />
@@ -326,7 +334,7 @@ export default function ProductsPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر الشراء</Label>
                 <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
@@ -334,6 +342,10 @@ export default function ProductsPage() {
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر البيع</Label>
                 <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-emerald-600" />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-black text-xs text-primary px-1">سعر التصليح</Label>
+                <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-primary" />
               </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">التصنيف</Label>

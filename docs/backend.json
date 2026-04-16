@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserRole": {
@@ -70,6 +71,10 @@
           "type": "number",
           "description": "The standard selling price of the product (in Algerian Dinars)."
         },
+        "repairPrice": {
+          "type": "number",
+          "description": "The price of the product including the repair service (in Algerian Dinars)."
+        },
         "productCode": {
           "type": "string",
           "description": "A unique alphanumeric code for the product, used for inventory management and QR codes."
@@ -100,6 +105,7 @@
         "quantity",
         "purchasePrice",
         "salePrice",
+        "repairPrice",
         "productCode",
         "createdAt",
         "updatedAt"
@@ -515,7 +521,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The recommended Firestore structure for the Express Phone application prioritizes secure, scalable, and debuggable authorization by strictly adhering to the core design principles. The structure uses a combination of top-level collections for primary entities and subcollections for related transactional data, with critical denormalization to ensure Authorization Independence.\n\n**Authorization Independence:** This is achieved primarily by ensuring that all documents contain the necessary authorization context directly within their own fields, eliminating the need for `get()` calls in security rules to check parent documents. \n- For **UserRole** documents (`/user_roles/{userId}`), the `userId` is embedded in the path itself and also as a field, enabling direct `request.auth.uid == userId` checks.\n- For top-level entities like **Product**, **Customer**, and **Invoice**, their access is governed by the `request.auth.uid`'s role (Admin/Worker) which is checked against the `/user_roles` collection. The `Invoice` entity itself includes `generatedByUserId`, making its own authorization atomic.\n- For subcollections like **InvoiceItem** (`/invoices/{invoiceId}/items/{invoiceItemId}`) and **Payment** (`/invoices/{invoiceId}/payments/{paymentId}`), the critical `generatedByUserId` from the parent `Invoice` document will be denormalized into each `InvoiceItem` and `Payment` document. This allows rules to evaluate permissions for these subcollection documents without performing a `get()` operation on the parent `Invoice`, thereby upholding authorization independence. This is vital for atomic operations and simplifies rule debugging.\n\n**Queryable Authorization Patterns (QAPs):** The structure facilitates secure `list` operations by implementing structural segregation and denormalized authorization contexts.\n- **Structural Segregation:** All documents within a collection (e.g., `/products`, `/customers`) share a homogeneous security posture, meaning all products are accessible to authorized personnel (Admin/Worker) in the same way. This avoids complex rule logic for filtering different types of access within a single collection.\n- **Role-Based Access:** Top-level collections like `/products`, `/customers`, and `/invoices` can be queried by Admins or Workers based on their roles stored in `/user_roles`. Rules can efficiently check `request.auth.uid` against the `user_roles` collection to determine read/write permissions for broad access to shop data. \n- **Denormalized Subcollections:** For `InvoiceItem` and `Payment`, denormalizing `generatedByUserId` ensures that when listing items within an invoice, or payments for an invoice, the authorization rules can be applied to each document independently. This allows for efficient and secure queries, especially if granular permissions (e.g., a worker only sees/edits invoices they generated) are introduced in the future."
+    ]
   }
 }
