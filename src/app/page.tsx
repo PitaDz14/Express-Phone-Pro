@@ -55,7 +55,9 @@ export default function Dashboard() {
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
-  const { data: recentInvoices } = useCollection(useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef]))
+  const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(
+    useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
+  )
 
   const totalSales = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
   const lowStockCount = products?.filter(p => p.quantity <= 5).length || 0
@@ -108,9 +110,11 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums">{products?.length || 0}</div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                <div className="text-xs text-muted-foreground mt-1 flex items-center flex-wrap gap-2">
                   {lowStockCount > 0 && (
-                    <Badge variant="destructive" className="text-[10px] px-1 h-4 ml-1">{lowStockCount} منخفضة</Badge>
+                    <Badge variant="destructive" className="text-[10px] px-2 h-5">
+                      {lowStockCount} منخفضة
+                    </Badge>
                   )}
                   <span className="mr-1">منتج مسجل</span>
                 </div>
@@ -202,9 +206,9 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y">
-                  {!recentInvoices ? (
+                  {isInvoicesLoading ? (
                     <div className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
-                  ) : recentInvoices.length === 0 ? (
+                  ) : !recentInvoices || recentInvoices.length === 0 ? (
                     <div className="p-10 text-center text-muted-foreground text-sm">لا توجد عمليات مؤخراً</div>
                   ) : recentInvoices.map((inv) => (
                     <div key={inv.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
@@ -218,7 +222,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-bold tabular-nums">{inv.totalAmount.toLocaleString()} دج</p>
+                        <p className="text-sm font-bold tabular-nums">{(inv.totalAmount || 0).toLocaleString()} دج</p>
                         <Badge variant="secondary" className="text-[10px] py-0">مدفوع</Badge>
                       </div>
                     </div>
