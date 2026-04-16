@@ -12,7 +12,12 @@ import {
   Calendar,
   User,
   ShoppingBag,
-  ChevronLeft
+  ChevronLeft,
+  Trash2,
+  Edit3,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react"
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
 import {
@@ -38,26 +43,66 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy, getDocs } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { collection, query, orderBy, getDocs, doc } from "firebase/firestore"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
+import { useToast } from "@/hooks/use-toast"
+
+type SortConfig = {
+  key: string;
+  direction: 'asc' | 'desc' | null;
+}
 
 export default function InvoiceHistoryPage() {
+  const { toast } = useToast()
   const db = useFirestore()
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedInvoice, setSelectedInvoice] = React.useState<any>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
   const [isLoadingItems, setIsLoadingItems] = React.useState(false)
+  const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'createdAt', direction: 'desc' })
 
-  const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices"), orderBy("createdAt", "desc")), [db])
+  const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices")), [db])
   const { data: invoices, isLoading } = useCollection(invoicesRef)
 
-  const filteredInvoices = invoices?.filter(inv => 
-    inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    inv.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' | null = 'desc';
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'desc') direction = 'asc';
+      else if (sortConfig.direction === 'asc') direction = null;
+    }
+    setSortConfig({ key, direction });
+  }
+
+  const sortedInvoices = React.useMemo(() => {
+    if (!invoices) return [];
+    let items = [...invoices].filter(inv => 
+      inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      inv.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortConfig.key && sortConfig.direction) {
+      items.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return items;
+  }, [invoices, searchTerm, sortConfig]);
+
+  const handleDeleteInvoice = (id: string) => {
+    if (confirm("هل أنت متأكد من رغبتك في حذف هذه الفاتورة؟ سيتم مسح جميع بياناتها.")) {
+      const docRef = doc(db, "invoices", id)
+      deleteDocumentNonBlocking(docRef)
+      toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح من السجل" })
+    }
+  }
 
   const handleViewDetails = async (invoice: any) => {
     setSelectedInvoice(invoice)
@@ -141,6 +186,13 @@ export default function InvoiceHistoryPage() {
     }
   }
 
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (sortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   return (
     <SidebarProvider>
       <DashboardSidebar />
@@ -181,12 +233,20 @@ export default function InvoiceHistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-white/10 hover:bg-transparent">
-                    <TableHead className="font-black">رقم الفاتورة</TableHead>
-                    <TableHead className="font-black">العميل</TableHead>
-                    <TableHead className="font-black">التاريخ</TableHead>
-                    <TableHead className="text-left font-black">المبلغ الإجمالي</TableHead>
+                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
+                      <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
+                    </TableHead>
+                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
+                      <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
+                    </TableHead>
+                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('createdAt')}>
+                      <div className="flex items-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
+                    </TableHead>
+                    <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
+                      <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
+                    </TableHead>
                     <TableHead className="text-center font-black">الحالة</TableHead>
-                    <TableHead className="w-[120px] font-black text-center">الإجراءات</TableHead>
+                    <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -197,13 +257,13 @@ export default function InvoiceHistoryPage() {
                         <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
                       </TableCell>
                     </TableRow>
-                  ) : filteredInvoices.length === 0 ? (
+                  ) : sortedInvoices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
                         لا توجد فواتير مسجلة حالياً
                       </TableCell>
                     </TableRow>
-                  ) : filteredInvoices.map((inv) => (
+                  ) : sortedInvoices.map((inv) => (
                     <TableRow key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group">
                       <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
                       <TableCell>
@@ -230,6 +290,7 @@ export default function InvoiceHistoryPage() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
                             onClick={() => handleViewDetails(inv)}
+                            title="عرض التفاصيل"
                            >
                              <Eye className="h-4 w-4" />
                            </Button>
@@ -238,8 +299,33 @@ export default function InvoiceHistoryPage() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl bg-white/50 hover:bg-accent hover:text-white"
                             onClick={() => handleViewDetails(inv).then(() => handlePrintInvoice(inv, invoiceItems))}
+                            title="طباعة"
                            >
                              <Printer className="h-4 w-4" />
+                           </Button>
+                           <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
+                            onClick={() => {
+                              const newName = prompt("تعديل اسم العميل:", inv.customerName);
+                              if (newName) {
+                                updateDocumentNonBlocking(doc(db, "invoices", inv.id), { customerName: newName });
+                                toast({ title: "تم التعديل", description: "تم تحديث اسم العميل بنجاح" });
+                              }
+                            }}
+                            title="تعديل سريع"
+                           >
+                             <Edit3 className="h-4 w-4" />
+                           </Button>
+                           <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            title="حذف الفاتورة"
+                           >
+                             <Trash2 className="h-4 w-4" />
                            </Button>
                         </div>
                       </TableCell>
