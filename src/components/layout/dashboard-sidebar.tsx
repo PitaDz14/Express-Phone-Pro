@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,7 +12,8 @@ import {
   History,
   TrendingUp,
   Cpu,
-  Zap
+  Zap,
+  BarChart3
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -35,6 +37,7 @@ const items = [
   { title: "المخزون", url: "/products", icon: Package },
   { title: "العملاء", url: "/customers", icon: Users },
   { title: "المبيعات", url: "/invoices", icon: FileText },
+  { title: "التقارير", url: "/reports", icon: BarChart3 },
 ]
 
 export function DashboardSidebar() {
