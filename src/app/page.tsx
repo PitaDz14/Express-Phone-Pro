@@ -96,10 +96,10 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums">1,240</div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                <div className="text-xs text-muted-foreground mt-1 flex items-center">
                   <Badge variant="secondary" className="text-[10px] px-1 h-4">تنبيه</Badge>
                   <span className="mr-1">3 منتجات منخفضة</span>
-                </p>
+                </div>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm">
@@ -119,10 +119,10 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-600 tabular-nums">34,500 دج</div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                <div className="text-xs text-muted-foreground mt-1 flex items-center">
                   <ArrowDownRight className="h-3 w-3 mr-1 text-orange-500" />
                   تحتاج لمتابعة فورية
-                </p>
+                </div>
               </CardContent>
             </Card>
           </div>
