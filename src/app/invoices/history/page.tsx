@@ -39,7 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, query, orderBy, getDocs, doc } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, doc, increment } from "firebase/firestore"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
@@ -91,11 +91,40 @@ export default function InvoiceHistoryPage() {
     return items;
   }, [invoices, searchTerm, sortConfig]);
 
-  const handleDeleteInvoice = (id: string) => {
-    if (confirm("هل أنت متأكد من رغبتك في حذف هذه الفاتورة؟ سيتم مسح جميع بياناتها.")) {
-      const docRef = doc(db, "invoices", id)
-      deleteDocumentNonBlocking(docRef)
-      toast({ title: "تم الحذف", description: "تم حذف الفاتورة بنجاح من السجل" })
+  const handleDeleteInvoice = async (id: string) => {
+    if (confirm("هل أنت متأكد من حذف هذه الفاتورة؟ سيتم إعادة المنتجات للمخزون ومسح السجل.")) {
+      try {
+        // 1. Fetch invoice items to return them to stock
+        const itemsRef = collection(db, "invoices", id, "items")
+        const snapshot = await getDocs(itemsRef)
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+        // 2. Return quantities to products
+        items.forEach((item: any) => {
+          if (item.productId) {
+            const productRef = doc(db, "products", item.productId)
+            updateDocumentNonBlocking(productRef, {
+              quantity: increment(item.quantity)
+            })
+          }
+        })
+
+        // 3. Delete the invoice
+        const docRef = doc(db, "invoices", id)
+        deleteDocumentNonBlocking(docRef)
+        
+        toast({ 
+          title: "تم الحذف والاسترجاع", 
+          description: "تم حذف الفاتورة بنجاح وإعادة المنتجات للمخزون" 
+        })
+      } catch (error) {
+        console.error("Error deleting invoice:", error)
+        toast({ 
+          variant: "destructive", 
+          title: "خطأ في العملية", 
+          description: "لم نتمكن من إتمام عملية الحذف، يرجى المحاولة لاحقاً" 
+        })
+      }
     }
   }
 
@@ -325,7 +354,7 @@ export default function InvoiceHistoryPage() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
                             onClick={() => handleDeleteInvoice(inv.id)}
-                            title="حذف الفاتورة"
+                            title="حذف الفاتورة واسترجاع المخزون"
                            >
                              <Trash2 className="h-4 w-4" />
                            </Button>
