@@ -8,7 +8,7 @@ import { Loader2, ShieldCheck } from "lucide-react"
 
 /**
  * AuthGate component handles automatic anonymous authentication 
- * and ensures the user has a role assigned in Firestore.
+ * and ensures the user has a role assigned in Firestore before rendering children.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser()
@@ -43,6 +43,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [user, isRoleLoading, roleDoc, roleRef])
 
+  // Wait for auth and for the role document to be present
   if (isUserLoading || (user && isRoleLoading)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
@@ -52,12 +53,23 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user || (!roleDoc && isRoleLoading)) {
+  // Ensure children don't render until we have a role document to avoid permission errors
+  if (user && !roleDoc) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
         <ShieldCheck className="h-16 w-16 text-muted-foreground/20 mb-4" />
         <h2 className="text-xl font-bold mb-2">Express Phone Pro</h2>
-        <p className="text-muted-foreground text-sm max-w-xs">يرجى الانتظار بينما نقوم بضبط صلاحيات الوصول الخاصة بك.</p>
+        <p className="text-muted-foreground text-sm max-w-xs">جاري ضبط صلاحيات الوصول والمسؤول...</p>
+        <Loader2 className="h-6 w-6 animate-spin text-primary mt-4" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-sm text-muted-foreground">جاري تسجيل الدخول...</p>
       </div>
     )
   }

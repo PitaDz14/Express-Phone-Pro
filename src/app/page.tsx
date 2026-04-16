@@ -94,10 +94,10 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-black tabular-nums">{totalSales.toLocaleString()} دج</div>
-                <p className="text-xs mt-2 flex items-center opacity-80">
+                <div className="text-xs mt-2 flex items-center opacity-80">
                   <ArrowUpRight className="h-3 w-3 mr-1" />
                   بناءً على مبيعات اليوم
-                </p>
+                </div>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm hover:md-shadow-2 transition-all">
@@ -124,7 +124,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-black tabular-nums">{customers?.length || 0}</div>
-                <p className="text-xs text-muted-foreground mt-2">قاعدة بيانات العملاء المتكاملة</p>
+                <div className="text-xs text-muted-foreground mt-2">قاعدة بيانات العملاء المتكاملة</div>
               </CardContent>
             </Card>
             <Card className={`border-none shadow-sm border-r-4 ${lowStockCount > 0 ? 'border-orange-500' : 'border-green-500'}`}>
