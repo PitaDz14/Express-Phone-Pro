@@ -12,18 +12,9 @@ service cloud.firestore {
      * 
      * Data Structure:
      * - /user_roles/{userId}: Maps Firebase Auth UIDs to application roles.
-     * - /products, /customers: Flat, top-level collections for inventory and client management.
+     * - /products, /customers, /categories: Flat, top-level collections.
      * - /invoices: Hierarchical structure containing items and payments as subcollections.
      * - /audit_logs: Restricted top-level collection for system activity.
-     * 
-     * Key Security Decisions:
-     * 1. Authorization Independence: Critical authorization fields (like generatedByUserId) are 
-     *    denormalized into sub-documents (InvoiceItem, Payment) to avoid expensive parent lookups.
-     * 2. Path-Identity Alignment: For user-specific data (/user_roles), the document ID must 
-     *    match the authenticated user's UID.
-     * 3. Role-Based Perimeter: Most shop data is restricted to authenticated users with a valid 
-     *    Admin or Worker role, preventing unauthorized access by anonymous or unassigned users.
-     * 4. State Protection: Updates and deletes strictly require verification of document existence.
      */
 
     // --- Helper Functions ---
@@ -72,10 +63,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for managing User Roles. Admins can manage all; users can read their own.
-     * @path /user_roles/{userId}
-     * @allow (get) If the user matches {userId} or is an Admin.
-     * @deny (list) If the requester is not an Admin.
-     * @principle Aligns path parameter with authenticated identity.
      */
     match /user_roles/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -85,11 +72,15 @@ service cloud.firestore {
     }
 
     /**
-     * @description Products inventory. Accessible to all authorized staff for inventory management.
-     * @path /products/{productId}
-     * @allow (create) If the user is a Worker or Admin.
-     * @deny (write) If the document does not exist (for updates/deletes).
-     * @principle Role-based access control for shop resources.
+     * @description Hierarchical categories for products.
+     */
+    match /categories/{categoryId} {
+      allow get, list: if isAuthorizedStaff();
+      allow create, update, delete: if isAuthorizedStaff();
+    }
+
+    /**
+     * @description Products inventory.
      */
     match /products/{productId} {
       allow get, list: if isAuthorizedStaff();
@@ -98,11 +89,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Customer records. Used for tracking debts and sales history.
-     * @path /customers/{customerId}
-     * @allow (get) If user is shop staff.
-     * @deny (delete) If user is not shop staff.
-     * @principle Restricts customer data to authorized internal personnel.
+     * @description Customer records.
      */
     match /customers/{customerId} {
       allow get, list: if isAuthorizedStaff();
@@ -111,37 +98,19 @@ service cloud.firestore {
     }
 
     /**
-     * @description Invoices for sales. Ownership is tracked via generatedByUserId.
-     * @path /invoices/{invoiceId}
-     * @allow (update) If user is Admin OR if user is the Worker who generated the invoice.
-     * @deny (create) If generatedByUserId does not match the authenticated user's UID.
-     * @principle Enforces relational integrity and user-specific write permissions.
+     * @description Invoices for sales.
      */
     match /invoices/{invoiceId} {
       allow get, list: if isAuthorizedStaff();
       allow create: if isAuthorizedStaff() && request.resource.data.generatedByUserId == request.auth.uid;
       allow update, delete: if (isAdmin() || isExistingOwner(resource.data.generatedByUserId)) && resource != null;
 
-      /**
-       * @description Line items within an invoice. Uses denormalized generatedByUserId for auth.
-       * @path /invoices/{invoiceId}/items/{invoiceItemId}
-       * @allow (create) If denormalized ID matches the creator.
-       * @deny (list) If requester is not staff.
-       * @principle Authorization Independence via denormalization.
-       */
       match /items/{invoiceItemId} {
         allow get, list: if isAuthorizedStaff();
         allow create: if isAuthorizedStaff() && request.resource.data.generatedByUserId == request.auth.uid;
         allow update, delete: if (isAdmin() || isExistingOwner(resource.data.generatedByUserId)) && resource != null;
       }
 
-      /**
-       * @description Payment records for an invoice. Uses denormalized recordedByUserId for auth.
-       * @path /invoices/{invoiceId}/payments/{paymentId}
-       * @allow (get) If user is staff.
-       * @deny (update) If user is not the recorder or an Admin.
-       * @principle Protects transactional payment data with user-specific locks.
-       */
       match /payments/{paymentId} {
         allow get, list: if isAuthorizedStaff();
         allow create: if isAuthorizedStaff() && request.resource.data.recordedByUserId == request.auth.uid;
@@ -150,16 +119,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Audit logs for tracking sensitive system actions. Restricted to Admins.
-     * @path /audit_logs/{auditLogId}
-     * @allow (get) If requester is an Admin.
-     * @deny (all) If requester is a standard Worker.
-     * @principle Ensures accountability by restricting access to security logs.
+     * @description Audit logs for tracking sensitive system actions.
      */
     match /audit_logs/{auditLogId} {
       allow get, list: if isAdmin();
-      allow create: if isSignedIn(); // Allow logging actions during prototyping
-      allow update, delete: if false; // Audit logs should generally be immutable
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
   }
 }
