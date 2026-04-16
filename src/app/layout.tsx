@@ -5,8 +5,8 @@ import { FirebaseClientProvider } from "@/firebase/client-provider"
 import { AuthGate } from "@/components/auth-gate"
 
 export const metadata: Metadata = {
-  title: 'Express Phone Pro - نظام إدارة محل تصليح الهواتف',
-  description: 'نظام احترافي لإدارة محل تصليح وبيع الهواتف - by Khaled_Deragha',
+  title: 'Express Phone Pro - نظام إدارة ذكي',
+  description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - by Khaled_Deragha',
 };
 
 export default function RootLayout({
@@ -19,9 +19,14 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap" rel="stylesheet" />
+        <style>{`
+          body {
+            font-family: 'Almarai', sans-serif;
+          }
+        `}</style>
       </head>
-      <body className="font-body antialiased selection:bg-accent selection:text-accent-foreground">
+      <body className="antialiased selection:bg-primary selection:text-white">
         <FirebaseClientProvider>
           <AuthGate>
             {children}

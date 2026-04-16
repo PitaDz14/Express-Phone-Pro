@@ -4,57 +4,26 @@
 
 @layer base {
   :root {
-    /* Material Design 3 - Blue/Teal Theme */
-    --background: 210 20% 98%; /* Light Grey Blue Surface */
-    --foreground: 222 47% 11%;
+    --background: 220 33% 98%;
+    --foreground: 224 71% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 219 50% 45%; /* #3960AC - Professional Blue */
+    --popover-foreground: 224 71% 4%;
+    --primary: 221 83% 53%; /* Modern Electric Blue */
     --primary-foreground: 210 40% 98%;
-    --secondary: 189 71% 95%; /* Pale Teal */
-    --secondary-foreground: 189 71% 30%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 189 71% 55%; /* #3CC2DD - Bright Teal */
-    --accent-foreground: 222 47% 11.2%;
+    --accent: 262 83% 58%; /* Purple Accent */
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 219 50% 45%;
-    --radius: 1rem; /* MD3 rounded corners are more generous */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 219 50% 45%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 189 71% 95%;
-    --sidebar-accent-foreground: 219 50% 45%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 219 50% 45%;
-  }
-
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 221 83% 53%;
+    --radius: 1.25rem;
   }
 }
 
@@ -63,36 +32,36 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: radial-gradient(at 0% 0%, hsla(221, 83%, 53%, 0.05) 0, transparent 50%),
+                      radial-gradient(at 100% 0%, hsla(262, 83%, 58%, 0.05) 0, transparent 50%);
   }
 }
 
-/* Material Design Shadow Depth */
-.md-shadow-1 {
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1);
+/* Glassmorphism Effect */
+.glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
 }
 
-.md-shadow-2 {
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+/* 3D Interactive Card */
+.card-3d {
+  @apply transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl active:scale-95;
 }
 
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  .print-only {
-    display: block !important;
-  }
-  body {
-    background: white !important;
-  }
+/* Modern Gradient Text */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
 }
 
-.print-only {
-  display: none;
+/* Neumorphic Shadow */
+.soft-shadow {
+  box-shadow: 20px 20px 60px #d1d9e6, -20px -20px 60px #ffffff;
 }
 
 [dir="rtl"] {
   text-align: right;
+}
+
+@media print {
+  .no-print { display: none !important; }
 }
