@@ -87,7 +87,7 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-col">
              <h1 className="text-2xl font-black tracking-tighter text-gradient-premium uppercase">EXPRESS PHONE PRO</h1>
-             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الذكي بواسطة Khaled_Deragha</p>
+             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الذكي By Khaled_Deragha</p>
           </div>
         </div>
 
