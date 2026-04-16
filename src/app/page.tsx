@@ -11,7 +11,8 @@ import {
   Plus,
   Search,
   ChevronLeft,
-  Loader2
+  Loader2,
+  CalendarDays
 } from "lucide-react"
 import {
   Bar,
@@ -60,7 +61,7 @@ export default function Dashboard() {
   )
 
   const totalSales = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
-  const lowStockCount = products?.filter(p => p.quantity <= 5).length || 0
+  const lowStockCount = products?.filter(p => (p.quantity || 0) <= 5).length || 0
 
   return (
     <SidebarProvider>
@@ -71,48 +72,44 @@ export default function Dashboard() {
             <SidebarTrigger className="-ml-1" />
             <h1 className="text-xl font-bold tracking-tight">لوحة التحكم</h1>
           </div>
-          <div className="flex items-center gap-4 w-1/3">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="ابحث سريعا..." 
-                className="pl-10 h-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
-              />
-            </div>
-          </div>
           <div className="flex items-center gap-3">
-             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+             <div className="hidden md:flex flex-col items-end gap-0.5 text-xs text-muted-foreground mr-2">
+               <span className="font-bold text-foreground">الوضع: متصل</span>
+               <span>{new Date().toLocaleDateString('ar-DZ')}</span>
+             </div>
+             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border-2 border-primary/20">
                KD
              </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 space-y-6">
+        <main className="flex-1 overflow-auto p-6 space-y-6 bg-[#F8FAFC]">
           {/* Stats Overview */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-none shadow-sm bg-primary text-primary-foreground">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-none shadow-sm bg-primary text-primary-foreground overflow-hidden relative group">
+              <div className="absolute -right-4 -top-4 bg-white/10 h-24 w-24 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium opacity-90">إجمالي المبيعات (مؤخراً)</CardTitle>
                 <TrendingUp className="h-4 w-4 opacity-90" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">{totalSales.toLocaleString()} دج</div>
-                <p className="text-xs mt-1 flex items-center opacity-80">
+                <div className="text-3xl font-black tabular-nums">{totalSales.toLocaleString()} دج</div>
+                <p className="text-xs mt-2 flex items-center opacity-80">
                   <ArrowUpRight className="h-3 w-3 mr-1" />
-                  بناءً على آخر الفواتير
+                  بناءً على مبيعات اليوم
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm hover:md-shadow-2 transition-all">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium">المنتجات بالمخزون</CardTitle>
                 <Package className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">{products?.length || 0}</div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center flex-wrap gap-2">
+                <div className="text-3xl font-black tabular-nums">{products?.length || 0}</div>
+                <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-2">
                   {lowStockCount > 0 && (
-                    <Badge variant="destructive" className="text-[10px] px-2 h-5">
+                    <Badge variant="destructive" className="text-[10px] px-2 h-5 animate-pulse">
                       {lowStockCount} منخفضة
                     </Badge>
                   )}
@@ -120,27 +117,27 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm hover:md-shadow-2 transition-all">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">العملاء</CardTitle>
+                <CardTitle className="text-sm font-medium">العملاء النشطون</CardTitle>
                 <Users className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums">{customers?.length || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">قاعدة بيانات العملاء النشطة</p>
+                <div className="text-3xl font-black tabular-nums">{customers?.length || 0}</div>
+                <p className="text-xs text-muted-foreground mt-2">قاعدة بيانات العملاء المتكاملة</p>
               </CardContent>
             </Card>
-            <Card className="border-none shadow-sm border-r-4 border-orange-500">
+            <Card className={`border-none shadow-sm border-r-4 ${lowStockCount > 0 ? 'border-orange-500' : 'border-green-500'}`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium">حالة المخزون</CardTitle>
-                <Wallet className="h-4 w-4 text-orange-500" />
+                <CalendarDays className={`h-4 w-4 ${lowStockCount > 0 ? 'text-orange-500' : 'text-green-500'}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600 tabular-nums">
-                  {lowStockCount > 0 ? "يحتاج توريد" : "مستقر"}
+                <div className={`text-2xl font-black ${lowStockCount > 0 ? 'text-orange-600' : 'text-green-600'} tabular-nums`}>
+                  {lowStockCount > 0 ? "يحتاج توريد" : "مخزون ممتاز"}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                  تنبيهات المخزون النشطة
+                <div className="text-xs text-muted-foreground mt-2">
+                  تحديث تلقائي في الوقت الفعلي
                 </div>
               </CardContent>
             </Card>
@@ -149,48 +146,49 @@ export default function Dashboard() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
             {/* Sales Chart */}
             <Card className="col-span-4 border-none shadow-sm overflow-hidden">
-              <CardHeader className="bg-white/50 border-b">
+              <CardHeader className="bg-white border-b">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">إحصائيات المبيعات والأرباح</CardTitle>
-                    <CardDescription>نظرة عامة على الأداء المالي</CardDescription>
+                    <CardDescription>الأداء المالي خلال الأسبوع الحالي</CardDescription>
                   </div>
-                  <Badge variant="outline" className="tabular-nums">تقديري</Badge>
+                  <Badge variant="secondary" className="tabular-nums">مباشر</Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="h-[300px]">
+                <div className="h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                       <XAxis 
                         dataKey="name" 
-                        stroke="#888888" 
+                        stroke="#64748B" 
                         fontSize={12} 
                         tickLine={false} 
                         axisLine={false} 
                       />
                       <YAxis 
-                        stroke="#888888" 
+                        stroke="#64748B" 
                         fontSize={12} 
                         tickLine={false} 
                         axisLine={false} 
-                        tickFormatter={(value) => `${value} دج`}
+                        tickFormatter={(value) => `${value}`}
                       />
                       <Tooltip 
                         contentStyle={{ 
-                          borderRadius: '8px', 
+                          borderRadius: '12px', 
                           border: 'none', 
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          textAlign: 'right'
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                          textAlign: 'right',
+                          direction: 'rtl'
                         }}
                       />
-                      <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="total" radius={[6, 6, 0, 0]} barSize={24}>
                         {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 5 ? '#3960AC' : '#3960AC80'} />
+                          <Cell key={`cell-${index}`} fill={index === 5 ? '#3960AC' : '#3960AC40'} />
                         ))}
                       </Bar>
-                      <Bar dataKey="profit" fill="#3CC2DD" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="profit" fill="#3CC2DD" radius={[6, 6, 0, 0]} barSize={24} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -199,31 +197,37 @@ export default function Dashboard() {
 
             {/* Recent Activity */}
             <Card className="col-span-3 border-none shadow-sm">
-              <CardHeader className="bg-white/50 border-b">
+              <CardHeader className="bg-white border-b">
                 <div className="flex items-center justify-between">
-                   <CardTitle className="text-lg">آخر العمليات</CardTitle>
+                   <CardTitle className="text-lg">أحدث المبيعات</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y">
                   {isInvoicesLoading ? (
-                    <div className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
+                    <div className="p-12 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-30" />
+                      <p className="text-xs text-muted-foreground mt-2">جاري التحديث...</p>
+                    </div>
                   ) : !recentInvoices || recentInvoices.length === 0 ? (
-                    <div className="p-10 text-center text-muted-foreground text-sm">لا توجد عمليات مؤخراً</div>
+                    <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
+                      <Package className="h-8 w-8 opacity-20" />
+                      لا توجد عمليات مبيعات مسجلة
+                    </div>
                   ) : recentInvoices.map((inv) => (
                     <div key={inv.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center bg-green-100 text-green-700`}>
-                          <ArrowUpRight className="h-5 w-5" />
+                      <div className="flex items-center gap-4">
+                        <div className={`h-11 w-11 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100`}>
+                          <Wallet className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">فاتورة #{inv.id.slice(0, 6)}</p>
+                          <p className="text-sm font-bold">فاتورة #{inv.id.slice(0, 6)}</p>
                           <p className="text-xs text-muted-foreground">{inv.customerName}</p>
                         </div>
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-bold tabular-nums">{(inv.totalAmount || 0).toLocaleString()} دج</p>
-                        <Badge variant="secondary" className="text-[10px] py-0">مدفوع</Badge>
+                        <p className="text-sm font-black tabular-nums">{(inv.totalAmount || 0).toLocaleString()} دج</p>
+                        <Badge variant="outline" className="text-[10px] py-0 border-green-200 text-green-700 bg-green-50">مؤكدة</Badge>
                       </div>
                     </div>
                   ))}
@@ -232,10 +236,10 @@ export default function Dashboard() {
             </Card>
           </div>
           
-          <div className="mt-8 flex justify-center text-muted-foreground/50 text-xs gap-2 items-center italic">
-            <span>تم التطوير بواسطة خالد دراغة</span>
-            <span>•</span>
-            <span>حقوق الملكية by Khaled_Deragha</span>
+          <div className="mt-8 flex justify-center text-muted-foreground/40 text-[10px] gap-2 items-center italic">
+            <span>By Khaled_Deragha - Express Phone Pro</span>
+            <span className="h-1 w-1 rounded-full bg-muted-foreground/40"></span>
+            <span>نظام إدارة المحلات v1.2</span>
           </div>
         </main>
       </SidebarInset>

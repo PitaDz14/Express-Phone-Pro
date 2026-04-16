@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from "@/firebase/client-provider"
+import { AuthGate } from "@/components/auth-gate"
 
 export const metadata: Metadata = {
   title: 'Express Phone Pro - نظام إدارة محل تصليح الهواتف',
@@ -22,7 +23,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased selection:bg-accent selection:text-accent-foreground">
         <FirebaseClientProvider>
-          {children}
+          <AuthGate>
+            {children}
+          </AuthGate>
         </FirebaseClientProvider>
         <Toaster />
       </body>

@@ -4,26 +4,27 @@
 
 @layer base {
   :root {
-    --background: 210 20% 96%; /* #F0F2F4 */
+    /* Material Design 3 - Blue/Teal Theme */
+    --background: 210 20% 98%; /* Light Grey Blue Surface */
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 219 50% 45%; /* #3960AC */
+    --primary: 219 50% 45%; /* #3960AC - Professional Blue */
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
+    --secondary: 189 71% 95%; /* Pale Teal */
+    --secondary-foreground: 189 71% 30%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 189 71% 55%; /* #3CC2DD */
+    --accent: 189 71% 55%; /* #3CC2DD - Bright Teal */
     --accent-foreground: 222 47% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 219 50% 45%;
-    --radius: 0.75rem;
+    --radius: 1rem; /* MD3 rounded corners are more generous */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 219 50% 45%;
@@ -65,6 +66,15 @@
     @apply bg-background text-foreground font-body;
     font-feature-settings: "cv11", "ss01";
   }
+}
+
+/* Material Design Shadow Depth */
+.md-shadow-1 {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.md-shadow-2 {
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
 }
 
 @media print {
