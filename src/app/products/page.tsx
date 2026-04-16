@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -85,6 +86,7 @@ export default function ProductsPage() {
   // Print Config States
   const [printName, setPrintName] = React.useState("")
   const [printPrice, setPrintPrice] = React.useState(0)
+  const [showPrice, setShowPrice] = React.useState(false)
   const [copies, setCopies] = React.useState(1)
   const [labelWidth, setLabelWidth] = React.useState(50) 
   const [labelHeight, setLabelHeight] = React.useState(30) 
@@ -135,9 +137,7 @@ export default function ProductsPage() {
       return
     }
     
-    // Generate code if not provided
     const finalCode = productCode.trim() || generateUniqueCode();
-    
     const selectedCat = categories?.find(c => c.id === categoryId)
 
     const productData = {
@@ -173,7 +173,8 @@ export default function ProductsPage() {
   const handleOpenPrint = (p: any) => {
     setPrintingProduct(p)
     setPrintName(p.name)
-    setPrintPrice(p.salePrice)
+    setPrintPrice(p.salePrice) // Default to sale price but showPrice is false
+    setShowPrice(false)
     setCopies(1)
     setPrintDialogOpen(true)
   }
@@ -185,7 +186,7 @@ export default function ProductsPage() {
     const labelsHtml = Array(copies).fill(0).map(() => `
       <div class="label-container">
         <div class="product-name">${printName}</div>
-        <div class="product-price">${printPrice.toLocaleString()} دج</div>
+        ${showPrice ? `<div class="product-price">${printPrice.toLocaleString()} دج</div>` : ''}
         <div class="qr-code">
           <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${printingProduct.productCode}" />
         </div>
@@ -405,7 +406,6 @@ export default function ProductsPage() {
                       </SelectTrigger>
                       <SelectContent className="glass border-none rounded-2xl z-[220]">
                         {categories && renderCategoryOptions(categories)}
-                        {(!categories || categories.length === 0) && <div className="p-4 text-center text-xs opacity-40">لا توجد تصنيفات معرفة</div>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -461,21 +461,49 @@ export default function ProductsPage() {
               إعدادات طباعة الملصق
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-6 py-6 overflow-y-auto max-h-[70vh] px-2">
+          <div className="grid gap-6 py-6 overflow-y-auto max-h-[75vh] px-2">
             <div className="space-y-4 p-4 glass rounded-2xl border-white/10 bg-white/30">
               <div className="space-y-2">
                 <Label className="font-black text-[10px] text-muted-foreground uppercase">الاسم على الملصق</Label>
                 <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl h-11 border-none shadow-sm font-bold" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-black text-[10px] text-muted-foreground uppercase">السعر (دج)</Label>
-                  <Input type="number" value={printPrice} onChange={(e) => setPrintPrice(Number(e.target.value))} className="rounded-xl h-11 border-none shadow-sm font-bold" />
+
+              <div className="flex items-center justify-between p-3 glass rounded-xl border-white/10">
+                <div className="flex flex-col gap-1">
+                  <Label className="font-black text-xs">إدراج السعر في الملصق</Label>
+                  <p className="text-[10px] text-muted-foreground font-bold">افتراضياً لا يظهر السعر</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="font-black text-[10px] text-muted-foreground uppercase">عدد النسخ</Label>
-                  <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl h-11 border-none shadow-sm font-bold" />
+                <Switch checked={showPrice} onCheckedChange={setShowPrice} />
+              </div>
+
+              {showPrice && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 h-9 rounded-xl glass border-white/20 text-[10px] font-black"
+                      onClick={() => setPrintPrice(printingProduct?.salePrice || 0)}
+                    >
+                      سعر البيع
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 h-9 rounded-xl glass border-white/20 text-[10px] font-black"
+                      onClick={() => setPrintPrice(printingProduct?.repairPrice || 0)}
+                    >
+                      سعر التصليح
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-muted-foreground uppercase">السعر (تعديل يدوي)</Label>
+                    <Input type="number" value={printPrice} onChange={(e) => setPrintPrice(Number(e.target.value))} className="rounded-xl h-11 border-none shadow-sm font-black text-primary" />
+                  </div>
                 </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="font-black text-[10px] text-muted-foreground uppercase">عدد النسخ</Label>
+                <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl h-11 border-none shadow-sm font-bold" />
               </div>
             </div>
 
@@ -513,7 +541,9 @@ export default function ProductsPage() {
                   >
                      <div className="absolute top-1 right-1 opacity-20 text-[6px] font-bold uppercase">Express Phone</div>
                      <span className="text-[10px] font-black truncate w-full text-center leading-tight mb-1">{printName}</span>
-                     <span className="text-[14px] font-black text-black tabular-nums">{printPrice.toLocaleString()} دج</span>
+                     {showPrice && (
+                       <span className="text-[14px] font-black text-black tabular-nums">{printPrice.toLocaleString()} دج</span>
+                     )}
                      <div className="h-1/2 aspect-square bg-white border border-black/5 p-1 rounded-sm mt-2">
                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${printingProduct?.productCode}`} className="h-full w-full object-contain" alt="Preview QR" />
                      </div>
