@@ -1,4 +1,3 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
@@ -7,8 +6,8 @@ import { AuthGate } from "@/components/auth-gate"
 import { NavigationDock } from "@/components/layout/navigation-dock"
 
 export const metadata: Metadata = {
-  title: 'Express Phone Pro - نظام إدارة ذكي',
-  description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - by Khaled_Deragha',
+  title: 'Express Phone Pro | Khaled_Deragha',
+  description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - تم التطوير بواسطة Khaled_Deragha',
 };
 
 export default function RootLayout({

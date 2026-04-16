@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -87,8 +86,8 @@ export default function Dashboard() {
              <Zap className="h-7 w-7" />
           </div>
           <div className="flex flex-col">
-             <h1 className="text-2xl font-black tracking-tighter text-gradient-premium">EXPRESS PHONE PRO</h1>
-             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الذكي</p>
+             <h1 className="text-2xl font-black tracking-tighter text-gradient-premium uppercase">EXPRESS PHONE PRO</h1>
+             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الذكي بواسطة Khaled_Deragha</p>
           </div>
         </div>
 
@@ -292,6 +291,17 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        <footer className="pt-20 pb-10 text-center space-y-2">
+            <div className="flex items-center justify-center gap-2">
+                <div className="h-px w-12 bg-primary/10" />
+                <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.3em]">Express Phone Pro</span>
+                <div className="h-px w-12 bg-primary/10" />
+            </div>
+            <p className="text-[11px] font-bold text-muted-foreground/60">
+                جميع الحقوق محفوظة &copy; {new Date().getFullYear()} - تم التطوير بواسطة <span className="text-primary font-black">Khaled_Deragha</span>
+            </p>
+        </footer>
       </main>
     </div>
   )

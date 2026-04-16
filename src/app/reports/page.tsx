@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -39,13 +38,6 @@ import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy, limit } from "firebase/firestore"
 
-const data = [
-  { name: "الأسبوع 1", sales: 4000, profit: 2400 },
-  { name: "الأسبوع 2", sales: 3000, profit: 1398 },
-  { name: "الأسبوع 3", sales: 2000, profit: 9800 },
-  { name: "الأسبوع 4", sales: 2780, profit: 3908 },
-]
-
 export default function ReportsPage() {
   const db = useFirestore()
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
@@ -74,7 +66,7 @@ export default function ReportsPage() {
         <header className="flex items-center justify-between border-b pb-8 glass-premium p-6 rounded-[2rem] sticky top-0 z-50 no-print">
             <div className="flex flex-col">
               <h1 className="text-2xl font-black text-gradient">مركز التقارير والذكاء المالي</h1>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">تحليل هرمي شامل للفروع والتصنيفات</p>
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">بواسطة المطور Khaled_Deragha</p>
             </div>
           <div className="flex gap-2">
             <Button variant="outline" className="glass h-11 rounded-2xl px-5 font-bold gap-2">
@@ -198,6 +190,10 @@ export default function ReportsPage() {
                 </CardContent>
              </Card>
           </div>
+
+          <footer className="text-center py-10 opacity-40">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Express Phone Pro &copy; Khaled_Deragha</p>
+          </footer>
     </div>
   )
 }
