@@ -123,7 +123,7 @@ export default function InvoicesPage() {
       }
       loadInvoice()
     }
-  }, [editId, products, db])
+  }, [editId, products, db, toast])
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
   const total = subtotal - discount
@@ -271,7 +271,7 @@ export default function InvoicesPage() {
           
           // Revert old debt
           const oldDebt = oldData.totalAmount - oldData.paidAmount;
-          if (oldDebt > 0 && oldData.customerId !== 'walk-in') {
+          if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
             batch.update(doc(db, "customers", oldData.customerId), {
               debt: increment(-oldDebt)
             });
@@ -291,7 +291,7 @@ export default function InvoicesPage() {
         }
       }
 
-      const invoiceData = {
+      const invoiceData: any = {
         customerId: selectedCustomer?.id || "walk-in",
         customerName: selectedCustomer?.name || "عميل عام",
         totalAmount: total,
@@ -299,8 +299,11 @@ export default function InvoicesPage() {
         discount: discount,
         status: debtAmount > 0 ? "Debt" : "Paid",
         generatedByUserId: user.uid,
-        updatedAt: serverTimestamp(),
-        createdAt: editId ? undefined : serverTimestamp()
+        updatedAt: serverTimestamp()
+      }
+
+      if (!editId) {
+        invoiceData.createdAt = serverTimestamp();
       }
 
       const targetDocRef = editId ? doc(db, "invoices", editId) : doc(collection(db, "invoices"));
@@ -326,7 +329,7 @@ export default function InvoicesPage() {
         });
       });
 
-      if (debtAmount > 0 && selectedCustomer) {
+      if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
         batch.update(doc(db, "customers", selectedCustomer.id), {
           debt: increment(debtAmount)
         });
@@ -344,7 +347,7 @@ export default function InvoicesPage() {
       setShowPreview(false)
       if (editId) router.push('/invoices/history')
     } catch (error) {
-      console.error(error);
+      console.error("Save Error:", error);
       toast({ title: "خطأ", description: "حدث خطأ أثناء معالجة البيانات، يرجى المحاولة لاحقاً", variant: "destructive" })
     } finally {
       setIsProcessing(false)
@@ -556,54 +559,56 @@ export default function InvoicesPage() {
                 <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
              </DialogHeader>
 
-             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-black/5 flex flex-col items-center gap-4 custom-scrollbar">
-                {/* Simulated Paper */}
-                <div className="bg-white text-black w-full shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 overflow-hidden select-none">
-                   <div className="text-center space-y-1 border-b-2 border-black pb-4">
-                      <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
-                      <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
-                      <p className="text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
-                   </div>
+             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-black/5 custom-scrollbar">
+                <div className="flex flex-col items-center min-h-full py-4">
+                  {/* Simulated Paper */}
+                  <div className="bg-white text-black w-full max-w-[350px] shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 select-none">
+                     <div className="text-center space-y-1 border-b-2 border-black pb-4">
+                        <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
+                        <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
+                        <p className="text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
+                     </div>
 
-                   <div className="space-y-1">
-                      <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_جديد"}</span></p>
-                      <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
-                      <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
-                   </div>
+                     <div className="space-y-1">
+                        <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_جديد"}</span></p>
+                        <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
+                        <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
+                     </div>
 
-                   <table className="w-full text-left">
-                      <thead className="border-b border-black">
-                        <tr>
-                           <th className="py-2 text-right">المنتج</th>
-                           <th className="py-2 text-center">كمية</th>
-                           <th className="py-2 text-left">المجموع</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-black/10">
-                        {cart.map((item) => (
-                          <tr key={item.productId}>
-                             <td className="py-2 text-right font-bold">{item.name}</td>
-                             <td className="py-2 text-center tabular-nums">{item.qty}</td>
-                             <td className="py-2 text-left tabular-nums">{(item.price * item.qty).toLocaleString()}</td>
+                     <table className="w-full text-left">
+                        <thead className="border-b border-black">
+                          <tr>
+                             <th className="py-2 text-right">المنتج</th>
+                             <th className="py-2 text-center">كمية</th>
+                             <th className="py-2 text-left">المجموع</th>
                           </tr>
-                        ))}
-                      </tbody>
-                   </table>
+                        </thead>
+                        <tbody className="divide-y divide-black/10">
+                          {cart.map((item) => (
+                            <tr key={item.productId}>
+                               <td className="py-2 text-right font-bold">{item.name}</td>
+                               <td className="py-2 text-center tabular-nums">{item.qty}</td>
+                               <td className="py-2 text-left tabular-nums">{(item.price * item.qty).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                     </table>
 
-                   <div className="space-y-1 border-t border-black pt-4">
-                      <div className="flex justify-between"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
-                      {discount > 0 && <div className="flex justify-between"><span>الخصم:</span> <span className="tabular-nums">-${discount.toLocaleString()} دج</span></div>}
-                      <div className="flex justify-between font-black text-base border-t-2 border-double border-black pt-2">
-                         <span>الإجمالي النهائي:</span> <span className="tabular-nums">{total.toLocaleString()} دج</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
-                      {debtAmount > 0 && <div className="flex justify-between text-red-600 font-bold"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>}
-                   </div>
+                     <div className="space-y-1 border-t border-black pt-4">
+                        <div className="flex justify-between"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
+                        {discount > 0 && <div className="flex justify-between"><span>الخصم:</span> <span className="tabular-nums">-${discount.toLocaleString()} دج</span></div>}
+                        <div className="flex justify-between font-black text-base border-t-2 border-double border-black pt-2">
+                           <span>الإجمالي النهائي:</span> <span className="tabular-nums">{total.toLocaleString()} دج</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
+                        {debtAmount > 0 && <div className="flex justify-between text-red-600 font-bold"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>}
+                     </div>
 
-                   <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
-                      <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${editId || "NEW"}`} alt="QR" />
-                      <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
-                   </div>
+                     <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
+                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${editId || "NEW"}`} alt="QR" />
+                        <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
+                     </div>
+                  </div>
                 </div>
              </div>
 
