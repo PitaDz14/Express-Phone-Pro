@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -165,6 +164,11 @@ QuickEditItem.displayName = "QuickEditItem"
 export default function Dashboard() {
   const db = useFirestore()
   const { toast } = useToast()
+  
+  // Hydration safety
+  const [isMounted, setIsMounted] = React.useState(false)
+  React.useEffect(() => { setIsMounted(true) }, [])
+
   const [searchTerm, setSearchTerm] = React.useState("")
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
@@ -192,6 +196,17 @@ export default function Dashboard() {
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
   const stats = React.useMemo(() => {
+    // Only calculate stats that depend on dynamic dates after mounting to avoid hydration mismatch
+    if (!isMounted) return {
+      todaySales: 0,
+      productCount: 0,
+      lowStock: 0,
+      totalDebt: 0,
+      screensCount: 0,
+      screensSaleVal: 0,
+      screensPurchaseVal: 0
+    };
+
     const today = new Date().setHours(0, 0, 0, 0)
     const todaySales = recentInvoices?.filter(inv => {
       const date = inv.createdAt?.toDate ? inv.createdAt.toDate().setHours(0,0,0,0) : null
@@ -213,7 +228,7 @@ export default function Dashboard() {
       screensSaleVal: screens.reduce((acc, p) => acc + (p.salePrice * p.quantity), 0),
       screensPurchaseVal: screens.reduce((acc, p) => acc + ((p.purchasePrice || 0) * p.quantity), 0)
     }
-  }, [recentInvoices, products, customers])
+  }, [recentInvoices, products, customers, isMounted])
 
   const filteredProducts = React.useMemo(() => {
     if (!searchTerm || !products) return []
@@ -293,6 +308,8 @@ export default function Dashboard() {
       })
   }
 
+  if (!isMounted) return null; // Prevent hydration flash
+
   return (
     <div className="min-h-screen bg-transparent pb-32 animate-in fade-in duration-700 overflow-x-hidden">
       <QRScannerDialog 
@@ -326,10 +343,17 @@ export default function Dashboard() {
                 <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
                    <div className="flex items-center gap-4">
                       <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
-                        <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
+                        {p.quantity === 0 ? (
+                           <Badge variant="destructive" className="h-full w-full rounded-none flex items-center justify-center p-0 text-[7px] font-black">X</Badge>
+                        ) : (
+                           <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
+                        )}
                       </div>
                       <div className="flex flex-col">
-                         <span className="font-black text-xs md:text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                         <div className="flex items-center gap-2">
+                            <span className="font-black text-xs md:text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                            {p.quantity === 0 && <Badge variant="destructive" className="h-4 px-1 text-[8px] font-black">غير متوفر</Badge>}
+                         </div>
                          <span className="text-[8px] md:text-[9px] text-primary font-black uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
                       </div>
                    </div>
@@ -338,7 +362,10 @@ export default function Dashboard() {
                         <span className="text-xs md:text-lg font-black text-primary tabular-nums">
                           {p.repairPrice.toLocaleString()} <span className="text-[8px] md:text-[10px] opacity-60">دج</span>
                         </span>
-                        <span className="text-[10px] text-muted-foreground font-bold">متوفر: {p.quantity}</span>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[8px] text-muted-foreground font-bold line-through">{p.salePrice.toLocaleString()} دج</span>
+                           <span className="text-[10px] text-emerald-600 font-black">متوفر: {p.quantity}</span>
+                        </div>
                       </div>
                    </div>
                 </div>

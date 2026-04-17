@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from "react"
@@ -17,12 +16,13 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
   const [error, setError] = React.useState<string | null>(null)
   const [isCameraReady, setIsCameraReady] = React.useState(false)
   const html5QrCodeRef = React.useRef<Html5Qrcode | null>(null)
-  const scannerId = "qr-reader-container-unique"
+  const scannerId = "qr-reader-target-container"
 
   const stopScanner = React.useCallback(async () => {
     if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
       try {
         await html5QrCodeRef.current.stop()
+        html5QrCodeRef.current.clear()
       } catch (err) {
         console.warn("Failed to stop scanner cleanly:", err)
       }
@@ -35,8 +35,8 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
       setError(null)
       
       const startScanner = async () => {
-        // Wait for DOM to be ready
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait a bit to ensure the Dialog DOM is fully stable
+        await new Promise(resolve => setTimeout(resolve, 600));
         
         try {
           const container = document.getElementById(scannerId);
@@ -58,7 +58,7 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
               onScan(decodedText);
               onOpenChange(false);
             },
-            () => {} // handle scan errors silently during polling
+            () => {} 
           );
           setIsCameraReady(true);
         } catch (err: any) {
@@ -89,24 +89,28 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
         </DialogHeader>
         
         <div className="p-4 md:p-8 space-y-6">
-          <div 
-            id={scannerId} 
-            className="w-full aspect-square bg-black/10 rounded-2xl overflow-hidden border-2 border-dashed border-primary/20 flex items-center justify-center relative shadow-inner"
-          >
+          <div className="relative w-full aspect-square bg-black/10 rounded-2xl overflow-hidden border-2 border-dashed border-primary/20 shadow-inner">
+            {/* 
+                Important: The scanner target div MUST NOT have React-managed children 
+                while scanning to prevent hydration/DOM update conflicts.
+            */}
+            <div id={scannerId} className="w-full h-full" />
+            
             {!isCameraReady && !error && (
-              <div className="text-center flex flex-col items-center gap-4">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm gap-4 z-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">جاري التحميل...</p>
+                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">جاري تهيئة الكاميرا...</p>
               </div>
             )}
+            
             {error && (
-              <div className="p-6 text-center space-y-4">
-                <div className="h-12 w-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 p-6 text-center space-y-4 z-20">
+                <div className="h-12 w-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center">
                    <X className="h-6 w-6" />
                 </div>
                 <p className="text-sm font-bold text-destructive leading-tight">{error}</p>
                 <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="rounded-xl font-bold h-9">
-                  <RefreshCw className="h-3 w-3 ml-2" /> تحديث
+                  <RefreshCw className="h-3 w-3 ml-2" /> تحديث الصفحة
                 </Button>
               </div>
             )}
@@ -119,7 +123,7 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
 
         <div className="p-6 bg-black/5 flex justify-center">
           <Button variant="ghost" className="rounded-2xl px-10 h-12 font-black text-muted-foreground hover:text-primary" onClick={() => onOpenChange(false)}>
-            إغلاق
+            إلغاء وإغلاق
           </Button>
         </div>
       </DialogContent>

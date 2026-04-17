@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -52,21 +51,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Hydration-safe initial state for online status
+  const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
+    // Set actual online status only after mount to avoid hydration mismatch
+    setIsOnline(navigator.onLine);
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Sync detection logic
-    // Using onSnapshotsInSync to detect when local writes are being processed
     const unsubscribeSync = onSnapshotsInSync(firestore, () => {
-      // Logic could be expanded here to check metadata of specific collections
-      // For global MVP, we assume synchronization is happening when this fires
       setIsSyncing(false);
     });
 
