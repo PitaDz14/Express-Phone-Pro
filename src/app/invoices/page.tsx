@@ -7,15 +7,13 @@ import {
   Plus, 
   Search, 
   Printer, 
-  Download,
   Trash2,
-  Scan,
   UserPlus,
   Package,
   Loader2,
-  History,
   Smartphone,
-  Wallet
+  Wallet,
+  CheckCircle2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,6 +25,8 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, u
 import { collection, doc, serverTimestamp, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { format } from "date-fns"
+import { ar } from "date-fns/locale"
 
 interface CartItem {
   id: string
@@ -90,6 +90,103 @@ export default function InvoicesPage() {
     setCart(cart.map(item => item.id === id ? { ...item, price: newPrice } : item))
   }
 
+  const handlePrintInvoice = (invId: string, invoiceData: any, cartItems: CartItem[], customer: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const previousDebt = customer?.debt || 0;
+    const currentTotalDebt = previousDebt + (invoiceData.totalAmount - invoiceData.paidAmount);
+
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head>
+          <title>فاتورة - ${invId.slice(0, 8)}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+            body { font-family: 'Almarai', sans-serif; padding: 20px; color: #1a1a1a; line-height: 1.6; }
+            .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #3960AC; padding-bottom: 20px; margin-bottom: 20px; }
+            .shop-info h1 { margin: 0; color: #3960AC; font-size: 28px; font-weight: 800; }
+            .details { display: grid; grid-cols: 2; gap: 20px; margin-bottom: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { background: #f8f9fa; border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: 800; }
+            td { border: 1px solid #eee; padding: 12px; }
+            .summary { margin-top: 30px; border-top: 2px solid #3960AC; padding-top: 20px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 700; }
+            .summary-row.total { font-size: 20px; color: #3960AC; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
+            .debt-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 15px; border-radius: 8px; margin-top: 20px; }
+            .footer-msg { text-align: center; margin-top: 50px; font-weight: 800; color: #3960AC; font-size: 18px; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="invoice-box">
+            <div class="header">
+              <div class="shop-info">
+                <h1>EXPRESS PHONE</h1>
+                <p>إدارة المبيعات والتصليح الاحترافية</p>
+              </div>
+              <div style="text-align: left">
+                <p><strong>رقم الفاتورة:</strong> #${invId.slice(0, 8)}</p>
+                <p><strong>التاريخ:</strong> ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: ar })}</p>
+              </div>
+            </div>
+
+            <div class="details">
+              <div>
+                <p><strong>العميل:</strong> ${customer?.name || "عميل نقدي عام"}</p>
+                <p><strong>الهاتف:</strong> ${customer?.phone || "---"}</p>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>المنتج</th>
+                  <th style="text-align: center">الكمية</th>
+                  <th style="text-align: center">سعر الوحدة</th>
+                  <th style="text-align: left">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${cartItems.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td style="text-align: center">${item.qty}</td>
+                    <td style="text-align: center">${item.price.toLocaleString()} دج</td>
+                    <td style="text-align: left">${(item.price * item.qty).toLocaleString()} دج</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div class="summary">
+              <div class="summary-row"><span>المجموع الفرعي:</span> <span>${(invoiceData.totalAmount + (discount || 0)).toLocaleString()} دج</span></div>
+              <div class="summary-row" style="color: #c53030"><span>الخصم:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>
+              <div class="summary-row" style="color: #2f855a"><span>المبلغ المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row total"><span>الإجمالي النهائي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
+            </div>
+
+            ${customer ? `
+              <div class="debt-box">
+                <div class="summary-row"><span>الدين السابق:</span> <span>${previousDebt.toLocaleString()} دج</span></div>
+                <div class="summary-row"><span>دين هذه الفاتورة:</span> <span>${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</span></div>
+                <div class="summary-row" style="font-weight: 800; font-size: 16px; margin-top: 5px; border-top: 1px solid #feb2b2; padding-top: 5px;">
+                  <span>إجمالي الحساب المتبقي:</span> <span>${currentTotalDebt.toLocaleString()} دج</span>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="footer-msg">
+              شكراً لثقتكم بنا
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   const handleProcessInvoice = async () => {
     if (cart.length === 0) {
       toast({ title: "خطأ", description: "السلة فارغة", variant: "destructive" })
@@ -145,6 +242,10 @@ export default function InvoicesPage() {
         }
 
         toast({ title: "تم إصدار الفاتورة", description: `رقم الفاتورة: ${invRef.id.slice(0, 8)}` })
+        
+        // Print action
+        handlePrintInvoice(invRef.id, invoiceData, cart, selectedCustomer)
+
         setCart([])
         setSelectedCustomer(null)
         setDiscount(0)
@@ -242,7 +343,7 @@ export default function InvoicesPage() {
                                <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">سعر الوحدة:</span>
                                <Input 
                                  type="number" 
-                                 className="h-7 w-24 glass border-none font-black text-[10px] tabular-nums p-1 text-primary focus:ring-1 focus:ring-primary" 
+                                 className="h-8 w-28 glass border-none font-black text-sm tabular-nums p-1 text-primary focus:ring-1 focus:ring-primary text-center" 
                                  value={item.price} 
                                  onChange={(e) => updatePrice(item.id, Number(e.target.value))} 
                                />
@@ -339,7 +440,7 @@ export default function InvoicesPage() {
                     <span className="text-4xl font-black tabular-nums tracking-tighter">{total.toLocaleString()} <span className="text-lg opacity-40">دج</span></span>
                   </div>
                   <Button className="w-full bg-white text-primary font-black hover:bg-white/90 gap-3 h-16 rounded-[1.8rem] text-lg shadow-xl" onClick={handleProcessInvoice} disabled={isProcessing || cart.length === 0}>
-                    {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6" />} تأكيد وحفظ
+                    {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6" />} تأكيد وطباعة
                   </Button>
                 </CardContent>
                 <CardFooter className="flex-col gap-4 p-8 text-center bg-black/10">
