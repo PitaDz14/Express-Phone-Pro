@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -41,6 +41,7 @@ interface Category {
 export default function CategoriesPage() {
   const { toast } = useToast()
   const db = useFirestore()
+  const { user } = useUser()
   const [open, setOpen] = React.useState(false)
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(null)
   const [parentCategory, setParentCategory] = React.useState<Category | null>(null)
@@ -72,7 +73,7 @@ export default function CategoriesPage() {
   }, [allCategories])
 
   const handleSave = () => {
-    if (!categoryName) return
+    if (!categoryName || !user) return
 
     const level = parentCategory ? (parentCategory.level + 1) : (editingCategory?.level || 0);
     const parentId = parentCategory ? parentCategory.id : (editingCategory?.parentId || null);
@@ -88,7 +89,7 @@ export default function CategoriesPage() {
       level: level,
       path: path,
       updatedAt: serverTimestamp(),
-      updatedBy: "Khaled_Deragha"
+      updatedByUserId: user.uid
     }
 
     if (editingCategory) {
@@ -97,7 +98,8 @@ export default function CategoriesPage() {
     } else {
       addDocumentNonBlocking(categoriesRef, {
         ...categoryData,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        createdByUserId: user.uid
       })
       toast({ title: "تمت الإضافة", description: "تم إضافة التصنيف الجديد للشجرة" })
     }

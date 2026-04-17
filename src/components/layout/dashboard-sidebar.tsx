@@ -11,12 +11,11 @@ import {
   BarChart3,
   ChevronLeft,
   History,
-  ShieldCheck
+  ShieldCheck,
+  Smartphone
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 import {
   Sidebar,
@@ -43,23 +42,14 @@ const items = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   return (
     <Sidebar side="right" className="border-none bg-transparent p-4 hidden md:flex">
       <div className="h-full glass-premium rounded-[2.5rem] flex flex-col">
         <SidebarHeader className="px-8 py-12">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500 border border-primary/10 overflow-hidden p-1">
-               {logo && (
-                 <Image 
-                  src={logo.imageUrl} 
-                  alt="Express Phone Icon" 
-                  width={60} 
-                  height={60} 
-                  className="object-contain" 
-                 />
-               )}
+            <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500 border border-primary/10 overflow-hidden p-1 text-primary">
+               <Smartphone className="h-8 w-8" />
             </div>
             <div className="flex flex-col">
               <span className="font-black text-2xl tracking-tighter text-[#3960AC]">EXPRESS</span>

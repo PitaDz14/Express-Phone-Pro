@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Lock, Mail, Loader2, AlertCircle } from "lucide-react"
+import { Lock, Mail, Loader2, AlertCircle, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,8 +12,6 @@ import { useAuth, useUser } from "@/firebase"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -25,8 +23,6 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-
-  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   React.useEffect(() => {
     if (!isUserLoading && user) {
@@ -70,16 +66,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[450px] space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center space-y-2">
           <div className="mx-auto h-24 w-24 rounded-[2.5rem] bg-white flex items-center justify-center shadow-2xl shadow-primary/20 rotate-3 overflow-hidden border border-primary/5 p-2">
-            {logo && (
-              <Image 
-                src={logo.imageUrl} 
-                alt="Express Phone Icon" 
-                width={80} 
-                height={80} 
-                className="object-contain"
-                priority
-              />
-            )}
+            <Smartphone className="h-14 w-14 text-primary" />
           </div>
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter mt-4">EXPRESS PHONE PRO</h1>
           <p className="text-sm text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة المتكامل</p>

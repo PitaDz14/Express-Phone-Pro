@@ -45,14 +45,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
-import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
+import { useRouter } from "next/navigation"
 
 // --- Components ---
 
@@ -96,7 +95,7 @@ const QuickActionButton = ({ href, icon: Icon, label, color, onClick }: any) => 
   )
 }
 
-const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any, db: any, showPurchase: boolean }) => {
+const QuickEditItem = React.memo(({ product, db, showPurchase, userId }: { product: any, db: any, showPurchase: boolean, userId: string }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
@@ -111,8 +110,12 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
 
   const handleUpdate = React.useCallback((field: string, value: number) => {
     const productRef = doc(db, "products", product.id)
-    updateDocumentNonBlocking(productRef, { [field]: value })
-  }, [db, product.id])
+    updateDocumentNonBlocking(productRef, { 
+      [field]: value,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: userId 
+    })
+  }, [db, product.id, userId])
 
   return (
     <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all animate-in fade-in zoom-in duration-300">
@@ -175,8 +178,9 @@ QuickEditItem.displayName = "QuickEditItem"
 
 export default function Dashboard() {
   const db = useFirestore()
+  const { user } = useUser()
   const { toast } = useToast()
-  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
+  const router = useRouter()
   
   // Hydration safety
   const [isMounted, setIsMounted] = React.useState(false)
@@ -260,7 +264,7 @@ export default function Dashboard() {
   }, [quickEditSearch, products])
 
   const handleQuickAdd = async () => {
-    if (!qaName || !qaCat || qaSale <= 0) {
+    if (!qaName || !qaCat || qaSale <= 0 || !user) {
       toast({ title: "خطأ", description: "يرجى ملء الاسم، التصنيف، وسعر البيع على الأقل", variant: "destructive" })
       return
     }
@@ -283,7 +287,8 @@ export default function Dashboard() {
         repairPrice: Number(qaRepair),
         minStockQuantity: 1,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        createdByUserId: user.uid
       })
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
@@ -296,6 +301,14 @@ export default function Dashboard() {
   }
 
   const handleQRScan = (code: string) => {
+    // Check if scanned code is an Invoice URL
+    if (code.includes("/invoices/history")) {
+      const hash = code.split('#')[1];
+      router.push(`/invoices/history${hash ? `#${hash}` : ''}`);
+      toast({ title: "توجيه ذكي", description: "جاري الانتقال لصفحة سجل الفواتير" });
+      return;
+    }
+
     const product = products?.find(p => p.productCode === code)
     if (product) {
       setQuickEditSearch(code)
@@ -334,19 +347,8 @@ export default function Dashboard() {
 
       <header className="flex h-20 shrink-0 items-center justify-between px-4 md:px-10 glass sticky top-0 z-50">
         <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 overflow-hidden border border-primary/10 transition-transform group-hover:rotate-0">
-             {logo?.imageUrl ? (
-               <Image 
-                src={logo.imageUrl} 
-                alt="Logo" 
-                width={48} 
-                height={48} 
-                className="object-contain" 
-                onError={(e: any) => { e.target.style.display = 'none' }}
-               />
-             ) : (
-               <Smartphone className="h-6 w-6 text-primary" />
-             )}
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0">
+             <Smartphone className="h-6 w-6 text-primary" />
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
@@ -478,7 +480,7 @@ export default function Dashboard() {
                     <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-10 md:h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                    {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
+                    {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} userId={user?.uid || ""} />)}
                   </div>
                </div>
             </DialogContent>
@@ -599,4 +601,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

@@ -52,7 +52,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -124,6 +124,7 @@ ProductRow.displayName = "ProductRow"
 export default function ProductsPage() {
   const { toast } = useToast()
   const db = useFirestore()
+  const { user } = useUser()
   
   const [open, setOpen] = React.useState(false)
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false)
@@ -208,7 +209,7 @@ export default function ProductsPage() {
   }
 
   const handleSaveProduct = () => {
-    if (!productName || !categoryId || salePrice <= 0) {
+    if (!productName || !categoryId || salePrice <= 0 || !user) {
       toast({ title: "خطأ", description: "يرجى ملء الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
       return
     }
@@ -229,14 +230,15 @@ export default function ProductsPage() {
       purchasePrice: Number(purchasePrice),
       salePrice: Number(salePrice),
       repairPrice: Number(repairPrice),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      updatedByUserId: user.uid
     }
 
     if (editingProduct) {
       updateDocumentNonBlocking(doc(db, "products", editingProduct.id), productData)
       toast({ title: "تم التعديل", description: "تم تحديث بيانات المنتج بنجاح" })
     } else {
-      addDocumentNonBlocking(productsRef, { ...productData, createdAt: serverTimestamp() })
+      addDocumentNonBlocking(productsRef, { ...productData, createdAt: serverTimestamp(), createdByUserId: user.uid })
       toast({ title: "تمت الإضافة", description: `تم إضافة المنتج بالكود: ${finalCode}` })
     }
     

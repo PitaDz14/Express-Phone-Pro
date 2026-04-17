@@ -52,8 +52,6 @@ import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
-import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 interface CartItem {
   id: string
@@ -71,7 +69,6 @@ export default function InvoicesPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('editId')
-  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -165,6 +162,11 @@ export default function InvoicesPage() {
   }
 
   const handleQRScan = (code: string) => {
+    if (code.includes("/invoices/history")) {
+      const hash = code.split('#')[1];
+      router.push(`/invoices/history${hash ? `#${hash}` : ''}`);
+      return;
+    }
     const product = products?.find(p => p.productCode === code)
     if (product) addToCart(product)
     else toast({ title: "منتج غير مسجل", description: `كود ${code} غير موجود`, variant: "destructive" })
@@ -246,7 +248,7 @@ export default function InvoicesPage() {
             </div>
 
             <div class="qr-footer">
-              <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invId}" alt="QR" />
+              <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invId}" alt="QR" />
               <p style="font-weight: 800; font-size: 11px; margin-top: 5px;">شكراً لتعاملكم معنا</p>
             </div>
           </div>
@@ -328,13 +330,16 @@ export default function InvoicesPage() {
         });
 
         batch.update(doc(db, "products", item.productId), {
-          quantity: increment(-item.qty)
+          quantity: increment(-item.qty),
+          updatedAt: serverTimestamp(),
+          updatedByUserId: user.uid
         });
       });
 
       if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
         batch.update(doc(db, "customers", selectedCustomer.id), {
-          debt: increment(debtAmount)
+          debt: increment(debtAmount),
+          updatedAt: serverTimestamp()
         });
       }
 
@@ -368,11 +373,7 @@ export default function InvoicesPage() {
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-4 md:px-8 glass sticky top-0 z-50">
           <Link href="/" className="flex items-center gap-3 group">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-0 rotate-3 overflow-hidden">
-               {logo?.imageUrl ? (
-                 <Image src={logo.imageUrl} alt="Logo" width={40} height={40} className="object-contain" />
-               ) : (
-                 <Smartphone className="h-5 w-5" />
-               )}
+               <Smartphone className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
@@ -612,7 +613,7 @@ export default function InvoicesPage() {
                      </div>
 
                      <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
-                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${editId || "NEW"}`} alt="QR" />
+                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || "NEW"}`} alt="QR" />
                         <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
                      </div>
                   </div>
