@@ -348,21 +348,27 @@ export default function InvoicesPage() {
                                <div className="flex flex-col">
                                   <p className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</p>
                                   <div className="flex flex-col gap-0.5 mt-1">
-                                    <p className="text-[9px] text-primary font-black uppercase tracking-tighter">{p.categoryPath || p.categoryName}</p>
-                                    <div className="flex items-center gap-2">
+                                    <p className="text-[9px] text-primary font-black uppercase tracking-tighter leading-none">{p.categoryPath || p.categoryName}</p>
+                                    <div className="flex items-center gap-2 mt-1">
                                       <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</p>
-                                      <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
-                                         متاح: {p.quantity}
+                                      <Badge 
+                                        variant={p.quantity <= 0 ? "destructive" : p.quantity <= (p.minStockQuantity || 1) ? "warning" : "success"} 
+                                        className="text-[8px] px-1.5 h-4 font-black rounded-lg"
+                                      >
+                                         {p.quantity <= 0 ? "غير متوفر" : `متوفر: ${p.quantity}`}
                                       </Badge>
                                     </div>
                                   </div>
                                </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                               <p className="font-black text-primary tabular-nums text-sm">{p.salePrice.toLocaleString()} دج</p>
-                               {p.repairPrice > 0 && (
-                                 <p className="text-[9px] font-black text-muted-foreground tabular-nums opacity-60">تصليح: {p.repairPrice.toLocaleString()} دج</p>
-                               )}
+                            <div className="flex items-center gap-4">
+                               <div className="flex flex-col items-end">
+                                  <span className="text-[10px] font-bold text-muted-foreground tabular-nums">البيع: {p.salePrice.toLocaleString()} دج</span>
+                                  <span className="text-lg font-black text-primary tabular-nums leading-none mt-1">
+                                    {p.repairPrice.toLocaleString()} <span className="text-[10px] opacity-60">دج</span>
+                                  </span>
+                                  <span className="text-[8px] font-black text-primary/40 uppercase tracking-tighter">سعر التصليح</span>
+                               </div>
                             </div>
                           </div>
                         ))}

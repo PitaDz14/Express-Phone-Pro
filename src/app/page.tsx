@@ -229,14 +229,37 @@ export default function Dashboard() {
           {searchTerm && (
             <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-50 overflow-hidden border-white/20 animate-in slide-in-from-top-2">
               {filteredProducts.map(p => (
-                <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between">
-                   <div className="flex flex-col">
-                      <span className="font-black text-sm">{p.name}</span>
-                      <span className="text-[9px] text-muted-foreground font-bold">{p.categoryPath}</span>
-                   </div>
+                <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
                    <div className="flex items-center gap-4">
-                      <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[10px] h-5">{p.quantity} متوفر</Badge>
-                      <span className="font-black text-primary text-sm tabular-nums">{p.salePrice.toLocaleString()} دج</span>
+                      <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
+                        {p.imageUrl ? (
+                          <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Smartphone className="h-6 w-6 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                         <span className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                         <span className="text-[9px] text-primary font-black uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
+                         <span className="text-[8px] text-muted-foreground font-bold mt-0.5">#{p.productCode}</span>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-6">
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge 
+                          variant={p.quantity <= 0 ? "destructive" : p.quantity <= (p.minStockQuantity || 1) ? "warning" : "success"} 
+                          className="text-[9px] h-5 px-3 font-black rounded-lg"
+                        >
+                          {p.quantity <= 0 ? "غير متوفر" : `متوفر: ${p.quantity}`}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold text-muted-foreground tabular-nums">البيع: {p.salePrice.toLocaleString()} دج</span>
+                        <span className="text-lg font-black text-primary tabular-nums leading-none mt-1">
+                          {p.repairPrice.toLocaleString()} <span className="text-[10px] opacity-60">دج</span>
+                        </span>
+                        <span className="text-[8px] font-black text-primary/40 uppercase tracking-tighter">سعر التصليح</span>
+                      </div>
                    </div>
                 </div>
               ))}
