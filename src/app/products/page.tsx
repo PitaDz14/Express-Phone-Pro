@@ -173,7 +173,7 @@ export default function ProductsPage() {
   const handleOpenPrint = (p: any) => {
     setPrintingProduct(p)
     setPrintName(p.name)
-    setPrintPrice(p.salePrice) // Default to sale price but showPrice is false
+    setPrintPrice(p.salePrice) 
     setShowPrice(false)
     setCopies(1)
     setPrintDialogOpen(true)
@@ -278,7 +278,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <Card className="border-none glass rounded-[2.5rem] overflow-hidden shadow-2xl card-3d">
+      <Card className="border-none glass rounded-[2.5rem] overflow-hidden shadow-2xl">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-white/10">
