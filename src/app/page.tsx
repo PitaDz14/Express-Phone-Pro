@@ -71,11 +71,11 @@ const StatCard = ({ title, value, icon: Icon, color, subValue }: any) => (
 
 const QuickActionButton = ({ href, icon: Icon, label, color, onClick }: any) => {
   const content = (
-    <div className="flex flex-col items-center justify-center gap-3 p-6 h-full transition-all group">
-      <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-xl transform group-hover:scale-110 group-hover:rotate-6 transition-transform", color)}>
-        <Icon className="h-7 w-7" />
+    <div className="flex flex-col items-center justify-center gap-3 p-4 md:p-6 h-full transition-all group">
+      <div className={cn("h-12 w-12 md:h-14 md:w-14 rounded-2xl flex items-center justify-center text-white shadow-xl transform group-hover:scale-110 group-hover:rotate-6 transition-transform", color)}>
+        <Icon className="h-6 w-6 md:h-7 md:w-7" />
       </div>
-      <span className="font-black text-sm text-foreground transition-colors group-hover:text-primary">{label}</span>
+      <span className="font-black text-xs md:text-sm text-foreground transition-colors group-hover:text-primary text-center leading-tight">{label}</span>
     </div>
   )
 
@@ -100,7 +100,6 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
   const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
 
-  // Update local states when product changes
   React.useEffect(() => {
     setLocalQty(product.quantity);
     setLocalSalePrice(product.salePrice);
@@ -116,14 +115,14 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   return (
     <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all animate-in fade-in zoom-in duration-300">
        <div className="flex items-center justify-between">
-          <div className="flex-1">
+          <div className="flex-1 overflow-hidden">
             <p className="font-black text-sm text-foreground truncate">{product.name}</p>
-            <p className="text-[9px] text-primary font-bold">{product.categoryPath || product.categoryName}</p>
+            <p className="text-[9px] text-primary font-bold truncate">{product.categoryPath || product.categoryName}</p>
           </div>
-          <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-4 w-4"/></Button>
-            <span className="w-8 text-center text-sm font-black tabular-nums">{localQty}</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-4 w-4"/></Button>
+          <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></Button>
+            <span className="w-6 md:w-8 text-center text-xs md:text-sm font-black tabular-nums">{localQty}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3 md:h-4 md:w-4"/></Button>
           </div>
        </div>
 
@@ -132,7 +131,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
              <Label className="text-[8px] font-black uppercase text-primary px-1">البيع</Label>
              <Input 
                 type="number" 
-                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-primary focus:ring-1 focus:ring-primary"
+                className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums text-primary focus:ring-1 focus:ring-primary"
                 value={localSalePrice}
                 onChange={(e) => { const v = Number(e.target.value); setLocalSalePrice(v); handleUpdate('salePrice', v); }}
              />
@@ -141,7 +140,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
              <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">التصليح</Label>
              <Input 
                 type="number" 
-                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
+                className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
                 value={localRepairPrice}
                 onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
              />
@@ -151,7 +150,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
                <Label className="text-[8px] font-black uppercase text-orange-600 px-1">الشراء</Label>
                <Input 
                   type="number" 
-                  className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-orange-600 focus:ring-1 focus:ring-orange-600"
+                  className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums text-orange-600 focus:ring-1 focus:ring-orange-600"
                   value={localPurchasePrice}
                   onChange={(e) => { const v = Number(e.target.value); setLocalPurchasePrice(v); handleUpdate('purchasePrice', v); }}
                />
@@ -163,8 +162,6 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
 })
 QuickEditItem.displayName = "QuickEditItem"
 
-// --- Main Page ---
-
 export default function Dashboard() {
   const db = useFirestore()
   const { toast } = useToast()
@@ -174,7 +171,6 @@ export default function Dashboard() {
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
-  // Quick Add State
   const [qaName, setQaName] = React.useState("")
   const [qaCat, setQaCat] = React.useState("")
   const [qaQty, setQaQty] = React.useState(0)
@@ -183,7 +179,6 @@ export default function Dashboard() {
   const [qaRepair, setQaRepair] = React.useState(0)
   const [isAdding, setIsAdding] = React.useState(false)
 
-  // Data refs
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
@@ -196,7 +191,6 @@ export default function Dashboard() {
   const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
-  // Memoized Stats
   const stats = React.useMemo(() => {
     const today = new Date().setHours(0, 0, 0, 0)
     const todaySales = recentInvoices?.filter(inv => {
@@ -300,22 +294,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent pb-32 animate-in fade-in duration-700">
+    <div className="min-h-screen bg-transparent pb-32 animate-in fade-in duration-700 overflow-x-hidden">
       <QRScannerDialog 
         open={isQRScannerOpen} 
         onOpenChange={setIsQRScannerOpen} 
         onScan={handleQRScan} 
       />
 
-      {/* Header with Search */}
-      <header className="flex h-20 shrink-0 items-center justify-between px-10 glass sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg rotate-3 transition-transform hover:rotate-0">
-             <Smartphone className="h-6 w-6" />
+      <header className="flex h-20 shrink-0 items-center justify-between px-4 md:px-10 glass sticky top-0 z-50">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg rotate-3">
+             <Smartphone className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
-            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pro System</span>
+            <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
+            <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pro System</span>
           </div>
         </div>
 
@@ -332,109 +325,95 @@ export default function Dashboard() {
               {filteredProducts.map(p => (
                 <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
+                      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
                         {p.imageUrl ? (
                           <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Smartphone className="h-6 w-6 text-muted-foreground/40" />
+                          <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
                         )}
                       </div>
                       <div className="flex flex-col">
-                         <span className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
-                         <span className="text-[9px] text-primary font-black uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
-                         <span className="text-[8px] text-muted-foreground font-bold mt-0.5">#{p.productCode}</span>
+                         <span className="font-black text-xs md:text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                         <span className="text-[8px] md:text-[9px] text-primary font-black uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
                       </div>
                    </div>
-                   <div className="flex items-center gap-6">
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge 
-                          variant={p.quantity <= 0 ? "destructive" : p.quantity <= (p.minStockQuantity || 1) ? "warning" : "success"} 
-                          className="text-[9px] h-5 px-3 font-black rounded-lg"
-                        >
-                          {p.quantity <= 0 ? "غير متوفر" : `متوفر: ${p.quantity}`}
-                        </Badge>
-                      </div>
+                   <div className="flex items-center gap-4">
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-bold text-muted-foreground tabular-nums">البيع: {p.salePrice.toLocaleString()} دج</span>
-                        <span className="text-lg font-black text-primary tabular-nums leading-none mt-1">
-                          {p.repairPrice.toLocaleString()} <span className="text-[10px] opacity-60">دج</span>
+                        <span className="text-xs md:text-lg font-black text-primary tabular-nums">
+                          {p.repairPrice.toLocaleString()} <span className="text-[8px] md:text-[10px] opacity-60">دج</span>
                         </span>
-                        <span className="text-[8px] font-black text-primary/40 uppercase tracking-tighter">سعر التصليح</span>
                       </div>
                    </div>
                 </div>
               ))}
-              <Link href="/products" className="block p-3 text-center bg-muted/20 text-[10px] font-black text-primary uppercase hover:bg-muted/40">مشاهدة الكل</Link>
+              <Link href="/products" className="block p-3 text-center bg-muted/20 text-[10px] font-black text-primary uppercase">مشاهدة الكل</Link>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
            <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform" onClick={() => setIsQuickEditOpen(true)}>
-                <Edit3 className="h-5 w-5 text-primary" />
+              <Button variant="outline" size="icon" className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl glass hover:scale-105 transition-transform">
+                <Edit3 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
               </Button>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
-               <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
-                  <h2 className="text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</h2>
-                  <div className="flex items-center gap-3">
-                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
-                      {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
-                    </Button>
-                  </div>
+            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh] md:h-[90vh]">
+               <div className="p-4 md:p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
+                  <h2 className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</h2>
+                  <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
+                    {showPurchaseInEdit ? <EyeOff className="h-3 w-3 md:h-4 md:w-4" /> : <Eye className="h-3 w-3 md:h-4 md:w-4" />} سعر الشراء
+                  </Button>
                </div>
                
-               {/* Quick Add Form Section */}
-               <div className="p-8 border-b border-white/5 bg-primary/5 space-y-4">
+               <div className="p-4 md:p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-1 bg-primary rounded-full" />
-                    <p className="text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
+                    <p className="text-[10px] md:text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
-                      <Input placeholder="مثال: شاشة سامسونج A51" value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold" />
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
+                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
                       <Select value={qaCat} onValueChange={setQaCat}>
-                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right">
+                        <SelectTrigger className="h-10 md:h-11 glass border-none rounded-xl font-bold text-right text-xs">
                           <SelectValue placeholder="اختر الفئة..." />
                         </SelectTrigger>
-                        <SelectContent className="glass border-none rounded-xl z-[220]">
+                        <SelectContent className="glass border-none rounded-xl z-[350]">
                             {categories && renderCategoryOptions(categories)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية الأولية</Label>
-                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold" />
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية</Label>
+                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
-                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600" />
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
+                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
-                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600" />
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
+                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
-                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary" />
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
+                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
                     </div>
-                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2 hover:scale-[1.01] transition-transform">
+                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-10 md:h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
                        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                       حفظ وإضافة للمخزون
+                       حفظ المنتج
                     </Button>
                   </div>
                </div>
 
-               <div className="p-8 flex-1 overflow-hidden flex flex-col gap-4">
+               <div className="p-4 md:p-8 flex-1 overflow-hidden flex flex-col gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع في القائمة للتعديل..." className="pl-10 h-12 glass border-none rounded-xl font-bold" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                    <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-10 md:h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                     {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
@@ -442,91 +421,78 @@ export default function Dashboard() {
                </div>
             </DialogContent>
            </Dialog>
-           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-sm shadow-lg animate-pulse">AD</div>
+           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-xs md:text-sm shadow-lg">AD</div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-8 space-y-10">
+      <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6 md:space-y-10">
         
-        {/* 1. Quick Actions - The Core Buttons */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-in slide-in-from-bottom-4 duration-500">
-          <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة جديدة" color="bg-primary" />
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+          <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة" color="bg-primary" />
           <QuickActionButton href="/products" icon={Plus} label="إضافة منتج" color="bg-accent" />
           <QuickActionButton href="/customers" icon={UserPlus} label="إضافة عميل" color="bg-emerald-500" />
           <QuickActionButton icon={QrCode} label="مسح QR" color="bg-orange-500" onClick={() => setIsQRScannerOpen(true)} />
         </section>
 
-        {/* 2. Smart Summary - Daily Stats */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-8 duration-700">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           <StatCard title="مبيعات اليوم" value={`${stats.todaySales.toLocaleString()} دج`} icon={TrendingUp} color="bg-emerald-500" />
           <StatCard title="إجمالي المنتجات" value={stats.productCount} icon={Package} color="bg-primary" />
-          <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" subValue="بحاجة للتوريد قريباً" />
+          <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" />
           <StatCard title="إجمالي الديون" value={`${stats.totalDebt.toLocaleString()} دج`} icon={Wallet} color="bg-red-500" />
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
-          {/* 3. Screens Section - The Special Focus */}
-          <div className="lg:col-span-2 flex flex-col gap-8 animate-in fade-in duration-1000">
-             <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[3rem] overflow-hidden shadow-2xl relative group">
-                <div className="absolute top-0 right-0 p-8 opacity-5 transition-transform group-hover:scale-125 duration-700">
-                   <Smartphone className="h-40 w-40 rotate-12" />
-                </div>
-                <CardHeader className="p-8 relative z-10">
+          <div className="lg:col-span-2 flex flex-col gap-6 md:gap-8">
+             <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl relative">
+                <CardHeader className="p-6 md:p-8 relative z-10">
                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 animate-bounce">
-                         <Sparkles className="h-5 w-5" />
+                      <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                         <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
-                      <CardTitle className="text-xl font-black">إحصائيات الشاشات (الأكثر طلباً)</CardTitle>
+                      <CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات</CardTitle>
                    </div>
                 </CardHeader>
-                <CardContent className="px-8 pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
-                      <span className="text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
-                      <p className="text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-50">قطعة</span></p>
+                <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                   <div className="glass bg-white/5 p-4 rounded-2xl">
+                      <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
+                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-xs opacity-50">قطعة</span></p>
                    </div>
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
-                      <span className="text-[9px] font-black uppercase text-primary">قيمة البيع</span>
-                      <p className="text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
+                   <div className="glass bg-white/5 p-4 rounded-2xl">
+                      <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع</span>
+                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
                    </div>
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
-                      <span className="text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span>
-                      <p className="text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
+                   <div className="glass bg-white/5 p-4 rounded-2xl">
+                      <span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span>
+                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
                    </div>
                 </CardContent>
              </Card>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-none glass rounded-[2.5rem] p-6 hover:shadow-lg transition-all">
-                   <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-black text-sm">نصيحة اليوم الذكية</h3>
-                      <Zap className="h-4 w-4 text-orange-500 animate-pulse" />
-                   </div>
-                   <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <Card className="border-none glass rounded-[2rem] p-4 md:p-6">
+                   <h3 className="font-black text-xs md:text-sm mb-2">نصيحة اليوم الذكية</h3>
+                   <p className="text-[10px] md:text-xs text-muted-foreground font-medium leading-relaxed">
                       {stats.lowStock > 0 
                         ? `لديك ${stats.lowStock} منتجات اقتربت من النفاد. ننصح بتوريد كميات جديدة لضمان استمرارية المبيعات.`
                         : "مستوى المخزون لديك ممتاز اليوم. ركز على ترويج المنتجات الأكثر ربحية مثل الشاشات الأصلية."
                       }
                    </p>
                 </Card>
-                <Card className="border-none bg-primary/10 rounded-[2.5rem] p-6 border border-primary/20 hover:shadow-lg transition-all">
-                   <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-black text-sm text-primary">حالة الديون</h3>
-                      <Wallet className="h-4 w-4 text-primary" />
-                   </div>
-                   <p className="text-xs text-primary/80 font-bold leading-relaxed">
-                      إجمالي مبالغ الديون في السوق حالياً هو {stats.totalDebt.toLocaleString()} دج. تواصل مع العملاء المدينين لتسوية الحسابات.
+                <Card className="border-none bg-primary/10 rounded-[2rem] p-4 md:p-6 border border-primary/20">
+                   <h3 className="font-black text-xs md:text-sm text-primary mb-2">حالة الديون</h3>
+                   <p className="text-[10px] md:text-xs text-primary/80 font-bold leading-relaxed">
+                      إجمالي مبالغ الديون في السوق حالياً هو {stats.totalDebt.toLocaleString()} دج. تواصل مع العملاء لتسوية الحسابات.
                    </p>
                 </Card>
              </div>
           </div>
 
-          {/* 4. Recent Activity - Quick List */}
-          <Card className="lg:col-span-1 border-none glass rounded-[3rem] overflow-hidden shadow-xl flex flex-col animate-in slide-in-from-right-8 duration-700">
-            <CardHeader className="p-8 border-b border-white/5 bg-primary/5">
+          <Card className="lg:col-span-1 border-none glass rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-xl flex flex-col">
+            <CardHeader className="p-6 md:p-8 border-b border-white/5 bg-primary/5">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-black">آخر المبيعات</CardTitle>
-                <Button asChild variant="ghost" size="sm" className="text-[10px] font-black text-primary hover:bg-primary/5 rounded-xl">
+                <CardTitle className="text-base md:text-lg font-black">آخر المبيعات</CardTitle>
+                <Button asChild variant="ghost" size="sm" className="text-[9px] md:text-[10px] font-black text-primary hover:bg-primary/5">
                    <Link href="/invoices/history">عرض الكل</Link>
                 </Button>
               </div>
@@ -536,28 +502,28 @@ export default function Dashboard() {
                 {isInvoicesLoading ? (
                   <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-20" /></div>
                 ) : recentInvoices?.length === 0 ? (
-                  <div className="p-10 text-center opacity-30 italic font-black text-xs">لا توجد مبيعات مؤخراً</div>
+                  <div className="p-10 text-center opacity-30 italic font-black text-[10px]">لا توجد مبيعات مؤخراً</div>
                 ) : recentInvoices?.map((inv, idx) => (
-                  <div key={inv.id} className="p-6 flex items-center justify-between hover:bg-white/30 transition-all group animate-in slide-in-from-top-2 duration-300" style={{ animationDelay: `${idx * 100}ms` }}>
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                        <ShoppingBag className="h-5 w-5" />
+                  <div key={inv.id} className="p-4 md:p-6 flex items-center justify-between hover:bg-white/30 transition-all">
+                    <div className="flex items-center gap-3 md:gap-4">
+                      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary">
+                        <ShoppingBag className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-muted-foreground uppercase">#{inv.id.slice(0, 6)}</span>
-                        <span className="font-black text-xs truncate max-w-[120px]">{inv.customerName}</span>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">#{inv.id.slice(0, 6)}</span>
+                        <span className="font-black text-[10px] md:text-xs truncate max-w-[100px] md:max-w-[120px]">{inv.customerName}</span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end">
-                       <span className="font-black text-primary text-sm tabular-nums">{inv.totalAmount.toLocaleString()} دج</span>
-                       {inv.status === "Debt" && <Badge className="text-[8px] h-4 bg-red-500/10 text-red-600 border-none">دين</Badge>}
+                    <div className="flex flex-col items-end shrink-0">
+                       <span className="font-black text-primary text-xs md:text-sm tabular-nums">{inv.totalAmount.toLocaleString()} دج</span>
+                       {inv.status === "Debt" && <Badge className="text-[7px] md:text-[8px] h-3 md:h-4 bg-red-500/10 text-red-600 border-none">دين</Badge>}
                     </div>
                   </div>
                 ))}
               </div>
             </CardContent>
-            <div className="p-6 bg-black/5 text-center">
-               <p className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em] animate-pulse">Express Phone Pro &copy; 2026</p>
+            <div className="p-4 bg-black/5 text-center">
+               <p className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">Express Phone Pro &copy; 2026</p>
             </div>
           </Card>
         </div>

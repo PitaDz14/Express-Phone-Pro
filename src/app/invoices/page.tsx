@@ -146,19 +146,18 @@ export default function InvoicesPage() {
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
             body { font-family: 'Almarai', sans-serif; padding: 20px; color: #1a1a1a; line-height: 1.6; }
-            .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #3960AC; padding-bottom: 20px; margin-bottom: 20px; }
-            .shop-info h1 { margin: 0; color: #3960AC; font-size: 28px; font-weight: 800; }
-            .details { display: grid; grid-cols: 2; gap: 20px; margin-bottom: 30px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th { background: #f8f9fa; border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: 800; }
-            td { border: 1px solid #eee; padding: 12px; }
-            .summary { margin-top: 30px; border-top: 2px solid #3960AC; padding-top: 20px; }
-            .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 700; }
-            .summary-row.total { font-size: 20px; color: #3960AC; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
-            .debt-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 15px; border-radius: 8px; margin-top: 20px; }
-            .footer-msg { text-align: center; margin-top: 50px; font-weight: 800; color: #3960AC; font-size: 18px; }
-            @media print { .no-print { display: none; } }
+            .invoice-box { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3960AC; padding-bottom: 10px; margin-bottom: 20px; }
+            .shop-info h1 { margin: 0; color: #3960AC; font-size: 24px; font-weight: 800; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            th { background: #f8f9fa; border: 1px solid #ddd; padding: 8px; text-align: right; }
+            td { border: 1px solid #eee; padding: 8px; }
+            .summary { margin-top: 20px; border-top: 2px solid #3960AC; padding-top: 10px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: 700; font-size: 14px; }
+            .summary-row.total { font-size: 18px; color: #3960AC; border-top: 1px solid #eee; padding-top: 5px; }
+            .debt-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 12px; }
+            .footer-msg { text-align: center; margin-top: 30px; font-weight: 800; color: #3960AC; }
+            @media print { body { padding: 0; } .invoice-box { border: none; box-shadow: none; } }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -166,65 +165,58 @@ export default function InvoicesPage() {
             <div class="header">
               <div class="shop-info">
                 <h1>EXPRESS PHONE</h1>
-                <p>إدارة المبيعات والتصليح الاحترافية</p>
+                <p>إدارة المبيعات والتصليح</p>
               </div>
-              <div style="text-align: left">
-                <p><strong>رقم الفاتورة:</strong> #${invId.slice(0, 8)}</p>
-                <p><strong>التاريخ:</strong> ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: ar })}</p>
+              <div style="text-align: left; font-size: 12px;">
+                <p><strong>رقم:</strong> #${invId.slice(0, 8)}</p>
+                <p><strong>تاريخ:</strong> ${format(new Date(), "dd-MM-yyyy", { locale: ar })}</p>
               </div>
             </div>
 
-            <div class="details">
-              <div>
-                <p><strong>العميل:</strong> ${customer?.name || "عميل نقدي عام"}</p>
-                <p><strong>الهاتف:</strong> ${customer?.phone || "---"}</p>
-              </div>
+            <div style="margin-bottom: 20px; font-size: 13px;">
+              <p><strong>العميل:</strong> ${customer?.name || "عميل عام"}</p>
+              <p><strong>الهاتف:</strong> ${customer?.phone || "---"}</p>
             </div>
 
             <table>
               <thead>
                 <tr>
-                  <th>المنتج / التصنيف</th>
-                  <th style="text-align: center">الكمية</th>
-                  <th style="text-align: center">سعر الوحدة</th>
-                  <th style="text-align: left">الإجمالي</th>
+                  <th>المنتج</th>
+                  <th style="text-align: center">كمية</th>
+                  <th style="text-align: center">سعر</th>
+                  <th style="text-align: left">إجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 ${cartItems.map(item => `
                   <tr>
-                    <td>
-                      <div style="font-weight: 800">${item.name}</div>
-                      <div style="font-size: 10px; color: #666">${item.categoryPath || ""}</div>
-                    </td>
+                    <td style="font-weight: 700">${item.name}</td>
                     <td style="text-align: center">${item.qty}</td>
-                    <td style="text-align: center">${item.price.toLocaleString()} دج</td>
-                    <td style="text-align: left">${(item.price * item.qty).toLocaleString()} دج</td>
+                    <td style="text-align: center">${item.price.toLocaleString()}</td>
+                    <td style="text-align: left">${(item.price * item.qty).toLocaleString()}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
 
             <div class="summary">
-              <div class="summary-row"><span>المجموع الفرعي:</span> <span>${(invoiceData.totalAmount + (discount || 0)).toLocaleString()} دج</span></div>
-              <div class="summary-row" style="color: #c53030"><span>الخصم:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>
-              <div class="summary-row" style="color: #2f855a"><span>المبلغ المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
-              <div class="summary-row total"><span>الإجمالي النهائي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row"><span>المجموع:</span> <span>${(invoiceData.totalAmount + (discount || 0)).toLocaleString()} دج</span></div>
+              <div class="summary-row"><span>الخصم:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>
+              <div class="summary-row" style="color: #2f855a"><span>المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row total"><span>الإجمالي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
             </div>
 
             ${customer ? `
               <div class="debt-box">
-                <div class="summary-row"><span>الدين السابق:</span> <span>${previousDebt.toLocaleString()} دج</span></div>
-                <div class="summary-row"><span>دين هذه الفاتورة:</span> <span>${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</span></div>
-                <div class="summary-row" style="font-weight: 800; font-size: 16px; margin-top: 5px; border-top: 1px solid #feb2b2; padding-top: 5px;">
-                  <span>إجمالي الحساب المتبقي:</span> <span>${currentTotalDebt.toLocaleString()} دج</span>
+                <div class="summary-row"><span>دين سابق:</span> <span>${previousDebt.toLocaleString()} دج</span></div>
+                <div class="summary-row"><span>دين حالي:</span> <span>${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</span></div>
+                <div class="summary-row" style="font-weight: 800; border-top: 1px solid #feb2b2; padding-top: 5px;">
+                  <span>المتبقي الكلي:</span> <span>${currentTotalDebt.toLocaleString()} دج</span>
                 </div>
               </div>
             ` : ''}
 
-            <div class="footer-msg">
-              شكراً لثقتكم بنا
-            </div>
+            <div class="footer-msg">شكراً لثقتكم بنا</div>
           </div>
         </body>
       </html>
@@ -288,8 +280,6 @@ export default function InvoicesPage() {
         }
 
         toast({ title: "تم إصدار الفاتورة", description: `رقم الفاتورة: ${invRef.id.slice(0, 8)}` })
-        
-        // Print action
         handlePrintInvoice(invRef.id, invoiceData, cart, selectedCustomer)
 
         setCart([])
@@ -306,97 +296,61 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="min-h-screen bg-transparent pb-32 overflow-x-hidden">
         <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
         
-        <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transform -rotate-3">
-                <Smartphone className="h-6 w-6" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-black text-lg tracking-tighter text-primary">EXPRESS</span>
-                <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Phone Pro</span>
-              </div>
-            </div>
-            <div className="h-8 w-px bg-border mx-2" />
-            <div className="flex flex-col">
-              <h1 className="text-xl font-black text-gradient-premium">نظام المبيعات الذكي (POS)</h1>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">معالجة فورية وتلقائية للمخزون</p>
-            </div>
-          </div>
+        <header className="flex h-20 shrink-0 items-center justify-between border-b px-4 md:px-8 glass sticky top-0 z-50">
           <div className="flex items-center gap-3">
-             <Button asChild variant="outline" className="h-11 px-6 rounded-2xl glass border-white/20 gap-2 font-black">
-               <Link href="/debts">
-                 <Wallet className="h-4 w-4" />
-                 إدارة الديون
-               </Link>
-             </Button>
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
+              <Smartphone className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">EXPRESS POS</h1>
+              <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
+            </div>
           </div>
+          <Button asChild variant="outline" className="h-10 px-4 rounded-xl glass border-white/20 gap-2 font-black text-xs">
+             <Link href="/debts">
+               <Wallet className="h-4 w-4" />
+               <span className="hidden sm:inline">إدارة الديون</span>
+             </Link>
+          </Button>
         </header>
 
-        <main className="max-w-7xl mx-auto p-8 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <Card className="border-none glass shadow-xl rounded-[2.5rem]">
-                <CardHeader className="border-b border-border p-8">
+        <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="border-none glass shadow-xl rounded-[2rem]">
+                <CardHeader className="p-6 md:p-8 border-b border-border">
                    <div className="flex items-center justify-between">
-                     <CardTitle className="text-xl font-black text-foreground">إضافة منتجات للفاتورة</CardTitle>
-                     <Button variant="ghost" className="rounded-xl border border-primary/20 gap-2 font-black text-primary hover:bg-primary hover:text-white" onClick={() => setIsQRScannerOpen(true)}>
-                        <Camera className="h-5 w-5" /> مسح كود
+                     <CardTitle className="text-lg md:text-xl font-black">إضافة المنتجات</CardTitle>
+                     <Button variant="ghost" size="sm" className="rounded-xl border border-primary/20 gap-2 font-black text-primary" onClick={() => setIsQRScannerOpen(true)}>
+                        <Camera className="h-4 w-4" /> <span className="hidden sm:inline">مسح كود</span>
                      </Button>
                    </div>
                 </CardHeader>
-                <CardContent className="p-8 space-y-6">
+                <CardContent className="p-4 md:p-8 space-y-6">
                   <div className="relative">
                     <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
-                        placeholder="ابحث عن منتج، ماركة، أو قسم..." 
-                        className="pl-12 h-14 glass border-none shadow-inner rounded-2xl font-bold text-foreground" 
+                        placeholder="ابحث عن منتج..." 
+                        className="pl-12 h-12 glass border-none rounded-2xl font-bold text-sm" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
                     {searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-3 glass border-border rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[400px] overflow-y-auto">
-                        {filteredProducts.length === 0 ? (
-                          <div className="p-8 text-center opacity-30 italic font-black text-xs text-foreground">لا توجد نتائج مطابقة</div>
-                        ) : filteredProducts.map(p => (
-                          <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer flex justify-between items-center border-b border-border transition-all group" onClick={() => addToCart(p)}>
-                            <div className="flex items-center gap-4">
-                               <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
-                                  {p.imageUrl ? (
-                                    <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
-                                  ) : (
-                                    <Smartphone className="h-6 w-6 text-muted-foreground/40" />
-                                  )}
-                               </div>
-                               <div className="flex flex-col">
-                                  <p className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</p>
-                                  <div className="flex flex-col gap-0.5 mt-1">
-                                    <p className="text-[9px] text-primary font-black uppercase tracking-tighter leading-none">{p.categoryPath || p.categoryName}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</p>
-                                      <Badge 
-                                        variant={p.quantity <= 0 ? "destructive" : p.quantity <= (p.minStockQuantity || 1) ? "warning" : "success"} 
-                                        className="text-[8px] px-1.5 h-4 font-black rounded-lg"
-                                      >
-                                         {p.quantity <= 0 ? "غير متوفر" : `متوفر: ${p.quantity}`}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                               </div>
+                      <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[300px] overflow-y-auto">
+                        {filteredProducts.map(p => (
+                          <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer flex justify-between items-center border-b border-border transition-all" onClick={() => addToCart(p)}>
+                            <div className="flex flex-col">
+                               <p className="font-black text-sm text-foreground">{p.name}</p>
+                               <p className="text-[10px] text-muted-foreground font-bold">{p.categoryPath}</p>
                             </div>
-                            <div className="flex items-center gap-4">
-                               <div className="flex flex-col items-end">
-                                  <span className="text-[10px] font-bold text-muted-foreground tabular-nums">البيع: {p.salePrice.toLocaleString()} دج</span>
-                                  <span className="text-lg font-black text-primary tabular-nums leading-none mt-1">
-                                    {p.repairPrice.toLocaleString()} <span className="text-[10px] opacity-60">دج</span>
-                                  </span>
-                                  <span className="text-[8px] font-black text-primary/40 uppercase tracking-tighter">سعر التصليح</span>
-                               </div>
+                            <div className="text-left">
+                               <span className="text-sm font-black text-primary tabular-nums">{p.repairPrice.toLocaleString()} دج</span>
+                               <p className="text-[8px] text-muted-foreground">متوفر: {p.quantity}</p>
                             </div>
                           </div>
                         ))}
@@ -404,42 +358,32 @@ export default function InvoicesPage() {
                     )}
                   </div>
                   
-                  <div className="space-y-4 mt-6">
+                  <div className="space-y-4">
                     {cart.length === 0 ? (
-                      <div className="text-center py-20 glass border-2 border-dashed border-border rounded-[2rem]">
-                        <Package className="h-16 w-16 mx-auto text-muted-foreground/20" />
-                        <p className="text-sm font-black text-muted-foreground/40 mt-4 italic">السلة فارغة، ابدأ بإضافة منتجات</p>
-                      </div>
+                      <div className="text-center py-10 opacity-30 italic font-black text-xs">السلة فارغة</div>
                     ) : cart.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl glass border-border group animate-in slide-in-from-right-4">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
-                             <Package className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <p className="font-black text-sm text-foreground">{item.name}</p>
-                            <p className="text-[9px] text-primary font-bold">{item.categoryPath}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                               <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">سعر الوحدة:</span>
-                               <Input 
-                                 type="number" 
-                                 className="h-8 w-28 glass border-none font-black text-sm tabular-nums p-1 text-primary focus:ring-1 focus:ring-primary text-center" 
-                                 value={item.price} 
-                                 onChange={(e) => updatePrice(item.id, Number(e.target.value))} 
-                               />
-                               <span className="text-[10px] text-muted-foreground font-bold">دج</span>
-                            </div>
+                      <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-2xl glass border-border gap-4">
+                        <div className="flex-1">
+                          <p className="font-black text-sm text-foreground">{item.name}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                             <span className="text-[10px] text-muted-foreground font-bold">السعر:</span>
+                             <Input 
+                               type="number" 
+                               className="h-8 w-24 glass border-none font-black text-xs tabular-nums text-primary text-center" 
+                               value={item.price} 
+                               onChange={(e) => updatePrice(item.id, Number(e.target.value))} 
+                             />
                           </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                           <div className="flex items-center gap-4 glass border-border rounded-xl px-4 py-2">
-                             <button onClick={() => updateQty(item.id, -1)} className="text-muted-foreground hover:text-primary font-black text-lg">-</button>
-                             <span className="w-8 text-center font-black text-sm tabular-nums text-foreground">{item.qty}</span>
-                             <button onClick={() => updateQty(item.id, 1)} className="text-muted-foreground hover:text-primary font-black text-lg">+</button>
+                        <div className="flex items-center justify-between md:justify-end gap-6">
+                           <div className="flex items-center gap-3 glass border-border rounded-xl px-3 py-1">
+                             <button onClick={() => updateQty(item.id, -1)} className="text-primary font-black">-</button>
+                             <span className="w-6 text-center font-black text-xs tabular-nums">{item.qty}</span>
+                             <button onClick={() => updateQty(item.id, 1)} className="text-primary font-black">+</button>
                            </div>
-                           <p className="font-black text-lg tabular-nums w-32 text-left text-primary">{(item.price * item.qty).toLocaleString()} دج</p>
-                           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white" onClick={() => setCart(cart.filter(i => i.id !== item.id))}>
-                             <Trash2 className="h-5 w-5" />
+                           <p className="font-black text-sm tabular-nums text-primary w-24 text-left">{(item.price * item.qty).toLocaleString()} دج</p>
+                           <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10" onClick={() => setCart(cart.filter(i => i.id !== item.id))}>
+                             <Trash2 className="h-4 w-4" />
                            </Button>
                         </div>
                       </div>
@@ -448,40 +392,36 @@ export default function InvoicesPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-none glass shadow-xl rounded-[2.5rem]">
-                <CardHeader className="border-b border-border p-8">
-                   <CardTitle className="text-xl font-black text-foreground">معلومات العميل والمدفوعات</CardTitle>
+              <Card className="border-none glass shadow-xl rounded-[2rem]">
+                <CardHeader className="p-6 md:p-8 border-b border-border">
+                   <CardTitle className="text-lg md:text-xl font-black">العميل والمدفوعات</CardTitle>
                 </CardHeader>
-                <CardContent className="p-8 space-y-8">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-3 relative">
-                        <Label className="font-black text-primary px-1 uppercase tracking-widest text-[10px]">اختيار العميل (إلزامي للديون)</Label>
-                        <div className="flex gap-3">
-                           <Input className="h-12 glass border-none rounded-xl font-bold text-foreground" placeholder="ابحث عن عميل..." value={selectedCustomer ? selectedCustomer.name : customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} disabled={!!selectedCustomer} />
-                           {selectedCustomer ? (
-                             <Button variant="outline" className="h-12 rounded-xl glass border-border" onClick={() => setSelectedCustomer(null)}>تغيير</Button>
-                           ) : (
-                             <Button variant="outline" size="icon" className="h-12 w-12 glass border-border rounded-xl"><UserPlus className="h-5 w-5" /></Button>
-                           )}
-                        </div>
+                <CardContent className="p-6 md:p-8 space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="space-y-2 relative">
+                        <Label className="text-[10px] font-black text-primary">العميل</Label>
+                        <Input className="h-11 glass border-none rounded-xl font-bold" placeholder="بحث عن عميل..." value={selectedCustomer ? selectedCustomer.name : customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} disabled={!!selectedCustomer} />
+                        {selectedCustomer && (
+                          <Button variant="ghost" size="icon" className="absolute left-1 top-7 h-9 w-9" onClick={() => setSelectedCustomer(null)}><X className="h-4 w-4" /></Button>
+                        )}
                         {customerSearch && !selectedCustomer && (
-                          <div className="absolute top-full left-0 right-0 mt-2 glass border-border rounded-2xl shadow-xl z-20 overflow-hidden">
+                          <div className="absolute top-full left-0 right-0 mt-2 glass border-border rounded-2xl shadow-xl z-20 overflow-hidden max-h-[200px] overflow-y-auto">
                             {customers?.filter(c => c.name.includes(customerSearch)).map(c => (
-                              <div key={c.id} className="p-3 hover:bg-muted cursor-pointer border-b border-border font-bold text-sm text-foreground" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
-                                {c.name} - <span className="text-xs text-muted-foreground">{c.phone}</span>
+                              <div key={c.id} className="p-3 hover:bg-primary/5 cursor-pointer border-b border-border font-bold text-xs" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
+                                {c.name} - {c.phone}
                               </div>
                             ))}
                           </div>
                         )}
                      </div>
                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-3">
-                            <Label className="font-black text-primary px-1 uppercase tracking-widest text-[10px]">الخصم (دج)</Label>
-                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-orange-600 tabular-nums" placeholder="0" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black text-primary">الخصم</Label>
+                            <Input type="number" className="h-11 glass border-none rounded-xl font-black text-orange-600" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
                         </div>
-                        <div className="space-y-3">
-                            <Label className="font-black text-emerald-500 px-1 uppercase tracking-widest text-[10px]">المبلغ المدفوع (دج)</Label>
-                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-emerald-600 tabular-nums" placeholder={total.toString()} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black text-emerald-500">المدفوع</Label>
+                            <Input type="number" className="h-11 glass border-none rounded-xl font-black text-emerald-600" placeholder={total.toString()} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
                         </div>
                      </div>
                    </div>
@@ -490,184 +430,90 @@ export default function InvoicesPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <Card className="border-none shadow-2xl sticky top-28 bg-gradient-to-br from-primary to-[#2a4580] text-white rounded-[3rem] p-4 overflow-hidden">
-                <CardHeader className="p-8">
-                  <CardTitle className="text-2xl font-black">ملخص الفاتورة</CardTitle>
-                  <p className="text-xs font-bold text-white/60 uppercase tracking-widest">تحقق من البيانات المالية</p>
-                </CardHeader>
-                <CardContent className="px-8 space-y-6">
-                  <div className="flex justify-between items-center opacity-80">
-                    <span className="font-bold">المجموع:</span>
-                    <span className="font-black tabular-nums">{subtotal.toLocaleString()} دج</span>
+              <Card className="border-none shadow-2xl sticky top-24 bg-gradient-to-br from-primary to-[#2a4580] text-white rounded-[2rem] md:rounded-[3rem] p-6 space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-xl font-black">ملخص الحساب</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between opacity-80"><span>المجموع:</span> <span className="tabular-nums">{subtotal.toLocaleString()} دج</span></div>
+                    <div className="flex justify-between text-orange-200"><span>الخصم:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>
+                    <div className="flex justify-between text-emerald-200"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
+                    {debtAmount > 0 && (
+                      <div className="flex justify-between text-red-200 font-black"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>
+                    )}
                   </div>
-                  <div className="flex justify-between items-center text-orange-200">
-                    <span className="font-bold">الخصم:</span>
-                    <span className="font-black tabular-nums">-{discount.toLocaleString()} دج</span>
-                  </div>
-                  <div className="flex justify-between items-center text-emerald-200">
-                    <span className="font-bold">المدفوع حالياً:</span>
-                    <span className="font-black tabular-nums">{finalPaid.toLocaleString()} دج</span>
-                  </div>
-                  {debtAmount > 0 && (
-                    <div className="flex justify-between items-center text-red-200 animate-pulse">
-                      <span className="font-bold">متبقي (دين):</span>
-                      <span className="font-black tabular-nums">{debtAmount.toLocaleString()} دج</span>
-                    </div>
-                  )}
                   <Separator className="bg-white/10" />
-                  <div className="flex flex-col gap-2 py-4">
-                    <span className="text-sm font-black text-white/60 uppercase">الإجمالي النهائي</span>
-                    <span className="text-4xl font-black tabular-nums tracking-tighter">{total.toLocaleString()} <span className="text-lg opacity-40">دج</span></span>
+                  <div className="pt-2">
+                    <span className="text-[10px] font-black opacity-60 uppercase">الإجمالي النهائي</span>
+                    <p className="text-3xl font-black tabular-nums">{total.toLocaleString()} دج</p>
                   </div>
                   <Button 
-                    className="w-full bg-white text-primary font-black hover:bg-white/90 gap-3 h-16 rounded-[1.8rem] text-lg shadow-xl" 
-                    onClick={() => {
-                        if (cart.length === 0) {
-                            toast({ title: "خطأ", description: "السلة فارغة", variant: "destructive" })
-                            return
-                        }
-                        setShowPreview(true)
-                    }} 
+                    className="w-full bg-white text-primary font-black hover:bg-white/90 h-14 rounded-2xl text-lg shadow-xl" 
+                    onClick={() => cart.length > 0 && setShowPreview(true)} 
                     disabled={cart.length === 0}
                   >
-                    <Eye className="h-6 w-6" /> معاينة الفاتورة
+                    معاينة الفاتورة
                   </Button>
-                </CardContent>
-                <CardFooter className="flex-col gap-4 p-8 text-center bg-black/10">
-                   <div className="glass bg-white/5 border-none px-6 py-3 rounded-2xl w-full">
-                      <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">العميل الحالي</p>
-                      <p className="text-sm font-black">{selectedCustomer ? selectedCustomer.name : "عميل نقدي عام"}</p>
-                   </div>
-                </CardFooter>
+                </div>
               </Card>
             </div>
           </div>
         </main>
 
-        {/* Invoice Preview Modal */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-3xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
-             <DialogHeader className="p-8 bg-primary/5 border-b border-border">
-                <div className="flex justify-between items-center">
-                    <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
-                        <FileText className="h-7 w-7" /> معاينة الفاتورة قبل الإصدار
-                    </DialogTitle>
-                    <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowPreview(false)}>
-                        <X className="h-5 w-5" />
-                    </Button>
-                </div>
-             </DialogHeader>
+          <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
+             <div className="p-6 md:p-8 bg-primary/5 border-b border-border flex justify-between items-center">
+                <DialogTitle className="text-xl font-black">معاينة الفاتورة</DialogTitle>
+                <Button variant="ghost" size="icon" onClick={() => setShowPreview(false)}><X className="h-4 w-4" /></Button>
+             </div>
 
-             <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                {/* Visual Invoice Mock */}
-                <div className="bg-white text-black p-10 rounded-2xl shadow-inner border border-black/5 space-y-8">
-                   <div className="flex justify-between items-start border-b-2 border-primary pb-6">
-                      <div>
-                        <h2 className="text-3xl font-black text-primary">EXPRESS PHONE</h2>
-                        <p className="text-xs font-bold text-muted-foreground">إدارة المبيعات والتصليح الاحترافية</p>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-black">رقم الفاتورة: #قيد_الإصدار</p>
-                        <p className="text-xs font-bold text-muted-foreground">{format(new Date(), "dd MMMM yyyy", { locale: ar })}</p>
-                      </div>
+             <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="bg-white text-black p-6 md:p-8 rounded-xl border border-black/10 space-y-6 text-sm">
+                   <div className="flex justify-between border-b-2 border-primary pb-4">
+                      <h2 className="text-xl font-black text-primary">EXPRESS PHONE</h2>
+                      <p className="text-xs font-bold">{format(new Date(), "dd MMMM yyyy", { locale: ar })}</p>
                    </div>
-
-                   <div className="grid grid-cols-2 gap-8">
-                      <div>
-                        <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">بيانات العميل</p>
-                        <p className="font-black">{selectedCustomer ? selectedCustomer.name : "عميل نقدي عام"}</p>
-                        <p className="text-xs font-bold">{selectedCustomer?.phone || "---"}</p>
-                      </div>
+                   <div>
+                     <p className="font-black">العميل: {selectedCustomer ? selectedCustomer.name : "عميل عام"}</p>
+                     <p className="text-xs opacity-70">الهاتف: {selectedCustomer?.phone || "---"}</p>
                    </div>
-
-                   <Table>
-                      <TableHeader>
-                        <TableRow className="border-b-2 border-black/10">
-                           <TableHead className="font-black text-black">المنتج / التصنيف</TableHead>
-                           <TableHead className="text-center font-black text-black">الكمية</TableHead>
-                           <TableHead className="text-center font-black text-black">الوحدة</TableHead>
-                           <TableHead className="text-left font-black text-black">الإجمالي</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {cart.map((item) => (
-                          <TableRow key={item.id} className="border-b border-black/5">
-                            <TableCell className="font-bold py-4">
-                              <div>{item.name}</div>
-                              <div className="text-[9px] text-muted-foreground font-normal">{item.categoryPath}</div>
-                            </TableCell>
-                            <TableCell className="text-center font-bold">{item.qty}</TableCell>
-                            <TableCell className="text-center font-bold">{item.price.toLocaleString()} دج</TableCell>
-                            <TableCell className="text-left font-black">{ (item.price * item.qty).toLocaleString() } دج</TableCell>
+                   <div className="table-container">
+                    <Table>
+                        <TableHeader>
+                          <TableRow className="border-b-2 border-black/10">
+                            <TableHead className="font-black text-black">المنتج</TableHead>
+                            <TableHead className="text-center font-black text-black">الكمية</TableHead>
+                            <TableHead className="text-left font-black text-black">الإجمالي</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                   </Table>
-
-                   <div className="pt-6 space-y-3">
-                      <div className="flex justify-between text-sm font-bold">
-                        <span>المجموع الفرعي:</span>
-                        <span>{subtotal.toLocaleString()} دج</span>
-                      </div>
-                      {discount > 0 && (
-                        <div className="flex justify-between text-sm font-bold text-red-600">
-                           <span>الخصم:</span>
-                           <span>-{discount.toLocaleString()} دج</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-lg font-black text-primary pt-3 border-t border-black/10">
-                        <span>الإجمالي النهائي:</span>
-                        <span>{total.toLocaleString()} دج</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-bold text-emerald-600">
-                        <span>المبلغ المدفوع:</span>
-                        <span>{finalPaid.toLocaleString()} دج</span>
-                      </div>
-                      {debtAmount > 0 && (
-                        <div className="flex justify-between text-sm font-bold text-red-600 italic">
-                           <span>المتبقي كدين:</span>
-                           <span>{debtAmount.toLocaleString()} دج</span>
-                        </div>
-                      )}
+                        </TableHeader>
+                        <TableBody>
+                          {cart.map((item) => (
+                            <TableRow key={item.id} className="border-b border-black/5">
+                              <TableCell className="font-bold py-3">{item.name}</TableCell>
+                              <TableCell className="text-center font-bold">{item.qty}</TableCell>
+                              <TableCell className="text-left font-black">{(item.price * item.qty).toLocaleString()} دج</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                    </Table>
                    </div>
-
+                   <div className="pt-4 space-y-2 border-t border-black/10">
+                      <div className="flex justify-between font-bold"><span>المجموع:</span> <span>{total.toLocaleString()} دج</span></div>
+                      <div className="flex justify-between text-emerald-600"><span>المدفوع:</span> <span>{finalPaid.toLocaleString()} دج</span></div>
+                      {debtAmount > 0 && <div className="flex justify-between text-red-600 font-black"><span>الدين:</span> <span>{debtAmount.toLocaleString()} دج</span></div>}
+                   </div>
                    {selectedCustomer && (
-                     <div className="mt-8 p-4 bg-red-50 rounded-xl border border-red-100">
-                        <div className="flex justify-between text-xs font-black text-red-800">
-                           <span>الدين السابق:</span>
-                           <span>{(selectedCustomer.debt || 0).toLocaleString()} دج</span>
-                        </div>
-                        <div className="flex justify-between text-sm font-black text-red-900 mt-2 pt-2 border-t border-red-200">
-                           <span>إجمالي الحساب الجديد:</span>
-                           <span>{((selectedCustomer.debt || 0) + debtAmount).toLocaleString()} دج</span>
-                        </div>
+                     <div className="p-3 bg-red-50 rounded-lg text-xs font-black text-red-800">
+                        إجمالي الحساب الجديد: {((selectedCustomer.debt || 0) + debtAmount).toLocaleString()} دج
                      </div>
                    )}
-
-                   <div className="text-center pt-10 text-primary font-black text-lg border-t-2 border-dashed border-black/10">
-                      شكراً لثقتكم بنا
-                   </div>
-                </div>
-
-                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-4">
-                    <Info className="h-6 w-6 text-orange-600 shrink-0" />
-                    <p className="text-xs font-bold text-orange-800 leading-relaxed">
-                        عند الضغط على "تأكيد وإصدار الفاتورة"، سيتم تسجيل العملية في النظام، وتحديث مخزون المنتجات، وإضافة الدين إلى حساب العميل إذا وجد، ثم فتح نافذة الطباعة تلقائياً.
-                    </p>
+                   <p className="text-center pt-6 font-black text-primary">شكراً لثقتكم بنا</p>
                 </div>
              </div>
 
-             <DialogFooter className="p-8 bg-black/5 flex gap-4">
-                <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black border-white/20" onClick={() => setShowPreview(false)}>
-                    إلغاء وتعديل
-                </Button>
-                <Button 
-                    className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl shadow-primary/20 gap-3" 
-                    onClick={handleProcessInvoice}
-                    disabled={isProcessing}
-                >
-                    {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6" />}
-                    تأكيد وإصدار الفاتورة
+             <DialogFooter className="p-6 md:p-8 bg-black/5 flex flex-col md:flex-row gap-3">
+                <Button variant="outline" className="h-12 rounded-xl font-black md:flex-1" onClick={() => setShowPreview(false)}>تعديل</Button>
+                <Button className="h-12 rounded-xl bg-primary text-white font-black md:flex-1 shadow-lg" onClick={handleProcessInvoice} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} تأكيد وإصدار
                 </Button>
              </DialogFooter>
           </DialogContent>

@@ -59,6 +59,8 @@
     background: linear-gradient(-45deg, #f8fafc, #f1f5f9, #e2e8f0, #f8fafc);
     background-size: 400% 400%;
     animation: gradient-animation 15s ease infinite;
+    min-height: 100vh;
+    min-height: 100svh;
   }
   .dark body {
     background: linear-gradient(-45deg, #020617, #0f172a, #1e293b, #020617);
@@ -119,4 +121,10 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-primary/20 rounded-full hover:bg-primary/40;
+}
+
+/* Fix for mobile tables */
+.table-container {
+  @apply w-full overflow-x-auto;
+  -webkit-overflow-scrolling: touch;
 }

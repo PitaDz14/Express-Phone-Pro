@@ -57,9 +57,9 @@ export function NavigationDock() {
   if (pathname === "/login") return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print">
+    <div className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full max-w-[95%] md:max-w-max px-2">
       <TooltipProvider delayDuration={0}>
-        <div className="flex items-center gap-1 p-2 rounded-[2rem] glass-premium border border-white/20 shadow-2xl backdrop-blur-3xl px-4">
+        <div className="flex items-center gap-1 p-1 md:p-2 rounded-[1.5rem] md:rounded-[2rem] glass-premium border border-white/20 shadow-2xl backdrop-blur-3xl px-2 md:px-4 overflow-x-auto no-scrollbar justify-center">
           {items.map((item) => {
             const isActive = pathname === item.url
             return (
@@ -68,39 +68,39 @@ export function NavigationDock() {
                   <Link
                     href={item.url}
                     className={cn(
-                      "relative group flex items-center justify-center h-12 w-12 rounded-2xl transition-all duration-500 ease-out",
+                      "relative group flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl transition-all duration-300 ease-out shrink-0",
                       isActive 
-                        ? "bg-primary text-white scale-110 -translate-y-2 shadow-xl shadow-primary/30" 
+                        ? "bg-primary text-white scale-105 md:scale-110 -translate-y-1 md:-translate-y-2 shadow-xl shadow-primary/30" 
                         : "hover:bg-primary/10 text-muted-foreground hover:text-primary hover:-translate-y-1"
                     )}
                   >
-                    <item.icon className={cn("h-5 w-5 transition-transform group-hover:scale-110", isActive && "animate-pulse")} />
+                    <item.icon className={cn("h-4 w-4 md:h-5 md:w-5 transition-transform group-hover:scale-110", isActive && "animate-pulse")} />
                     {isActive && (
-                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white]" />
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white]" />
                     )}
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="bg-black/80 text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
+                <TooltipContent side="top" className="hidden md:block bg-black/80 text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
                   {item.title}
                 </TooltipContent>
               </Tooltip>
             )
           })}
           
-          <div className="w-[1px] h-8 bg-black/5 mx-2" />
+          <div className="w-[1px] h-6 md:h-8 bg-black/5 mx-1 md:mx-2 shrink-0" />
 
           {/* Dark Mode Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-500 hover:-translate-y-1"
+                className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-300 hover:-translate-y-1 shrink-0"
               >
-                {theme === "dark" ? <Sun className="h-5 w-5 mx-auto" /> : <Moon className="h-5 w-5 mx-auto" />}
+                {theme === "dark" ? <Sun className="h-4 w-4 md:h-5 md:w-5 mx-auto" /> : <Moon className="h-4 w-4 md:h-5 md:w-5 mx-auto" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="bg-primary text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
-              {theme === "dark" ? "وضع النهار" : "وضع الليل"}
+            <TooltipContent side="top" className="hidden md:block bg-primary text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
+              تغيير المظهر
             </TooltipContent>
           </Tooltip>
           
@@ -108,12 +108,12 @@ export function NavigationDock() {
             <TooltipTrigger asChild>
               <button 
                 onClick={handleLogout}
-                className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-500 hover:-translate-y-1"
+                className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-300 hover:-translate-y-1 shrink-0"
               >
-                <LogOut className="h-5 w-5 mx-auto" />
+                <LogOut className="h-4 w-4 md:h-5 md:w-5 mx-auto" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="bg-destructive text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
+            <TooltipContent side="top" className="hidden md:block bg-destructive text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
               خروج
             </TooltipContent>
           </Tooltip>
