@@ -21,6 +21,7 @@ import {
   Sparkles,
   X,
   Camera,
+  Smartphone,
   Image as ImageIcon,
   Link as LinkIcon
 } from "lucide-react"
