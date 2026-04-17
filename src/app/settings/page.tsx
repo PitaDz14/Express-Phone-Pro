@@ -142,6 +142,7 @@ export default function SettingsPage() {
                  quantity: Number(item.quantity),
                  unitPrice: Number(item.unitPrice),
                  itemTotal: Number(item.totalPrice),
+                 generatedByUserId: user.uid,
                  createdAt: serverTimestamp()
               }, { merge: true })
            }
