@@ -17,7 +17,7 @@ import {
   Wallet
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   Tooltip,
@@ -26,6 +26,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
+import { useAuth } from "@/firebase"
+import { signOut } from "firebase/auth"
 
 const items = [
   { title: "الرئيسية", url: "/", icon: LayoutDashboard },
@@ -41,7 +43,18 @@ const items = [
 
 export function NavigationDock() {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const auth = useAuth()
+
+  const handleLogout = async () => {
+    if (confirm("هل أنت متأكد من تسجيل الخروج؟")) {
+      await signOut(auth)
+      router.push("/login")
+    }
+  }
+
+  if (pathname === "/login") return null
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print">
@@ -93,7 +106,10 @@ export function NavigationDock() {
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-500 hover:-translate-y-1">
+              <button 
+                onClick={handleLogout}
+                className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-500 hover:-translate-y-1"
+              >
                 <LogOut className="h-5 w-5 mx-auto" />
               </button>
             </TooltipTrigger>
