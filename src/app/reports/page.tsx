@@ -20,7 +20,8 @@ import {
   Smartphone,
   Sparkles,
   Zap,
-  ShoppingBag
+  ShoppingBag,
+  BarChartHorizontal
 } from "lucide-react"
 import { 
   Bar, 
@@ -70,6 +71,16 @@ export default function ReportsPage() {
     }
   }, [products])
 
+  // Global Inventory Stats
+  const globalInventoryStats = React.useMemo(() => {
+    if (!products) return { count: 0, totalSale: 0, totalPurchase: 0 }
+    return {
+      count: products.reduce((sum, p) => sum + (p.quantity || 0), 0),
+      totalSale: products.reduce((sum, p) => sum + ((p.salePrice || 0) * (p.quantity || 0)), 0),
+      totalPurchase: products.reduce((sum, p) => sum + ((p.purchasePrice || 0) * (p.quantity || 0)), 0)
+    }
+  }, [products])
+
   const categoryStats = React.useMemo(() => {
     if (!products || !categories) return []
     return categories.map(cat => {
@@ -108,46 +119,89 @@ export default function ReportsPage() {
           </div>
         </header>
 
-          {/* Exclusive Screens Section */}
-          <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[3rem] overflow-hidden shadow-2xl relative">
-             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Smartphone className="h-48 w-48 rotate-12" />
-             </div>
-             <CardHeader className="p-10 relative z-10">
-                <div className="flex items-center gap-3 mb-2">
-                   <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                      <Sparkles className="h-5 w-5" />
-                   </div>
-                   <CardTitle className="text-2xl font-black tracking-tight">إحصائيات الشاشات الحصرية</CardTitle>
-                </div>
-                <CardDescription className="text-white/60 font-medium">تحليل دقيق لقطاع الشاشات المتوفرة في المخزون حالياً</CardDescription>
-             </CardHeader>
-             <CardContent className="px-10 pb-10 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                   <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-400">
-                         <Zap className="h-4 w-4" />
-                         <span className="text-[10px] font-black uppercase tracking-widest">إجمالي القطع</span>
-                      </div>
-                      <div className="text-4xl font-black tabular-nums">{screenStats.count} <span className="text-sm opacity-40">قطعة</span></div>
-                   </div>
-                   <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
-                      <div className="flex items-center gap-2 text-primary">
-                         <Wallet className="h-4 w-4" />
-                         <span className="text-[10px] font-black uppercase tracking-widest">قيمة البيع الإجمالية</span>
-                      </div>
-                      <div className="text-3xl font-black tabular-nums text-emerald-400">{screenStats.totalSale.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
-                   </div>
-                   <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
-                      <div className="flex items-center gap-2 text-orange-400">
-                         <ShoppingBag className="h-4 w-4" />
-                         <span className="text-[10px] font-black uppercase tracking-widest">قيمة الشراء الإجمالية</span>
-                      </div>
-                      <div className="text-3xl font-black tabular-nums text-orange-400">{screenStats.totalPurchase.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
-                   </div>
-                </div>
-             </CardContent>
-          </Card>
+          <div className="grid gap-8 grid-cols-1">
+            {/* Exclusive Screens Section */}
+            <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[3rem] overflow-hidden shadow-2xl relative">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <Smartphone className="h-48 w-48 rotate-12" />
+              </div>
+              <CardHeader className="p-10 relative z-10">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Sparkles className="h-5 w-5" />
+                    </div>
+                    <CardTitle className="text-2xl font-black tracking-tight">إحصائيات الشاشات الحصرية</CardTitle>
+                  </div>
+                  <CardDescription className="text-white/60 font-medium">تحليل دقيق لقطاع الشاشات المتوفرة في المخزون حالياً</CardDescription>
+              </CardHeader>
+              <CardContent className="px-10 pb-10 relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Zap className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">إجمالي القطع</span>
+                        </div>
+                        <div className="text-4xl font-black tabular-nums">{screenStats.count} <span className="text-sm opacity-40">قطعة</span></div>
+                    </div>
+                    <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Wallet className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">قيمة البيع الإجمالية</span>
+                        </div>
+                        <div className="text-3xl font-black tabular-nums text-emerald-400">{screenStats.totalSale.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
+                    </div>
+                    <div className="glass bg-white/5 border-white/5 p-6 rounded-[2rem] space-y-2">
+                        <div className="flex items-center gap-2 text-orange-400">
+                          <ShoppingBag className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">قيمة الشراء الإجمالية</span>
+                        </div>
+                        <div className="text-3xl font-black tabular-nums text-orange-400">{screenStats.totalPurchase.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
+                    </div>
+                  </div>
+              </CardContent>
+            </Card>
+
+            {/* Global Inventory Section */}
+            <Card className="border-none bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/10 rounded-[3rem] overflow-hidden shadow-xl relative group transition-all">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                  <BarChartHorizontal className="h-48 w-48 -rotate-12" />
+              </div>
+              <CardHeader className="p-10 relative z-10">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+                        <Package className="h-5 w-5" />
+                    </div>
+                    <CardTitle className="text-2xl font-black tracking-tight text-foreground">إحصائيات المخزون العام</CardTitle>
+                  </div>
+                  <CardDescription className="text-muted-foreground font-medium">نظرة شاملة على كافة السلع والمنتجات المتوفرة في المتجر</CardDescription>
+              </CardHeader>
+              <CardContent className="px-10 pb-10 relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="glass p-6 rounded-[2rem] space-y-2 border-primary/10">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Zap className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">إجمالي السلع</span>
+                        </div>
+                        <div className="text-4xl font-black tabular-nums text-foreground">{globalInventoryStats.count} <span className="text-sm opacity-40">قطعة</span></div>
+                    </div>
+                    <div className="glass p-6 rounded-[2rem] space-y-2 border-emerald-500/10">
+                        <div className="flex items-center gap-2 text-emerald-600">
+                          <Wallet className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">إجمالي قيمة البيع</span>
+                        </div>
+                        <div className="text-3xl font-black tabular-nums text-emerald-600">{globalInventoryStats.totalSale.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
+                    </div>
+                    <div className="glass p-6 rounded-[2rem] space-y-2 border-orange-500/10">
+                        <div className="flex items-center gap-2 text-orange-600">
+                          <ShoppingBag className="h-4 w-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">إجمالي قيمة الشراء</span>
+                        </div>
+                        <div className="text-3xl font-black tabular-nums text-orange-600">{globalInventoryStats.totalPurchase.toLocaleString()} <span className="text-xs opacity-40">دج</span></div>
+                    </div>
+                  </div>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-none glass rounded-[2.5rem] overflow-hidden relative group transition-all hover:scale-105">
