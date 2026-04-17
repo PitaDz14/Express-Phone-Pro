@@ -48,6 +48,7 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 const chartData = [
   { name: "السبت", total: 45000 },
@@ -229,9 +230,11 @@ export default function Dashboard() {
               <DialogHeader className="p-6 border-b border-black/5"><DialogTitle className="text-xl font-black text-gradient-premium">نافذة التعديل السريع</DialogTitle></DialogHeader>
               <div className="p-6 space-y-6">
                 <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                  <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">الاسم</Label><Input placeholder="منتج جديد..." className="h-10 text-xs" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
+                  <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">اسم المنتج</Label><Input placeholder="مثال: شاشة سامسونج A10..." className="h-10 text-xs" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
                   <div><Label className="text-[10px] font-black mb-1 block">الكمية</Label><Input type="number" className="h-10 text-xs text-center" value={newQty} onChange={(e) => setNewQty(Number(e.target.value))} /></div>
                   <Button className="h-10 bg-primary text-white text-xs font-black" onClick={handleQuickAdd} disabled={isAdding}>{isAdding ? "جاري..." : "إضافة"}</Button>
+                  <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">سعر البيع</Label><Input type="number" placeholder="0" className="h-10 text-xs" value={newSalePrice} onChange={(e) => setNewSalePrice(Number(e.target.value))} /></div>
+                  <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">سعر التصليح</Label><Input type="number" placeholder="0" className="h-10 text-xs" value={newRepairPrice} onChange={(e) => setNewRepairPrice(Number(e.target.value))} /></div>
                 </div>
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="ابحث لتعديل الموجود..." className="pl-10 h-12 text-sm" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} /></div>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
