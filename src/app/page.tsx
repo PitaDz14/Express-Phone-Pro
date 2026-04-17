@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -15,7 +16,11 @@ import {
   ArrowDownRight,
   Search,
   Wrench,
-  Tag
+  Tag,
+  Edit3,
+  Plus,
+  Minus,
+  Sparkles
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -31,9 +36,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, limit, orderBy } from "firebase/firestore"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
+import { collection, query, limit, orderBy, doc } from "firebase/firestore"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 const chartData = [
   { name: "السبت", total: 45000 },
@@ -47,9 +61,14 @@ const chartData = [
 
 export default function Dashboard() {
   const db = useFirestore()
+  const { toast } = useToast()
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [showResults, setShowResults] = React.useState(false)
+  
+  // Quick Edit States
+  const [quickEditSearch, setQuickEditSearch] = React.useState("")
+  const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
@@ -73,8 +92,22 @@ export default function Dashboard() {
     ).slice(0, 5)
   }, [searchTerm, products])
 
+  const quickEditProducts = React.useMemo(() => {
+    if (!quickEditSearch || !products) return products?.slice(0, 5) || []
+    return products.filter(p => 
+      p.name.toLowerCase().includes(quickEditSearch.toLowerCase()) || 
+      p.productCode?.toLowerCase().includes(quickEditSearch.toLowerCase())
+    ).slice(0, 5)
+  }, [quickEditSearch, products])
+
   const totalSalesMonth = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
   const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0
+
+  const handleUpdateField = (productId: string, field: string, value: any) => {
+    const productRef = doc(db, "products", productId)
+    updateDocumentNonBlocking(productRef, { [field]: Number(value) })
+    // No need for toast here as it's an "auto-save" experience, but we can log for debug if needed
+  }
 
   if (!mounted) return null
 
@@ -223,19 +256,94 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-none bg-gradient-to-br from-primary to-accent text-white shadow-2xl rounded-[2.5rem] p-4 flex flex-col justify-between card-3d">
-            <CardHeader>
-              <CardTitle className="text-lg font-black leading-tight">ابدأ عملية بيع<br/>جديدة الآن</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full h-12 rounded-2xl bg-white text-primary font-black hover:bg-white/90">
-                <Link href="/invoices">
-                  فتح نقطة البيع
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
+            <DialogTrigger asChild>
+              <Card className="border-none bg-gradient-to-br from-[#3960AC] to-[#2a4580] text-white shadow-2xl rounded-[2.5rem] p-4 flex flex-col justify-between cursor-pointer group hover:scale-[1.02] transition-all">
+                <CardHeader>
+                  <CardTitle className="text-lg font-black leading-tight flex items-center gap-2">
+                    <Edit3 className="h-5 w-5" /> التعديل السريع على المخزون
+                  </CardTitle>
+                  <CardDescription className="text-white/60 text-[10px] font-bold">إضافة أو تعديل كميات وأسعار المنتجات بسرعة.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full h-12 rounded-2xl bg-white text-primary font-black hover:bg-white/90">
+                    بدء التعديل السريع
+                  </Button>
+                </CardContent>
+              </Card>
+            </DialogTrigger>
+            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
+              <DialogHeader className="p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-b border-black/5">
+                <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
+                   <Sparkles className="h-6 w-6" /> نافذة التعديل السريع واللحظي
+                </DialogTitle>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">يتم حفظ التعديلات تلقائياً بمجرد تغيير القيم | Khaled_Deragha</p>
+              </DialogHeader>
+              <div className="p-8 space-y-6">
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    placeholder="ابحث باسم المنتج أو الكود للبدء بالتعديل..." 
+                    className="pl-12 h-14 glass border-none shadow-inner rounded-2xl font-bold" 
+                    value={quickEditSearch}
+                    onChange={(e) => setQuickEditSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                  {quickEditProducts.length === 0 ? (
+                    <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة للبحث</div>
+                  ) : quickEditProducts.map(p => (
+                    <div key={p.id} className="p-6 rounded-[2rem] glass border-white/20 flex flex-col md:flex-row items-center gap-6 group hover:bg-white/50 transition-all">
+                       <div className="flex-1 min-w-[200px]">
+                          <p className="font-black text-base">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{p.productCode} | متاح حالياً: {p.quantity}</p>
+                       </div>
+                       
+                       <div className="grid grid-cols-3 gap-4 w-full md:w-auto">
+                          <div className="space-y-1">
+                             <Label className="text-[9px] font-black text-primary uppercase px-1">الكمية</Label>
+                             <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-primary/5 hover:bg-primary hover:text-white" onClick={() => handleUpdateField(p.id, 'quantity', p.quantity - 1)}><Minus className="h-3 w-3"/></Button>
+                                <Input 
+                                  type="number" 
+                                  className="h-10 w-20 text-center glass border-none font-black tabular-nums" 
+                                  defaultValue={p.quantity} 
+                                  onBlur={(e) => handleUpdateField(p.id, 'quantity', e.target.value)} 
+                                />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-primary/5 hover:bg-primary hover:text-white" onClick={() => handleUpdateField(p.id, 'quantity', p.quantity + 1)}><Plus className="h-3 w-3"/></Button>
+                             </div>
+                          </div>
+                          
+                          <div className="space-y-1">
+                             <Label className="text-[9px] font-black text-emerald-600 uppercase px-1">سعر البيع</Label>
+                             <Input 
+                               type="number" 
+                               className="h-10 w-32 glass border-none font-black tabular-nums text-emerald-700" 
+                               defaultValue={p.salePrice} 
+                               onBlur={(e) => handleUpdateField(p.id, 'salePrice', e.target.value)} 
+                             />
+                          </div>
+
+                          <div className="space-y-1">
+                             <Label className="text-[9px] font-black text-accent uppercase px-1">سعر التصليح</Label>
+                             <Input 
+                               type="number" 
+                               className="h-10 w-32 glass border-none font-black tabular-nums text-primary" 
+                               defaultValue={p.repairPrice || 0} 
+                               onBlur={(e) => handleUpdateField(p.id, 'repairPrice', e.target.value)} 
+                             />
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="p-6 bg-black/5 text-center">
+                 <Button className="rounded-2xl px-12 h-12 font-black" onClick={() => setIsQuickEditOpen(false)}>إغلاق النافذة</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-7">
