@@ -20,7 +20,8 @@ import {
   Eye,
   EyeOff,
   Minus,
-  Sparkles
+  Sparkles,
+  Wrench
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -86,6 +87,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
+  const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
 
   const handleUpdate = React.useCallback((field: string, value: number) => {
     const productRef = doc(db, "products", product.id)
@@ -93,21 +95,49 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   }, [db, product.id])
 
   return (
-    <div className="p-4 rounded-2xl glass border-white/10 flex items-center justify-between gap-4">
-       <div className="flex-1">
-          <p className="font-black text-xs text-foreground truncate">{product.name}</p>
-          <p className="text-[9px] text-primary font-bold">{product.categoryPath || product.categoryName}</p>
-       </div>
-       <div className="flex items-center gap-4">
+    <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4">
+       <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="font-black text-sm text-foreground truncate">{product.name}</p>
+            <p className="text-[9px] text-primary font-bold">{product.categoryPath || product.categoryName}</p>
+          </div>
           <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { const v = localQty - 1; setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3"/></Button>
-            <span className="w-6 text-center text-xs font-black tabular-nums">{localQty}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3"/></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = localQty - 1; setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-4 w-4"/></Button>
+            <span className="w-8 text-center text-sm font-black tabular-nums">{localQty}</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-4 w-4"/></Button>
           </div>
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-black text-primary tabular-nums">{localSalePrice.toLocaleString()} دج</span>
-            {showPurchase && <span className="text-[8px] font-bold text-orange-600 tabular-nums">{localPurchasePrice.toLocaleString()} دج</span>}
+       </div>
+
+       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="space-y-1">
+             <Label className="text-[8px] font-black uppercase text-primary px-1">سعر البيع</Label>
+             <Input 
+                type="number" 
+                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-primary"
+                value={localSalePrice}
+                onChange={(e) => { const v = Number(e.target.value); setLocalSalePrice(v); handleUpdate('salePrice', v); }}
+             />
           </div>
+          <div className="space-y-1">
+             <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">سعر التصليح</Label>
+             <Input 
+                type="number" 
+                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums"
+                value={localRepairPrice}
+                onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
+             />
+          </div>
+          {showPurchase && (
+            <div className="space-y-1 col-span-2 md:col-span-1">
+               <Label className="text-[8px] font-black uppercase text-orange-600 px-1">سعر الشراء</Label>
+               <Input 
+                  type="number" 
+                  className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-orange-600"
+                  value={localPurchasePrice}
+                  onChange={(e) => { const v = Number(e.target.value); setLocalPurchasePrice(v); handleUpdate('purchasePrice', v); }}
+               />
+            </div>
+          )}
        </div>
     </div>
   )
@@ -232,7 +262,7 @@ export default function Dashboard() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="بحث سريع لتعديل السعر أو الكمية..." className="pl-10 h-12 glass border-none rounded-xl" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar p-2">
                     {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
                   </div>
                </div>
@@ -279,7 +309,7 @@ export default function Dashboard() {
                 <CardContent className="px-8 pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
                    <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl">
                       <span className="text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
-                      <p className="text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-xs opacity-50">قطعة</span></p>
+                      <p className="text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-50">قطعة</span></p>
                    </div>
                    <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl">
                       <span className="text-[9px] font-black uppercase text-primary">قيمة البيع</span>
