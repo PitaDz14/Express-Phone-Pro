@@ -14,9 +14,9 @@
     },
     {
       "id": "app-logo",
-      "description": "Express Phone Main Logo",
-      "imageUrl": "https://picsum.photos/seed/express-logo/400/400",
-      "imageHint": "mobile shop logo"
+      "description": "Express Phone Pro Official Icon",
+      "imageUrl": "/logo.png",
+      "imageHint": "mobile app icon"
     }
   ]
 }

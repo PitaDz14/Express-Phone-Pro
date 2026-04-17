@@ -8,11 +8,11 @@ import { NavigationDock } from "@/components/layout/navigation-dock"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
-  title: 'Express Phone Pro | Offline-First',
+  title: 'Express Phone Pro | نظام الإدارة المتكامل',
   description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - يعمل بدون إنترنت مع مزامنة ذكية',
   manifest: '/manifest.json',
   icons: {
-    icon: '/logo.png', // Fallback to logo.png in public folder
+    icon: '/logo.png',
     apple: '/logo.png',
   },
   appleWebApp: {

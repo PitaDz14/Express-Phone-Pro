@@ -50,15 +50,14 @@ export function DashboardSidebar() {
       <div className="h-full glass-premium rounded-[2.5rem] flex flex-col">
         <SidebarHeader className="px-8 py-12">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500 border border-primary/10 overflow-hidden">
+            <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500 border border-primary/10 overflow-hidden p-1">
                {logo && (
                  <Image 
                   src={logo.imageUrl} 
-                  alt="Express Phone" 
+                  alt="Express Phone Icon" 
                   width={60} 
                   height={60} 
                   className="object-contain" 
-                  data-ai-hint={logo.imageHint}
                  />
                )}
             </div>
