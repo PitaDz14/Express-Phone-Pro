@@ -14,7 +14,12 @@ import {
   LogOut,
   Sun,
   Moon,
-  Wallet
+  Wallet,
+  CloudOff,
+  CloudCheck,
+  RefreshCw,
+  Wifi,
+  WifiOff
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -26,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
-import { useAuth } from "@/firebase"
+import { useAuth, useSyncStatus } from "@/firebase"
 import { signOut } from "firebase/auth"
 
 const items = [
@@ -46,6 +51,7 @@ export function NavigationDock() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const auth = useAuth()
+  const { isOnline, isSyncing } = useSyncStatus()
 
   const handleLogout = async () => {
     if (confirm("هل أنت متأكد من تسجيل الخروج؟")) {
@@ -60,6 +66,30 @@ export function NavigationDock() {
     <div className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full max-w-[95%] md:max-w-max px-2">
       <TooltipProvider delayDuration={0}>
         <div className="flex items-center gap-1 p-1 md:p-2 rounded-[1.5rem] md:rounded-[2rem] glass-premium border border-white/20 shadow-2xl backdrop-blur-3xl px-2 md:px-4 overflow-x-auto no-scrollbar justify-center">
+          
+          {/* Connection & Sync Indicator */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={cn(
+                "flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl transition-all duration-300 shrink-0",
+                isOnline ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"
+              )}>
+                {isSyncing ? (
+                  <RefreshCw className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
+                ) : isOnline ? (
+                  <Wifi className="h-4 w-4 md:h-5 md:w-5" />
+                ) : (
+                  <WifiOff className="h-4 w-4 md:h-5 md:w-5" />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="bg-black text-white font-bold text-xs rounded-xl px-3 py-1">
+              {isSyncing ? "جاري مزامنة البيانات..." : isOnline ? "متصل بالسحاب" : "تعمل في وضع الأوفلاين"}
+            </TooltipContent>
+          </Tooltip>
+
+          <div className="w-[1px] h-6 md:h-8 bg-black/5 mx-1 md:mx-1 shrink-0" />
+
           {items.map((item) => {
             const isActive = pathname === item.url
             return (
@@ -89,7 +119,6 @@ export function NavigationDock() {
           
           <div className="w-[1px] h-6 md:h-8 bg-black/5 mx-1 md:mx-2 shrink-0" />
 
-          {/* Dark Mode Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 

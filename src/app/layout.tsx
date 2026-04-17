@@ -1,4 +1,5 @@
-import type {Metadata} from 'next';
+
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from "@/firebase/client-provider"
@@ -7,9 +8,23 @@ import { NavigationDock } from "@/components/layout/navigation-dock"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
-  title: 'Express Phone Pro | Khaled_Deragha',
-  description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - تم التطوير بواسطة Khaled_Deragha',
+  title: 'Express Phone Pro | Offline-First',
+  description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - يعمل بدون إنترنت مع مزامنة ذكية',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Express Phone Pro',
+  },
 };
+
+export const viewport: Viewport = {
+  themeColor: '#3960AC',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
 
 export default function RootLayout({
   children,
