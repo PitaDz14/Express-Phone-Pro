@@ -26,7 +26,10 @@ import {
   Link as LinkIcon,
   User,
   Settings2,
-  Settings
+  Settings,
+  Upload,
+  Layers,
+  ChevronLeft
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,6 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -202,15 +206,19 @@ export default function Dashboard() {
   const [showRepairInEdit, setShowRepairInEdit] = React.useState(true)
   const [showRepairInSearch, setShowRepairInSearch] = React.useState(false)
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
+  const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
+  // Full Add Product States
   const [qaName, setQaName] = React.useState("")
+  const [qaCode, setQaCode] = React.useState("")
   const [qaCat, setQaCat] = React.useState("")
   const [qaImageUrl, setQaImageUrl] = React.useState("")
   const [qaQty, setQaQty] = React.useState(0)
   const [qaPurchase, setQaPurchase] = React.useState(0)
   const [qaSale, setQaSale] = React.useState(0)
   const [qaRepair, setQaRepair] = React.useState(0)
+  const [qaMinStock, setQaMinStock] = React.useState(1)
   const [isAdding, setIsAdding] = React.useState(false)
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
@@ -275,7 +283,14 @@ export default function Dashboard() {
     ).slice(0, 8)
   }, [quickEditSearch, products])
 
-  const handleQuickAdd = async () => {
+  const getFullCategoryPath = (catId: string, allCats: any[]): string => {
+    const cat = allCats.find(c => c.id === catId);
+    if (!cat) return "";
+    if (!cat.parentId) return cat.name;
+    return `${getFullCategoryPath(cat.parentId, allCats)} > ${cat.name}`;
+  }
+
+  const handleFullAdd = async () => {
     if (!qaName || !qaCat || qaSale <= 0 || !user) {
       toast({ title: "خطأ", description: "يرجى ملء الاسم، التصنيف، وسعر البيع على الأقل", variant: "destructive" })
       return
@@ -283,32 +298,47 @@ export default function Dashboard() {
 
     setIsAdding(true)
     const selectedCat = categories?.find(c => c.id === qaCat)
-    const code = `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    const finalCode = qaCode.trim() || `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    const categoryPath = categories ? getFullCategoryPath(qaCat, categories) : (selectedCat?.name || "بدون تصنيف");
 
     try {
       await addDocumentNonBlocking(productsRef, {
         name: qaName,
-        productCode: code,
+        productCode: finalCode,
         imageUrl: qaImageUrl,
         categoryId: qaCat,
         categoryName: selectedCat?.name || "بدون تصنيف",
-        categoryPath: selectedCat?.path?.replace(/\//g, ' > ').substring(1) || selectedCat?.name || "بدون تصنيف",
+        categoryPath: categoryPath,
         quantity: Number(qaQty),
         purchasePrice: Number(qaPurchase),
         salePrice: Number(qaSale),
         repairPrice: Number(qaRepair),
-        minStockQuantity: 1,
+        minStockQuantity: Number(qaMinStock),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdByUserId: user.uid
       })
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
-      setQaName(""); setQaCat(""); setQaImageUrl(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0);
+      resetQaForm()
+      setIsAddProductOpen(false)
     } catch (e) {
       console.error(e)
     } finally {
       setIsAdding(false)
+    }
+  }
+
+  const resetQaForm = () => {
+    setQaName(""); setQaCode(""); setQaCat(""); setQaImageUrl(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0); setQaMinStock(1);
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setQaImageUrl(reader.result as string)
+      reader.readAsDataURL(file)
     }
   }
 
@@ -572,7 +602,7 @@ export default function Dashboard() {
                       <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
                     </div>
                     <div className="col-span-1 pt-4">
-                      <Button onClick={handleQuickAdd} disabled={isAdding} className="w-full h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
+                      <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
                          {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                          حفظ
                       </Button>
@@ -602,7 +632,7 @@ export default function Dashboard() {
         
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
           <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة" color="bg-primary" />
-          <QuickActionButton href="/products" icon={Plus} label="إضافة منتج" color="bg-accent" />
+          <QuickActionButton onClick={() => { resetQaForm(); setIsAddProductOpen(true); }} icon={Plus} label="إضافة منتج" color="bg-accent" />
           <QuickActionButton href="/customers" icon={UserPlus} label="إضافة عميل" color="bg-emerald-500" />
           <QuickActionButton icon={QrCode} label="مسح QR" color="bg-orange-500" onClick={() => setIsQRScannerOpen(true)} />
         </section>
@@ -704,6 +734,93 @@ export default function Dashboard() {
           </Card>
         </div>
       </main>
+
+      {/* Dedicated Add Product Dialog */}
+      <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent dir="rtl" className="glass border-none rounded-[2rem] md:rounded-[2.5rem] shadow-2xl max-w-2xl z-[310] max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">إضافة منتج جديد</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 md:gap-6 py-4">
+            <div className="flex items-center gap-6 p-4 glass rounded-2xl border-primary/10">
+               <div className="h-24 w-24 rounded-2xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 relative group">
+                  {qaImageUrl ? (
+                    <img src={qaImageUrl} alt="Preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                  )}
+                  <Label htmlFor="qa-image-upload" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <Upload className="h-6 w-6 text-white" />
+                  </Label>
+                  <Input id="qa-image-upload" type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+               </div>
+               <div className="flex-1 space-y-2">
+                  <Label className="font-black text-[10px] text-primary">رابط الصورة (اختياري)</Label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input 
+                      placeholder="https://example.com/image.jpg" 
+                      value={qaImageUrl} 
+                      onChange={(e) => setQaImageUrl(e.target.value)} 
+                      className="pl-9 h-10 glass border-none rounded-xl font-bold text-xs" 
+                    />
+                  </div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">اسم المنتج</Label>
+                <Input value={qaName} onChange={(e) => setQaName(e.target.value)} className="rounded-xl h-10 md:h-12 glass border-none font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">كود المنتج (QR)</Label>
+                <Input value={qaCode} onChange={(e) => setQaCode(e.target.value)} className="rounded-xl h-10 md:h-12 glass border-none font-bold" placeholder="اتركه فارغاً للتوليد التلقائي" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="font-black text-[10px] text-primary">التصنيف الهرمي</Label>
+              <Select value={qaCat} onValueChange={setQaCat}>
+                <SelectTrigger className="h-10 md:h-12 rounded-xl glass border-none font-bold">
+                  <SelectValue placeholder="اختر التصنيف..." />
+                </SelectTrigger>
+                <SelectContent className="glass border-none rounded-xl z-[320] max-h-[300px]">
+                  {categories && renderCategoryOptions(categories)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">سعر الشراء (دج)</Label>
+                <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="rounded-xl h-10 md:h-12 glass border-none font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">سعر البيع (دج)</Label>
+                <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="rounded-xl h-10 md:h-12 glass border-none font-bold text-emerald-600" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">سعر التصليح</Label>
+                <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">الكمية</Label>
+                <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="font-black text-[10px] text-primary">حد التنبيه</Label>
+                <Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-12 md:h-14 rounded-2xl font-black bg-primary text-white shadow-xl">
+               {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />} حفظ بيانات المنتج
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
