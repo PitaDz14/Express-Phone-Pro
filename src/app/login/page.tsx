@@ -129,8 +129,8 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <footer className="text-center opacity-30 text-[10px] font-black uppercase tracking-[0.4em]">
-          Express Phone Pro &copy; Khaled_Deragha • 2024
+        <footer className="text-center opacity-30 text-[10px] font-black uppercase tracking-widest">
+          Express Phone Pro &copy; Khaled_Deragha • 2026
         </footer>
       </div>
     </div>

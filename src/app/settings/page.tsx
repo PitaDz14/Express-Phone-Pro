@@ -274,7 +274,7 @@ export default function SettingsPage() {
       </div>
 
       <footer className="text-center py-10 opacity-30 text-[10px] font-black uppercase tracking-[0.5em]">
-         System Security Verified • Khaled_Deragha © 2024
+         System Security Verified • Khaled_Deragha © 2026
       </footer>
     </div>
   )
