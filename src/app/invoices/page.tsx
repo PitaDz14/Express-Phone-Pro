@@ -97,7 +97,7 @@ export default function InvoicesPage() {
           const invDoc = await getDoc(doc(db, "invoices", editId))
           if (invDoc.exists()) {
             const data = invDoc.data()
-            setSelectedCustomer({ id: data.customerId, name: data.customerName, debt: 0 }) // Basic info
+            setSelectedCustomer({ id: data.customerId, name: data.customerName, debt: 0 }) 
             setDiscount(data.discount || 0)
             setPaidAmount(data.paidAmount)
             
@@ -105,7 +105,7 @@ export default function InvoicesPage() {
             const items = itemsSnap.docs.map(d => {
               const itemData = d.data()
               return {
-                id: d.id, // Internal item doc id
+                id: d.id,
                 productId: itemData.productId,
                 name: itemData.productName,
                 price: itemData.unitPrice,
@@ -150,7 +150,7 @@ export default function InvoicesPage() {
       setCart(cart.map(item => item.productId === product.id ? { ...item, qty: item.qty + 1 } : item))
     } else {
       setCart([...cart, { 
-        id: Math.random().toString(36).substring(7), // Temp ID
+        id: Math.random().toString(36).substring(7),
         productId: product.id,
         name: product.name, 
         price: product.salePrice, 
@@ -200,8 +200,6 @@ export default function InvoicesPage() {
             .total { font-size: 14px; border-top: 1px solid #000; padding-top: 4px; font-weight: 800; }
             .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; }
             .qr-img { width: 100px; height: 100px; }
-            .no-print { display: none !important; }
-            @media print { .no-print { display: none; } }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -209,7 +207,7 @@ export default function InvoicesPage() {
             <div class="header">
               <h1>EXPRESS PHONE</h1>
               <p style="font-size: 10px; font-weight: 800;">فاتورة مبيعات</p>
-              <p style="font-size: 9px;">#${invId.slice(0, 12)}</p>
+              <p style="font-size: 9px;">#${invId.slice(0, 15)}</p>
               <p style="font-size: 9px;">التاريخ: ${format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
             </div>
 
@@ -257,36 +255,38 @@ export default function InvoicesPage() {
 
   const handleProcessInvoice = async () => {
     if (cart.length === 0 || !user) return
-
     if (debtAmount > 0 && !selectedCustomer) {
       toast({ title: "تنبيه", description: "يجب تحديد عميل لتسجيل الدين باسمه", variant: "destructive" })
       return
     }
 
     setIsProcessing(true)
+    const batch = writeBatch(db);
+
     try {
-      // If Editing, revert old quantities first
       if (editId) {
-        const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
-        for (const d of oldItemsSnap.docs) {
-          const item = d.data();
-          if (item.productId) {
-            updateDocumentNonBlocking(doc(db, "products", item.productId), {
-              quantity: increment(item.quantity)
-            });
-          }
-          await deleteDoc(d.ref); // Clear old items to replace with new ones
-        }
-        
-        // Revert old debt if applicable
         const oldInvSnap = await getDoc(doc(db, "invoices", editId));
         if (oldInvSnap.exists()) {
           const oldData = oldInvSnap.data();
+          
+          // Revert old debt
           const oldDebt = oldData.totalAmount - oldData.paidAmount;
-          if (oldDebt > 0) {
-            updateDocumentNonBlocking(doc(db, "customers", oldData.customerId), {
+          if (oldDebt > 0 && oldData.customerId !== 'walk-in') {
+            batch.update(doc(db, "customers", oldData.customerId), {
               debt: increment(-oldDebt)
             });
+          }
+
+          // Revert old items and delete them
+          const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
+          for (const d of oldItemsSnap.docs) {
+            const item = d.data();
+            if (item.productId) {
+              batch.update(doc(db, "products", item.productId), {
+                quantity: increment(item.quantity)
+              });
+            }
+            batch.delete(d.ref);
           }
         }
       }
@@ -300,15 +300,16 @@ export default function InvoicesPage() {
         status: debtAmount > 0 ? "Debt" : "Paid",
         generatedByUserId: user.uid,
         updatedAt: serverTimestamp(),
-        createdAt: editId ? undefined : serverTimestamp() // Don't overwrite original creation date
+        createdAt: editId ? undefined : serverTimestamp()
       }
 
-      const targetDocRef = editId ? doc(db, "invoices", editId) : doc(invoicesRef);
-      await setDocumentNonBlocking(targetDocRef, invoiceData, { merge: true });
+      const targetDocRef = editId ? doc(db, "invoices", editId) : doc(collection(db, "invoices"));
+      batch.set(targetDocRef, invoiceData, { merge: true });
       
       const itemsRef = collection(db, "invoices", targetDocRef.id, "items")
       cart.forEach(item => {
-        addDocumentNonBlocking(itemsRef, {
+        const newItemRef = doc(itemsRef);
+        batch.set(newItemRef, {
           invoiceId: targetDocRef.id,
           productId: item.productId,
           productName: item.name,
@@ -318,18 +319,20 @@ export default function InvoicesPage() {
           itemTotal: item.price * item.qty,
           generatedByUserId: user.uid,
           createdAt: serverTimestamp()
-        })
+        });
 
-        updateDocumentNonBlocking(doc(db, "products", item.productId), {
+        batch.update(doc(db, "products", item.productId), {
           quantity: increment(-item.qty)
-        })
-      })
+        });
+      });
 
       if (debtAmount > 0 && selectedCustomer) {
-        updateDocumentNonBlocking(doc(db, "customers", selectedCustomer.id), {
+        batch.update(doc(db, "customers", selectedCustomer.id), {
           debt: increment(debtAmount)
-        })
+        });
       }
+
+      await batch.commit();
 
       toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: `رقم العملية: ${targetDocRef.id.slice(0, 8)}` })
       handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
@@ -341,7 +344,8 @@ export default function InvoicesPage() {
       setShowPreview(false)
       if (editId) router.push('/invoices/history')
     } catch (error) {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء المعالجة", variant: "destructive" })
+      console.error(error);
+      toast({ title: "خطأ", description: "حدث خطأ أثناء معالجة البيانات، يرجى المحاولة لاحقاً", variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }
@@ -547,12 +551,12 @@ export default function InvoicesPage() {
 
         {/* Professional Preview Dialog (Thermal Simulated) */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210]">
-             <DialogHeader className="p-4 bg-primary/5 border-b border-border">
+          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
+             <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
                 <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
              </DialogHeader>
 
-             <div className="p-4 md:p-6 bg-black/5 flex flex-col items-center gap-4">
+             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-black/5 flex flex-col items-center gap-4 custom-scrollbar">
                 {/* Simulated Paper */}
                 <div className="bg-white text-black w-full shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 overflow-hidden select-none">
                    <div className="text-center space-y-1 border-b-2 border-black pb-4">
@@ -562,7 +566,7 @@ export default function InvoicesPage() {
                    </div>
 
                    <div className="space-y-1">
-                      <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_تلقائي"}</span></p>
+                      <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_جديد"}</span></p>
                       <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
                       <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
                    </div>
@@ -601,13 +605,13 @@ export default function InvoicesPage() {
                       <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
                    </div>
                 </div>
+             </div>
 
-                <div className="flex flex-col w-full gap-2">
-                   <Button className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2" onClick={handleProcessInvoice} disabled={isProcessing}>
-                      {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} تأكيد وتنفيذ الطباعة
-                   </Button>
-                   <Button variant="outline" className="w-full h-11 rounded-xl font-bold border-white/20" onClick={() => setShowPreview(false)}>تراجع للتعديل</Button>
-                </div>
+             <div className="p-4 bg-white border-t border-border flex flex-col gap-2 shrink-0">
+                <Button className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2" onClick={handleProcessInvoice} disabled={isProcessing}>
+                   {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} {editId ? "حفظ التعديلات النهائية" : "تأكيد وتنفيذ الطباعة"}
+                </Button>
+                <Button variant="outline" className="w-full h-11 rounded-xl font-bold border-white/20" onClick={() => setShowPreview(false)}>تراجع للتعديل</Button>
              </div>
           </DialogContent>
         </Dialog>
