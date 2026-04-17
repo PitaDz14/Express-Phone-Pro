@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,7 +10,9 @@ import {
   BarChart3,
   Layers,
   Settings,
-  LogOut
+  LogOut,
+  Sun,
+  Moon
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -22,6 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useTheme } from "@/components/theme-provider"
 
 const items = [
   { title: "الرئيسية", url: "/", icon: LayoutDashboard },
@@ -36,6 +38,7 @@ const items = [
 
 export function NavigationDock() {
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print">
@@ -69,6 +72,21 @@ export function NavigationDock() {
           })}
           
           <div className="w-[1px] h-8 bg-black/5 mx-2" />
+
+          {/* Dark Mode Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="h-14 w-14 rounded-2xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-500 hover:-translate-y-1"
+              >
+                {theme === "dark" ? <Sun className="h-6 w-6 mx-auto" /> : <Moon className="h-6 w-6 mx-auto" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="bg-primary text-white border-none rounded-xl px-3 py-1 font-bold text-xs mb-2">
+              {theme === "dark" ? "وضع النهار" : "وضع الليل"}
+            </TooltipContent>
+          </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>

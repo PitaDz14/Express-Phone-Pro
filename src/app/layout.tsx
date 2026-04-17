@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from "@/firebase/client-provider"
 import { AuthGate } from "@/components/auth-gate"
 import { NavigationDock } from "@/components/layout/navigation-dock"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
   title: 'Express Phone Pro | Khaled_Deragha',
@@ -16,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -29,10 +30,12 @@ export default function RootLayout({
       </head>
       <body className="antialiased selection:bg-primary selection:text-white pb-32">
         <FirebaseClientProvider>
-          <AuthGate>
-            {children}
-            <NavigationDock />
-          </AuthGate>
+          <ThemeProvider>
+            <AuthGate>
+              {children}
+              <NavigationDock />
+            </AuthGate>
+          </ThemeProvider>
         </FirebaseClientProvider>
         <Toaster />
       </body>
