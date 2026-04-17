@@ -256,13 +256,16 @@ export default function ProductsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 pb-32">
-      <header className="flex items-center justify-between">
-        <div className="flex flex-col">
+      <header className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex flex-col text-center md:text-right">
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter">إدارة المخزون الذكي</h1>
           <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">تتبع دقيق وتصنيفات هرمية متشعبة | Khaled_Deragha</p>
         </div>
-        <Button onClick={() => { resetForm(); setOpen(true); }} className="h-14 px-8 rounded-2xl bg-primary text-white shadow-2xl hover:scale-105 transition-transform gap-2 font-black">
-          <Plus className="h-6 w-6" /> إضافة صنف جديد
+        <Button 
+          onClick={() => { resetForm(); setOpen(true); }} 
+          className="h-14 px-10 rounded-2xl bg-primary text-white shadow-2xl hover:scale-105 transition-transform gap-3 font-black text-lg"
+        >
+          <Plus className="h-7 w-7" /> إضافة منتج جديد
         </Button>
       </header>
 
@@ -380,7 +383,7 @@ export default function ProductsPage() {
           <div className="grid gap-6 py-4">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="font-black text-xs text-primary px-1">اسم الصنف</Label>
+                <Label className="font-black text-xs text-primary px-1">اسم المنتج</Label>
                 <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold" placeholder="مثال: شاشة iPhone 13 Pro" />
               </div>
               <div className="space-y-2">
