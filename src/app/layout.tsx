@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: 'Express Phone Pro | Offline-First',
   description: 'نظام إدارة احترافي لمحل تصليح وبيع الهواتف - يعمل بدون إنترنت مع مزامنة ذكية',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/logo.png', // Fallback to logo.png in public folder
+    apple: '/logo.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

@@ -7,16 +7,16 @@ import {
   Package,
   Users,
   FileText,
-  Settings,
   LogOut,
   BarChart3,
-  Smartphone,
   ChevronLeft,
   History,
   ShieldCheck
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 import {
   Sidebar,
@@ -43,14 +43,24 @@ const items = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   return (
     <Sidebar side="right" className="border-none bg-transparent p-4 hidden md:flex">
       <div className="h-full glass-premium rounded-[2.5rem] flex flex-col">
         <SidebarHeader className="px-8 py-12">
           <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-3xl bg-gradient-to-br from-[#3960AC] to-[#3CC2DD] flex items-center justify-center text-white shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500">
-              <Smartphone className="h-8 w-8" />
+            <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-primary/20 transform -rotate-3 transition-transform hover:rotate-0 duration-500 border border-primary/10 overflow-hidden">
+               {logo && (
+                 <Image 
+                  src={logo.imageUrl} 
+                  alt="Express Phone" 
+                  width={60} 
+                  height={60} 
+                  className="object-contain" 
+                  data-ai-hint={logo.imageHint}
+                 />
+               )}
             </div>
             <div className="flex flex-col">
               <span className="font-black text-2xl tracking-tighter text-[#3960AC]">EXPRESS</span>

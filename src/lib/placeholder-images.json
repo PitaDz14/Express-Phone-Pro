@@ -11,6 +11,12 @@
       "description": "Professional avatar",
       "imageUrl": "https://picsum.photos/seed/admin/150/150",
       "imageHint": "avatar professional"
+    },
+    {
+      "id": "app-logo",
+      "description": "Express Phone Main Logo",
+      "imageUrl": "https://picsum.photos/seed/express-logo/400/400",
+      "imageHint": "mobile shop logo"
     }
   ]
 }

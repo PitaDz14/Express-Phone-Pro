@@ -8,12 +8,10 @@ import {
   ShoppingBag, 
   UserPlus, 
   QrCode, 
-  Smartphone, 
   Wallet, 
   AlertTriangle, 
   Package, 
   TrendingUp, 
-  ChevronLeft, 
   Zap, 
   Loader2,
   Edit3,
@@ -21,14 +19,12 @@ import {
   EyeOff,
   Minus,
   Sparkles,
-  Wrench,
-  CheckCircle2,
   X,
   Camera,
   Image as ImageIcon,
   Link as LinkIcon
 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -53,6 +49,8 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 // --- Components ---
 
@@ -176,6 +174,7 @@ QuickEditItem.displayName = "QuickEditItem"
 export default function Dashboard() {
   const db = useFirestore()
   const { toast } = useToast()
+  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
   
   // Hydration safety
   const [isMounted, setIsMounted] = React.useState(false)
@@ -209,7 +208,6 @@ export default function Dashboard() {
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
   const stats = React.useMemo(() => {
-    // Only calculate stats that depend on dynamic dates after mounting to avoid hydration mismatch
     if (!isMounted) return {
       todaySales: 0,
       productCount: 0,
@@ -322,7 +320,7 @@ export default function Dashboard() {
       })
   }
 
-  if (!isMounted) return null; // Prevent hydration flash
+  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-transparent pb-32 animate-in fade-in duration-700 overflow-x-hidden">
@@ -334,8 +332,17 @@ export default function Dashboard() {
 
       <header className="flex h-20 shrink-0 items-center justify-between px-4 md:px-10 glass sticky top-0 z-50">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg rotate-3">
-             <Smartphone className="h-5 w-5 md:h-6 md:w-6" />
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 overflow-hidden border border-primary/10">
+             {logo && (
+               <Image 
+                src={logo.imageUrl} 
+                alt="Logo" 
+                width={40} 
+                height={40} 
+                className="object-contain" 
+                data-ai-hint={logo.imageHint}
+               />
+             )}
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
@@ -362,7 +369,7 @@ export default function Dashboard() {
                         ) : p.quantity === 0 ? (
                            <Badge variant="destructive" className="h-full w-full rounded-none flex items-center justify-center p-0 text-[7px] font-black">X</Badge>
                         ) : (
-                           <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
+                           <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
                         )}
                       </div>
                       <div className="flex flex-col">
@@ -472,7 +479,18 @@ export default function Dashboard() {
                </div>
             </DialogContent>
            </Dialog>
-           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-xs md:text-sm shadow-lg">AD</div>
+           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-xs md:text-sm shadow-lg overflow-hidden border border-white/20">
+             {logo && (
+               <Image 
+                src={logo.imageUrl} 
+                alt="User" 
+                width={40} 
+                height={40} 
+                className="object-contain" 
+                data-ai-hint={logo.imageHint}
+               />
+             )}
+           </div>
         </div>
       </header>
 
@@ -496,6 +514,9 @@ export default function Dashboard() {
           
           <div className="lg:col-span-2 flex flex-col gap-6 md:gap-8">
              <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl relative">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <Smartphone className="h-48 w-48 rotate-12" />
+                </div>
                 <CardHeader className="p-6 md:p-8 relative z-10">
                    <div className="flex items-center gap-3">
                       <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">

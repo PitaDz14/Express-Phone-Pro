@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Smartphone, Lock, Mail, Loader2, AlertCircle } from "lucide-react"
+import { Lock, Mail, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,8 @@ import { useAuth, useUser } from "@/firebase"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,7 +26,8 @@ export default function LoginPage() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Redirect if already logged in
+  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
+
   React.useEffect(() => {
     if (!isUserLoading && user) {
       router.push("/")
@@ -66,8 +69,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4 sm:p-8" dir="rtl">
       <div className="w-full max-w-[450px] space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center space-y-2">
-          <div className="mx-auto h-16 w-16 rounded-[2rem] bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-2xl shadow-primary/20 rotate-3">
-            <Smartphone className="h-8 w-8" />
+          <div className="mx-auto h-24 w-24 rounded-[2rem] bg-white flex items-center justify-center shadow-2xl shadow-primary/20 rotate-3 overflow-hidden border-2 border-primary/10">
+            {logo && (
+              <Image 
+                src={logo.imageUrl} 
+                alt="Express Phone Logo" 
+                width={80} 
+                height={80} 
+                className="object-contain"
+                data-ai-hint={logo.imageHint}
+              />
+            )}
           </div>
           <h1 className="text-4xl font-black text-gradient-premium tracking-tighter mt-4">EXPRESS PHONE PRO</h1>
           <p className="text-sm text-muted-foreground font-bold uppercase tracking-widest">نظام الإدارة الآمن</p>
