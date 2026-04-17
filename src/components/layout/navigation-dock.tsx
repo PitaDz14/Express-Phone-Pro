@@ -9,14 +9,11 @@ import {
   FileText,
   History,
   BarChart3,
-  Layers,
   Settings,
   LogOut,
   Sun,
   Moon,
   Wallet,
-  CloudOff,
-  CloudCheck,
   RefreshCw,
   Wifi,
   WifiOff
@@ -37,7 +34,6 @@ import { signOut } from "firebase/auth"
 const items = [
   { title: "الرئيسية", url: "/", icon: LayoutDashboard },
   { title: "المخزون", url: "/products", icon: Package },
-  { title: "التصنيفات", url: "/categories", icon: Layers },
   { title: "العملاء", url: "/customers", icon: Users },
   { title: "الديون", url: "/debts", icon: Wallet },
   { title: "نقطة البيع", url: "/invoices", icon: FileText },

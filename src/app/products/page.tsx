@@ -20,7 +20,8 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
   Upload,
-  Maximize2
+  Maximize2,
+  Layers
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,7 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, d
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 type SortConfig = {
   key: string;
@@ -335,9 +337,16 @@ export default function ProductsPage() {
           <h1 className="text-2xl md:text-4xl font-black text-gradient-premium tracking-tighter">إدارة المخزون</h1>
           <p className="text-[9px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1">تتبع دقيق وتصنيفات هرمية</p>
         </div>
-        <Button onClick={() => { resetForm(); setOpen(true); }} className="w-full md:w-auto h-12 md:h-14 px-6 md:px-10 rounded-2xl bg-primary text-white shadow-xl gap-2 font-black">
-          <Plus className="h-5 w-5 md:h-7 md:w-7" /> إضافة منتج جديد
-        </Button>
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+          <Button asChild variant="outline" className="w-full md:w-auto h-12 md:h-14 px-6 rounded-2xl glass border-white/20 gap-2 font-black">
+            <Link href="/categories">
+              <Layers className="h-5 w-5 text-primary" /> إدارة التصنيفات
+            </Link>
+          </Button>
+          <Button onClick={() => { resetForm(); setOpen(true); }} className="w-full md:w-auto h-12 md:h-14 px-6 md:px-10 rounded-2xl bg-primary text-white shadow-xl gap-2 font-black">
+            <Plus className="h-5 w-5 md:h-7 md:w-7" /> إضافة منتج جديد
+          </Button>
+        </div>
       </header>
 
       <div className="flex items-center gap-4">
