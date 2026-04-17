@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -65,7 +64,6 @@ export default function ProductsPage() {
   const { toast } = useToast()
   const db = useFirestore()
   
-  // UI States
   const [open, setOpen] = React.useState(false)
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false)
   const [editingProduct, setEditingProduct] = React.useState<any>(null)
@@ -73,7 +71,6 @@ export default function ProductsPage() {
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'name', direction: 'asc' })
   const [searchTerm, setSearchTerm] = React.useState("")
 
-  // Form States
   const [productName, setProductName] = React.useState("")
   const [productCode, setProductCode] = React.useState("")
   const [categoryId, setCategoryId] = React.useState("")
@@ -83,7 +80,6 @@ export default function ProductsPage() {
   const [salePrice, setSalePrice] = React.useState(0)
   const [repairPrice, setRepairPrice] = React.useState(0)
 
-  // Print Config States
   const [printName, setPrintName] = React.useState("")
   const [printPrice, setPrintPrice] = React.useState(0)
   const [showPrice, setShowPrice] = React.useState(false)
@@ -274,7 +270,7 @@ export default function ProductsPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="ابحث بالاسم، الكود، أو التصنيف..." 
-            className="pl-12 h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm" 
+            className="pl-12 h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm text-foreground" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -285,20 +281,20 @@ export default function ProductsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-white/10">
-              <TableHead className="cursor-pointer font-black h-16" onClick={() => handleSort('name')}>
+              <TableHead className="cursor-pointer font-black h-16 text-foreground" onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-2">المنتج <SortIcon column="name" /></div>
               </TableHead>
-              <TableHead className="text-center font-black h-16">باركود QR</TableHead>
-              <TableHead className="text-center cursor-pointer font-black h-16" onClick={() => handleSort('categoryName')}>
+              <TableHead className="text-center font-black h-16 text-foreground">باركود QR</TableHead>
+              <TableHead className="text-center cursor-pointer font-black h-16 text-foreground" onClick={() => handleSort('categoryName')}>
                 <div className="flex items-center justify-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
               </TableHead>
-              <TableHead className="text-center cursor-pointer font-black h-16" onClick={() => handleSort('quantity')}>
+              <TableHead className="text-center cursor-pointer font-black h-16 text-foreground" onClick={() => handleSort('quantity')}>
                 <div className="flex items-center justify-center gap-2">الكمية <SortIcon column="quantity" /></div>
               </TableHead>
-              <TableHead className="text-left cursor-pointer font-black h-16" onClick={() => handleSort('salePrice')}>
+              <TableHead className="text-left cursor-pointer font-black h-16 text-foreground" onClick={() => handleSort('salePrice')}>
                 <div className="flex items-center gap-2 justify-end"><SortIcon column="salePrice" /> السعر</div>
               </TableHead>
-              <TableHead className="text-center font-black h-16 w-48">إجراءات ذكية</TableHead>
+              <TableHead className="text-center font-black h-16 w-48 text-foreground">إجراءات ذكية</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -307,10 +303,10 @@ export default function ProductsPage() {
             ) : sortedProducts.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">لا توجد منتجات مطابقة للبحث</TableCell></TableRow>
             ) : sortedProducts.map((p) => (
-              <TableRow key={p.id} className="group border-white/5 hover:bg-white/40 transition-all duration-300">
+              <TableRow key={p.id} className="group border-white/5 hover:bg-muted/50 transition-all duration-300">
                 <TableCell>
                    <div className="flex flex-col">
-                      <span className="font-black text-sm">{p.name}</span>
+                      <span className="font-black text-sm text-foreground">{p.name}</span>
                       <span className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</span>
                    </div>
                 </TableCell>
@@ -372,7 +368,6 @@ export default function ProductsPage() {
         </Table>
       </Card>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl max-w-2xl z-[210]">
           <DialogHeader>
@@ -384,7 +379,7 @@ export default function ProductsPage() {
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">اسم المنتج</Label>
-                <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold" placeholder="مثال: شاشة iPhone 13 Pro" />
+                <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold text-foreground" placeholder="مثال: شاشة iPhone 13 Pro" />
               </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1 flex justify-between">
@@ -392,7 +387,7 @@ export default function ProductsPage() {
                   {!editingProduct && <span className="text-[9px] text-muted-foreground animate-pulse">سيولد تلقائياً إذا ترك فارغاً</span>}
                 </Label>
                 <div className="relative">
-                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold pl-10" placeholder="مثال: SCR-I13P" />
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="rounded-2xl h-12 glass border-none font-bold pl-10 text-foreground" placeholder="مثال: SCR-I13P" />
                   {!productCode && !editingProduct && <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/30" />}
                 </div>
               </div>
@@ -404,7 +399,7 @@ export default function ProductsPage() {
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Select value={categoryId} onValueChange={setCategoryId}>
-                      <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold">
+                      <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold text-foreground">
                         <SelectValue placeholder="اختر القسم بدقة..." />
                       </SelectTrigger>
                       <SelectContent className="glass border-none rounded-2xl z-[220]">
@@ -424,11 +419,11 @@ export default function ProductsPage() {
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر الشراء</Label>
-                <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
+                <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-foreground" />
               </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">سعر البيع</Label>
-                <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-emerald-600" />
+                <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
 
@@ -439,7 +434,7 @@ export default function ProductsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">الكمية الحالية</Label>
-                <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold" />
+                <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-2xl h-12 glass border-none font-bold text-foreground" />
               </div>
               <div className="space-y-2">
                 <Label className="font-black text-xs text-primary px-1">الحد الأدنى</Label>
@@ -455,7 +450,6 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Label Dialog */}
       <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] max-w-xl shadow-2xl overflow-hidden z-[210]">
           <DialogHeader>
@@ -465,15 +459,15 @@ export default function ProductsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-6 py-6 overflow-y-auto max-h-[75vh] px-2">
-            <div className="space-y-4 p-4 glass rounded-2xl border-white/10 bg-white/30">
+            <div className="space-y-4 p-4 glass rounded-2xl border-white/10 bg-card">
               <div className="space-y-2">
                 <Label className="font-black text-[10px] text-muted-foreground uppercase">الاسم على الملصق</Label>
-                <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl h-11 border-none shadow-sm font-bold" />
+                <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl h-11 border-none shadow-sm font-bold text-foreground" />
               </div>
 
               <div className="flex items-center justify-between p-3 glass rounded-xl border-white/10">
                 <div className="flex flex-col gap-1">
-                  <Label className="font-black text-xs">إدراج السعر في الملصق</Label>
+                  <Label className="font-black text-xs text-foreground">إدراج السعر في الملصق</Label>
                   <p className="text-[10px] text-muted-foreground font-bold">افتراضياً لا يظهر السعر</p>
                 </div>
                 <Switch checked={showPrice} onCheckedChange={setShowPrice} />
@@ -506,7 +500,7 @@ export default function ProductsPage() {
 
               <div className="space-y-2">
                 <Label className="font-black text-[10px] text-muted-foreground uppercase">عدد النسخ</Label>
-                <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl h-11 border-none shadow-sm font-bold" />
+                <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl h-11 border-none shadow-sm font-bold text-foreground" />
               </div>
             </div>
 
@@ -517,22 +511,22 @@ export default function ProductsPage() {
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 glass p-3 rounded-xl border-white/20">
-                     <span className="text-[10px] font-bold opacity-40">العرض:</span>
-                     <Input type="number" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="h-8 border-none bg-transparent font-black p-0 focus:ring-0" />
+                     <span className="text-[10px] font-bold opacity-40 text-foreground">العرض:</span>
+                     <Input type="number" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="h-8 border-none bg-transparent font-black p-0 focus:ring-0 text-foreground" />
                   </div>
                   <div className="flex items-center gap-3 glass p-3 rounded-xl border-white/20">
-                     <span className="text-[10px] font-bold opacity-40">الطول:</span>
-                     <Input type="number" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="h-8 border-none bg-transparent font-black p-0 focus:ring-0" />
+                     <span className="text-[10px] font-bold opacity-40 text-foreground">الطول:</span>
+                     <Input type="number" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="h-8 border-none bg-transparent font-black p-0 focus:ring-0 text-foreground" />
                   </div>
                </div>
             </div>
             
             <div className="space-y-3">
-               <div className="flex items-center gap-2 px-1 text-emerald-600">
+               <div className="flex items-center gap-2 px-1 text-emerald-500 dark:text-emerald-400">
                   <Eye className="h-4 w-4" />
                   <span className="text-xs font-black">معاينة قبل الطباعة</span>
                </div>
-               <div className="flex justify-center p-8 bg-black/5 rounded-3xl border-2 border-dashed border-black/5">
+               <div className="flex justify-center p-8 bg-muted rounded-3xl border-2 border-dashed border-border">
                   <div 
                     className="bg-white shadow-2xl flex flex-col items-center justify-center p-3 overflow-hidden relative"
                     style={{ 
@@ -542,20 +536,20 @@ export default function ProductsPage() {
                       borderRadius: '4px'
                     }}
                   >
-                     <div className="absolute top-1 right-1 opacity-20 text-[6px] font-bold uppercase">Express Phone</div>
-                     <span className="text-[10px] font-black truncate w-full text-center leading-tight mb-1">{printName}</span>
+                     <div className="absolute top-1 right-1 opacity-20 text-[6px] font-bold uppercase text-black">Express Phone</div>
+                     <span className="text-[10px] font-black truncate w-full text-center leading-tight mb-1 text-black">{printName}</span>
                      {showPrice && (
                        <span className="text-[14px] font-black text-black tabular-nums">{printPrice.toLocaleString()} دج</span>
                      )}
                      <div className="h-1/2 aspect-square bg-white border border-black/5 p-1 rounded-sm mt-2">
                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${printingProduct?.productCode}`} className="h-full w-full object-contain" alt="Preview QR" />
                      </div>
-                     <span className="text-[6px] font-bold mt-1 tracking-widest opacity-40">#{printingProduct?.productCode}</span>
+                     <span className="text-[6px] font-bold mt-1 tracking-widest opacity-40 text-black">#{printingProduct?.productCode}</span>
                   </div>
                </div>
             </div>
           </div>
-          <DialogFooter className="gap-3 p-4 border-t border-white/10 bg-white/5">
+          <DialogFooter className="gap-3 p-4 border-t border-border bg-muted/20">
             <Button variant="outline" onClick={() => setPrintDialogOpen(false)} className="flex-1 h-12 rounded-2xl font-black glass border-white/20">إلغاء</Button>
             <Button onClick={executePrint} className="flex-1 h-12 rounded-2xl font-black bg-primary text-white shadow-lg hover:shadow-primary/40 transition-all">بدء الطباعة الآن</Button>
           </DialogFooter>
