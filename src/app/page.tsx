@@ -21,7 +21,9 @@ import {
   EyeOff,
   Minus,
   Sparkles,
-  Wrench
+  Wrench,
+  CheckCircle2,
+  X
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,6 +37,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -89,20 +98,28 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
   const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
 
+  // Update local states when product changes
+  React.useEffect(() => {
+    setLocalQty(product.quantity);
+    setLocalSalePrice(product.salePrice);
+    setLocalPurchasePrice(product.purchasePrice || 0);
+    setLocalRepairPrice(product.repairPrice || 0);
+  }, [product]);
+
   const handleUpdate = React.useCallback((field: string, value: number) => {
     const productRef = doc(db, "products", product.id)
     updateDocumentNonBlocking(productRef, { [field]: value })
   }, [db, product.id])
 
   return (
-    <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4">
+    <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all">
        <div className="flex items-center justify-between">
           <div className="flex-1">
             <p className="font-black text-sm text-foreground truncate">{product.name}</p>
             <p className="text-[9px] text-primary font-bold">{product.categoryPath || product.categoryName}</p>
           </div>
           <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = localQty - 1; setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-4 w-4"/></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-4 w-4"/></Button>
             <span className="w-8 text-center text-sm font-black tabular-nums">{localQty}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-4 w-4"/></Button>
           </div>
@@ -110,29 +127,29 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
 
        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div className="space-y-1">
-             <Label className="text-[8px] font-black uppercase text-primary px-1">سعر البيع</Label>
+             <Label className="text-[8px] font-black uppercase text-primary px-1">البيع</Label>
              <Input 
                 type="number" 
-                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-primary"
+                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-primary focus:ring-1 focus:ring-primary"
                 value={localSalePrice}
                 onChange={(e) => { const v = Number(e.target.value); setLocalSalePrice(v); handleUpdate('salePrice', v); }}
              />
           </div>
           <div className="space-y-1">
-             <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">سعر التصليح</Label>
+             <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">التصليح</Label>
              <Input 
                 type="number" 
-                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums"
+                className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
                 value={localRepairPrice}
                 onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
              />
           </div>
           {showPurchase && (
             <div className="space-y-1 col-span-2 md:col-span-1">
-               <Label className="text-[8px] font-black uppercase text-orange-600 px-1">سعر الشراء</Label>
+               <Label className="text-[8px] font-black uppercase text-orange-600 px-1">الشراء</Label>
                <Input 
                   type="number" 
-                  className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-orange-600"
+                  className="h-9 glass border-none rounded-xl text-xs font-black tabular-nums text-orange-600 focus:ring-1 focus:ring-orange-600"
                   value={localPurchasePrice}
                   onChange={(e) => { const v = Number(e.target.value); setLocalPurchasePrice(v); handleUpdate('purchasePrice', v); }}
                />
@@ -153,13 +170,24 @@ export default function Dashboard() {
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
 
+  // Quick Add State
+  const [qaName, setQaName] = React.useState("")
+  const [qaCat, setQaCat] = React.useState("")
+  const [qaQty, setQaQty] = React.useState(0)
+  const [qaPurchase, setQaPurchase] = React.useState(0)
+  const [qaSale, setQaSale] = React.useState(0)
+  const [qaRepair, setQaRepair] = React.useState(0)
+  const [isAdding, setIsAdding] = React.useState(false)
+
   // Data refs
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
+  const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
+  const { data: categories } = useCollection(categoriesRef)
   
   const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
@@ -174,7 +202,8 @@ export default function Dashboard() {
 
     const screens = products?.filter(p => {
       const name = p.name.toLowerCase()
-      return name.includes("lcd") || name.includes("screen") || name.includes("شاشة") || name.includes("afficheur")
+      const path = (p.categoryPath || "").toLowerCase()
+      return name.includes("lcd") || name.includes("screen") || name.includes("شاشة") || name.includes("afficheur") || path.includes("شاشات")
     }) || []
 
     return {
@@ -201,8 +230,59 @@ export default function Dashboard() {
     const term = quickEditSearch.toLowerCase()
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
-    ).slice(0, 6)
+    ).slice(0, 8)
   }, [quickEditSearch, products])
+
+  const handleQuickAdd = async () => {
+    if (!qaName || !qaCat || qaSale <= 0) {
+      toast({ title: "خطأ", description: "يرجى ملء الاسم، التصنيف، وسعر البيع على الأقل", variant: "destructive" })
+      return
+    }
+
+    setIsAdding(true)
+    const selectedCat = categories?.find(c => c.id === qaCat)
+    const code = `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+
+    try {
+      await addDocumentNonBlocking(productsRef, {
+        name: qaName,
+        productCode: code,
+        categoryId: qaCat,
+        categoryName: selectedCat?.name || "بدون تصنيف",
+        categoryPath: selectedCat?.path?.replace(/\//g, ' > ').substring(3) || selectedCat?.name || "بدون تصنيف",
+        quantity: Number(qaQty),
+        purchasePrice: Number(qaPurchase),
+        salePrice: Number(qaSale),
+        repairPrice: Number(qaRepair),
+        minStockQuantity: 1,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
+      setQaName(""); setQaCat(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0);
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0, currentPath = "") => {
+    return cats
+      .filter(c => c.parentId === parentId)
+      .map(cat => {
+        const fullPath = currentPath ? `${currentPath} > ${cat.name}` : cat.name;
+        return (
+          <React.Fragment key={cat.id}>
+            <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6")}>
+              {fullPath}
+            </SelectItem>
+            {renderCategoryOptions(cats, cat.id, depth + 1, fullPath)}
+          </React.Fragment>
+        )
+      })
+  }
 
   return (
     <div className="min-h-screen bg-transparent pb-32">
@@ -273,19 +353,46 @@ export default function Dashboard() {
             <DialogTrigger asChild>
               <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform"><Edit3 className="h-5 w-5 text-primary" /></Button>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden">
-               <div className="p-8 border-b border-white/5 flex items-center justify-between">
+            <DialogContent dir="rtl" className="max-w-3xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
+               <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
                   <h2 className="text-xl font-black text-gradient-premium">التعديل السريع للمخزون</h2>
-                  <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
-                    {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
+                      {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
+                    </Button>
+                  </div>
                </div>
-               <div className="p-8 space-y-4">
+               
+               {/* Quick Add Form Section */}
+               <div className="p-8 border-b border-white/5 bg-primary/5">
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">إضافة منتج سريعة للفاتورة أو المخزن</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <Input placeholder="اسم المنتج..." value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold" />
+                    <Select value={qaCat} onValueChange={setQaCat}>
+                       <SelectTrigger className="h-11 glass border-none rounded-xl font-bold">
+                         <SelectValue placeholder="التصنيف..." />
+                       </SelectTrigger>
+                       <SelectContent className="glass border-none rounded-xl">
+                          {categories && renderCategoryOptions(categories)}
+                       </SelectContent>
+                    </Select>
+                    <Input type="number" placeholder="الكمية" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold" />
+                    <Input type="number" placeholder="سعر الشراء" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600" />
+                    <Input type="number" placeholder="سعر البيع" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600" />
+                    <Input type="number" placeholder="سعر التصليح" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary" />
+                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2">
+                       {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                       تأكيد الإضافة والحفظ
+                    </Button>
+                  </div>
+               </div>
+
+               <div className="p-8 flex-1 overflow-hidden flex flex-col gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع لتعديل السعر أو الكمية..." className="pl-10 h-12 glass border-none rounded-xl" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                    <Input placeholder="بحث سريع لتعديل السعر أو الكمية..." className="pl-10 h-12 glass border-none rounded-xl font-bold" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar p-2">
+                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                     {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
                   </div>
                </div>
