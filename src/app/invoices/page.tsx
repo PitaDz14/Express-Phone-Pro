@@ -17,7 +17,8 @@ import {
   Eye,
   X,
   ShoppingBag,
-  Info
+  Info,
+  Camera
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,7 @@ import Link from "next/link"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 
 interface CartItem {
   id: string
@@ -68,6 +70,7 @@ export default function InvoicesPage() {
   const [paidAmount, setPaidAmount] = React.useState<number | "">("")
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [showPreview, setShowPreview] = React.useState(false)
+  const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
@@ -109,6 +112,16 @@ export default function InvoicesPage() {
       }])
     }
     setSearchTerm("")
+    toast({ title: "تم الإضافة", description: `تمت إضافة ${product.name} للسلة` })
+  }
+
+  const handleQRScan = (code: string) => {
+    const product = products?.find(p => p.productCode === code)
+    if (product) {
+      addToCart(product)
+    } else {
+      toast({ title: "منتج غير مسجل", description: `كود المنتج ${code} غير موجود`, variant: "destructive" })
+    }
   }
 
   const updateQty = (id: string, delta: number) => {
@@ -294,6 +307,8 @@ export default function InvoicesPage() {
 
   return (
     <div className="min-h-screen bg-transparent">
+        <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
+        
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
@@ -326,7 +341,12 @@ export default function InvoicesPage() {
             <div className="lg:col-span-2 space-y-8">
               <Card className="border-none glass shadow-xl rounded-[2.5rem]">
                 <CardHeader className="border-b border-border p-8">
-                   <CardTitle className="text-xl font-black text-foreground">إضافة منتجات للفاتورة</CardTitle>
+                   <div className="flex items-center justify-between">
+                     <CardTitle className="text-xl font-black text-foreground">إضافة منتجات للفاتورة</CardTitle>
+                     <Button variant="ghost" className="rounded-xl border border-primary/20 gap-2 font-black text-primary hover:bg-primary hover:text-white" onClick={() => setIsQRScannerOpen(true)}>
+                        <Camera className="h-5 w-5" /> مسح كود
+                     </Button>
+                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-6">
                   <div className="relative">

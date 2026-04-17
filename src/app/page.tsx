@@ -23,7 +23,8 @@ import {
   Sparkles,
   Wrench,
   CheckCircle2,
-  X
+  X,
+  Camera
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,7 @@ import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebas
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 
 // --- Components ---
 
@@ -169,6 +171,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
+  const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
+  const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
   // Quick Add State
   const [qaName, setQaName] = React.useState("")
@@ -268,6 +272,17 @@ export default function Dashboard() {
     }
   }
 
+  const handleQRScan = (code: string) => {
+    const product = products?.find(p => p.productCode === code)
+    if (product) {
+      setQuickEditSearch(code)
+      setIsQuickEditOpen(true)
+      toast({ title: "تم العثور على المنتج", description: product.name })
+    } else {
+      toast({ title: "منتج غير معروف", description: `الكود: ${code} غير مسجل في النظام`, variant: "destructive" })
+    }
+  }
+
   const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0, currentPath = "") => {
     return cats
       .filter(c => c.parentId === parentId)
@@ -286,6 +301,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-transparent pb-32">
+      <QRScannerDialog 
+        open={isQRScannerOpen} 
+        onOpenChange={setIsQRScannerOpen} 
+        onScan={handleQRScan} 
+      />
+
       {/* Header with Search */}
       <header className="flex h-20 shrink-0 items-center justify-between px-10 glass sticky top-0 z-50">
         <div className="flex items-center gap-3">
@@ -349,9 +370,11 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-4">
-           <Dialog>
+           <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform"><Edit3 className="h-5 w-5 text-primary" /></Button>
+              <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform" onClick={() => setIsQuickEditOpen(true)}>
+                <Edit3 className="h-5 w-5 text-primary" />
+              </Button>
             </DialogTrigger>
             <DialogContent dir="rtl" className="max-w-3xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
@@ -409,7 +432,7 @@ export default function Dashboard() {
           <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة جديدة" color="bg-primary" />
           <QuickActionButton href="/products" icon={Plus} label="إضافة منتج" color="bg-accent" />
           <QuickActionButton href="/customers" icon={UserPlus} label="إضافة عميل" color="bg-emerald-500" />
-          <QuickActionButton icon={QrCode} label="مسح QR" color="bg-orange-500" onClick={() => toast({ title: "ميزة قادمة", description: "سيتم تفعيل الكاميرا للمسح قريباً" })} />
+          <QuickActionButton icon={QrCode} label="مسح QR" color="bg-orange-500" onClick={() => setIsQRScannerOpen(true)} />
         </section>
 
         {/* 2. Smart Summary - Daily Stats */}
