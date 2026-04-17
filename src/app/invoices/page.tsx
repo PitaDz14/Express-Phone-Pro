@@ -86,6 +86,10 @@ export default function InvoicesPage() {
     setCart(cart.map(item => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item))
   }
 
+  const updatePrice = (id: string, newPrice: number) => {
+    setCart(cart.map(item => item.id === id ? { ...item, price: newPrice } : item))
+  }
+
   const handleProcessInvoice = async () => {
     if (cart.length === 0) {
       toast({ title: "خطأ", description: "السلة فارغة", variant: "destructive" })
@@ -234,7 +238,16 @@ export default function InvoicesPage() {
                           </div>
                           <div>
                             <p className="font-black text-sm text-foreground">{item.name}</p>
-                            <p className="text-[10px] text-muted-foreground font-bold tabular-nums">{item.price.toLocaleString()} دج للقطعة</p>
+                            <div className="flex items-center gap-2 mt-1">
+                               <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">سعر الوحدة:</span>
+                               <Input 
+                                 type="number" 
+                                 className="h-7 w-24 glass border-none font-black text-[10px] tabular-nums p-1 text-primary focus:ring-1 focus:ring-primary" 
+                                 value={item.price} 
+                                 onChange={(e) => updatePrice(item.id, Number(e.target.value))} 
+                               />
+                               <span className="text-[10px] text-muted-foreground font-bold">دج</span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-6">
