@@ -1,5 +1,32 @@
-# Firebase Studio
+# Express Phone Pro | نظام إدارة محل الهواتف
 
-This is a NextJS starter in Firebase Studio.
+نظام متكامل لإدارة المخزون، المبيعات، الديون، والتقارير المالية.
 
-To get started, take a look at src/app/page.tsx.
+## 🔐 تعليمات إعداد الدخول لأول مرة
+
+بما أن النظام آمن ومشفر، يجب عليك إعداد حساب المدير يدوياً من لوحة تحكم Firebase:
+
+### 1. إنشاء حساب الدخول
+- اذهب إلى [Firebase Console](https://console.firebase.google.com/).
+- اختر قسم **Authentication** ثم **Users**.
+- اضغط على **Add user** وأدخل البريد الإلكتروني وكلمة المرور.
+- قم بنسخ الـ **User UID** للمستخدم الجديد.
+
+### 2. تعيين صلاحية المدير (Admin)
+- اذهب إلى قسم **Firestore Database**.
+- أنشئ مجموعة (Collection) باسم `user_roles`.
+- أضف وثيقة (Document) جديدة:
+  - **Document ID**: الصق الـ `User UID` الذي نسخته.
+  - **Fields**:
+    - `role`: (string) بقيمة `Admin`
+    - `userId`: (string) بقيمة الـ UID
+    - `createdAt`: (timestamp) تاريخ اليوم
+    - `updatedAt`: (timestamp) تاريخ اليوم
+
+## 🚀 المميزات الأساسية
+- **نقطة البيع (POS)**: معالجة فورية للمبيعات مع دعم الدفع الجزئي (الديون).
+- **إدارة الديون**: تتبع كامل لمستحقات العملاء مع إمكانية فرزهم حسب إجمالي الدين.
+- **إحصائيات الشاشات**: قسم حصري لمتابعة مخزون وقيمة الشاشات (LCD).
+- **الوضع الليلي**: حفظ تلقائي لخيارات المظهر (Dark/Light Mode).
+
+تم التطوير بواسطة: **Khaled_Deragha** © 2026
