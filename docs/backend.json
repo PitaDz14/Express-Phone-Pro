@@ -77,10 +77,12 @@
         "customerId": { "type": "string" },
         "customerName": { "type": "string" },
         "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "status": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "generatedByUserId": { "type": "string" }
       },
-      "required": ["id", "customerId", "totalAmount", "createdAt", "generatedByUserId"]
+      "required": ["id", "customerId", "totalAmount", "paidAmount", "createdAt", "generatedByUserId"]
     },
     "Repair": {
       "$schema": "http://json-schema.org/draft-07/schema#",
