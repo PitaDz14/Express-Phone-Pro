@@ -59,6 +59,93 @@ const chartData = [
   { name: "الجمعة", total: 85000 },
 ]
 
+// مكون فرعي لكل منتج في نافذة التعديل السريع لضمان عمل الأزرار والحقول بدقة
+function QuickEditItem({ product, db }: { product: any, db: any }) {
+  const [localQty, setLocalQty] = React.useState(product.quantity)
+  const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
+  const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
+
+  // مزامنة الحالة المحلية مع قاعدة البيانات عند حدوث تحديث خارجي
+  React.useEffect(() => {
+    setLocalQty(product.quantity)
+    setLocalSalePrice(product.salePrice)
+    setLocalRepairPrice(product.repairPrice || 0)
+  }, [product.quantity, product.salePrice, product.repairPrice])
+
+  const handleUpdate = (field: string, value: number) => {
+    const productRef = doc(db, "products", product.id)
+    updateDocumentNonBlocking(productRef, { [field]: value })
+  }
+
+  return (
+    <div className="p-6 rounded-[2rem] glass border-white/20 flex flex-col md:flex-row items-center gap-6 group hover:bg-white/50 transition-all">
+       <div className="flex-1 min-w-[200px]">
+          <p className="font-black text-base">{product.name}</p>
+          <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{product.productCode} | متاح حالياً: {product.quantity}</p>
+       </div>
+       
+       <div className="grid grid-cols-3 gap-4 w-full md:w-auto">
+          <div className="space-y-1">
+             <Label className="text-[9px] font-black text-primary uppercase px-1">الكمية</Label>
+             <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" size="icon" 
+                  className="h-9 w-9 rounded-xl bg-primary/10 hover:bg-primary hover:text-white transition-colors"
+                  onClick={() => {
+                    const newQty = Number(localQty) - 1
+                    setLocalQty(newQty)
+                    handleUpdate('quantity', newQty)
+                  }}
+                >
+                  <Minus className="h-4 w-4"/>
+                </Button>
+                <Input 
+                  type="number" 
+                  className="h-10 w-16 text-center glass border-none font-black tabular-nums p-0" 
+                  value={localQty}
+                  onChange={(e) => setLocalQty(e.target.value)}
+                  onBlur={(e) => handleUpdate('quantity', Number(e.target.value))} 
+                />
+                <Button 
+                  variant="ghost" size="icon" 
+                  className="h-9 w-9 rounded-xl bg-primary/10 hover:bg-primary hover:text-white transition-colors"
+                  onClick={() => {
+                    const newQty = Number(localQty) + 1
+                    setLocalQty(newQty)
+                    handleUpdate('quantity', newQty)
+                  }}
+                >
+                  <Plus className="h-4 w-4"/>
+                </Button>
+             </div>
+          </div>
+          
+          <div className="space-y-1">
+             <Label className="text-[9px] font-black text-emerald-600 uppercase px-1">سعر البيع</Label>
+             <Input 
+               type="number" 
+               className="h-10 w-28 glass border-none font-black tabular-nums text-emerald-700" 
+               value={localSalePrice}
+               onChange={(e) => setLocalSalePrice(e.target.value)}
+               onBlur={(e) => handleUpdate('salePrice', Number(e.target.value))} 
+             />
+          </div>
+
+          <div className="space-y-1">
+             <Label className="text-[9px] font-black text-accent uppercase px-1">سعر التصليح</Label>
+             <Input 
+               type="number" 
+               className="h-10 w-28 glass border-none font-black tabular-nums text-primary" 
+               value={localRepairPrice}
+               onChange={(e) => setLocalRepairPrice(e.target.value)}
+               onBlur={(e) => handleUpdate('repairPrice', Number(e.target.value))} 
+             />
+          </div>
+       </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const db = useFirestore()
   const { toast } = useToast()
@@ -93,21 +180,15 @@ export default function Dashboard() {
   }, [searchTerm, products])
 
   const quickEditProducts = React.useMemo(() => {
-    if (!quickEditSearch || !products) return products?.slice(0, 5) || []
+    if (!quickEditSearch || !products) return products?.slice(0, 8) || []
     return products.filter(p => 
       p.name.toLowerCase().includes(quickEditSearch.toLowerCase()) || 
       p.productCode?.toLowerCase().includes(quickEditSearch.toLowerCase())
-    ).slice(0, 5)
+    ).slice(0, 15)
   }, [quickEditSearch, products])
 
   const totalSalesMonth = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
   const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0
-
-  const handleUpdateField = (productId: string, field: string, value: any) => {
-    const productRef = doc(db, "products", productId)
-    updateDocumentNonBlocking(productRef, { [field]: Number(value) })
-    // No need for toast here as it's an "auto-save" experience, but we can log for debug if needed
-  }
 
   if (!mounted) return null
 
@@ -294,48 +375,7 @@ export default function Dashboard() {
                   {quickEditProducts.length === 0 ? (
                     <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة للبحث</div>
                   ) : quickEditProducts.map(p => (
-                    <div key={p.id} className="p-6 rounded-[2rem] glass border-white/20 flex flex-col md:flex-row items-center gap-6 group hover:bg-white/50 transition-all">
-                       <div className="flex-1 min-w-[200px]">
-                          <p className="font-black text-base">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{p.productCode} | متاح حالياً: {p.quantity}</p>
-                       </div>
-                       
-                       <div className="grid grid-cols-3 gap-4 w-full md:w-auto">
-                          <div className="space-y-1">
-                             <Label className="text-[9px] font-black text-primary uppercase px-1">الكمية</Label>
-                             <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-primary/5 hover:bg-primary hover:text-white" onClick={() => handleUpdateField(p.id, 'quantity', p.quantity - 1)}><Minus className="h-3 w-3"/></Button>
-                                <Input 
-                                  type="number" 
-                                  className="h-10 w-20 text-center glass border-none font-black tabular-nums" 
-                                  defaultValue={p.quantity} 
-                                  onBlur={(e) => handleUpdateField(p.id, 'quantity', e.target.value)} 
-                                />
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-primary/5 hover:bg-primary hover:text-white" onClick={() => handleUpdateField(p.id, 'quantity', p.quantity + 1)}><Plus className="h-3 w-3"/></Button>
-                             </div>
-                          </div>
-                          
-                          <div className="space-y-1">
-                             <Label className="text-[9px] font-black text-emerald-600 uppercase px-1">سعر البيع</Label>
-                             <Input 
-                               type="number" 
-                               className="h-10 w-32 glass border-none font-black tabular-nums text-emerald-700" 
-                               defaultValue={p.salePrice} 
-                               onBlur={(e) => handleUpdateField(p.id, 'salePrice', e.target.value)} 
-                             />
-                          </div>
-
-                          <div className="space-y-1">
-                             <Label className="text-[9px] font-black text-accent uppercase px-1">سعر التصليح</Label>
-                             <Input 
-                               type="number" 
-                               className="h-10 w-32 glass border-none font-black tabular-nums text-primary" 
-                               defaultValue={p.repairPrice || 0} 
-                               onBlur={(e) => handleUpdateField(p.id, 'repairPrice', e.target.value)} 
-                             />
-                          </div>
-                       </div>
-                    </div>
+                    <QuickEditItem key={p.id} product={p} db={db} />
                   ))}
                 </div>
               </div>
