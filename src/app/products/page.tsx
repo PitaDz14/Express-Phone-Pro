@@ -75,7 +75,7 @@ export default function ProductsPage() {
   const [productCode, setProductCode] = React.useState("")
   const [categoryId, setCategoryId] = React.useState("")
   const [quantity, setQuantity] = React.useState(0)
-  const [minStock, setMinStock] = React.useState(5)
+  const [minStock, setMinStock] = React.useState(1)
   const [purchasePrice, setPurchasePrice] = React.useState(0)
   const [salePrice, setSalePrice] = React.useState(0)
   const [repairPrice, setRepairPrice] = React.useState(0)
@@ -163,7 +163,7 @@ export default function ProductsPage() {
   }
 
   const resetForm = () => {
-    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(5); setPurchasePrice(0); setCategoryId("")
+    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(1); setPurchasePrice(0); setCategoryId("")
   }
 
   const handleOpenPrint = (p: any) => {
@@ -346,7 +346,7 @@ export default function ProductsPage() {
                       variant="ghost" 
                       size="icon" 
                       className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
-                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 5); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true); }}
+                      onClick={() => { setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 1); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true); }}
                       title="تعديل"
                     >
                       <Edit3 className="h-4 w-4" />
