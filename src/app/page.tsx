@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,7 +24,9 @@ import {
   Wrench,
   CheckCircle2,
   X,
-  Camera
+  Camera,
+  Image as ImageIcon,
+  Link as LinkIcon
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -114,9 +117,18 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   return (
     <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all animate-in fade-in zoom-in duration-300">
        <div className="flex items-center justify-between">
-          <div className="flex-1 overflow-hidden">
-            <p className="font-black text-sm text-foreground truncate">{product.name}</p>
-            <p className="text-[9px] text-primary font-bold truncate">{product.categoryPath || product.categoryName}</p>
+          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+            <div className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+               {product.imageUrl ? (
+                 <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+               ) : (
+                 <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
+               )}
+            </div>
+            <div className="overflow-hidden">
+               <p className="font-black text-sm text-foreground truncate">{product.name}</p>
+               <p className="text-[9px] text-primary font-bold truncate">{product.categoryPath || product.categoryName}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl shrink-0">
             <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></Button>
@@ -177,6 +189,7 @@ export default function Dashboard() {
 
   const [qaName, setQaName] = React.useState("")
   const [qaCat, setQaCat] = React.useState("")
+  const [qaImageUrl, setQaImageUrl] = React.useState("")
   const [qaQty, setQaQty] = React.useState(0)
   const [qaPurchase, setQaPurchase] = React.useState(0)
   const [qaSale, setQaSale] = React.useState(0)
@@ -260,6 +273,7 @@ export default function Dashboard() {
       await addDocumentNonBlocking(productsRef, {
         name: qaName,
         productCode: code,
+        imageUrl: qaImageUrl,
         categoryId: qaCat,
         categoryName: selectedCat?.name || "بدون تصنيف",
         categoryPath: selectedCat?.path?.replace(/\//g, ' > ').substring(1) || selectedCat?.name || "بدون تصنيف",
@@ -273,7 +287,7 @@ export default function Dashboard() {
       })
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
-      setQaName(""); setQaCat(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0);
+      setQaName(""); setQaCat(""); setQaImageUrl(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0);
     } catch (e) {
       console.error(e)
     } finally {
@@ -342,8 +356,10 @@ export default function Dashboard() {
               {filteredProducts.map(p => (
                 <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
-                        {p.quantity === 0 ? (
+                      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+                        {p.imageUrl ? (
+                           <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                        ) : p.quantity === 0 ? (
                            <Badge variant="destructive" className="h-full w-full rounded-none flex items-center justify-center p-0 text-[7px] font-black">X</Badge>
                         ) : (
                            <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
@@ -397,7 +413,7 @@ export default function Dashboard() {
                     <div className="h-6 w-1 bg-primary rounded-full" />
                     <p className="text-[10px] md:text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
                     <div className="space-y-1">
                       <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
                       <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-xs" />
@@ -412,6 +428,13 @@ export default function Dashboard() {
                             {categories && renderCategoryOptions(categories)}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">رابط الصورة</Label>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <Input placeholder="http://..." value={qaImageUrl} onChange={e => setQaImageUrl(e.target.value)} className="h-10 md:h-11 pl-7 glass border-none rounded-xl font-bold text-[10px]" />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية</Label>
@@ -429,10 +452,12 @@ export default function Dashboard() {
                       <Label className="text-[8px] md:text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
                       <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
                     </div>
-                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-10 md:h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
-                       {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                       حفظ المنتج
-                    </Button>
+                    <div className="col-span-full md:col-span-1 pt-4">
+                      <Button onClick={handleQuickAdd} disabled={isAdding} className="w-full h-10 md:h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
+                         {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                         حفظ
+                      </Button>
+                    </div>
                   </div>
                </div>
 
@@ -532,7 +557,7 @@ export default function Dashboard() {
                 ) : recentInvoices?.map((inv, idx) => (
                   <div key={inv.id} className="p-4 md:p-6 flex items-center justify-between hover:bg-white/30 transition-all">
                     <div className="flex items-center gap-3 md:gap-4">
-                      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary">
+                      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary overflow-hidden">
                         <ShoppingBag className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
                       <div className="flex flex-col overflow-hidden">

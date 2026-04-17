@@ -16,7 +16,11 @@ import {
   X,
   ChevronLeft,
   Eye,
-  Settings2
+  Settings2,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Upload,
+  Maximize2
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -57,17 +61,32 @@ type SortConfig = {
   direction: 'asc' | 'desc' | null;
 }
 
-const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint }: { p: any, onEdit: any, onDelete: any, onPrint: any }) => (
+const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR }: { p: any, onEdit: any, onDelete: any, onPrint: any, onZoomQR: any }) => (
   <TableRow className="group border-white/5 hover:bg-muted/30 transition-colors duration-200">
     <TableCell>
-       <div className="flex flex-col min-w-[120px]">
-          <span className="font-black text-xs md:text-sm text-foreground">{p.name}</span>
-          <span className="text-[9px] md:text-[10px] text-muted-foreground font-bold">#{p.productCode}</span>
+       <div className="flex items-center gap-3 min-w-[150px]">
+          <div className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+            {p.imageUrl ? (
+              <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+            ) : (
+              <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-black text-xs md:text-sm text-foreground">{p.name}</span>
+            <span className="text-[9px] md:text-[10px] text-muted-foreground font-bold">#{p.productCode}</span>
+          </div>
        </div>
     </TableCell>
     <TableCell className="text-center">
-      <div className="h-8 w-8 md:h-10 md:w-10 mx-auto bg-white p-1 rounded-lg md:rounded-xl shadow-inner group-hover:scale-105 transition-transform">
+      <div 
+        className="h-8 w-8 md:h-10 md:w-10 mx-auto bg-white p-1 rounded-lg md:rounded-xl shadow-inner group-hover:scale-105 transition-transform cursor-pointer relative group/qr"
+        onClick={() => onZoomQR(p.productCode, p.name)}
+      >
         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${p.productCode}`} className="h-full w-full" alt="QR" />
+        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/qr:opacity-100 transition-opacity">
+           <Maximize2 className="h-3 w-3 text-white" />
+        </div>
       </div>
     </TableCell>
     <TableCell className="text-center">
@@ -103,6 +122,7 @@ export default function ProductsPage() {
   
   const [open, setOpen] = React.useState(false)
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false)
+  const [zoomQR, setZoomQR] = React.useState<{ code: string, name: string } | null>(null)
   const [editingProduct, setEditingProduct] = React.useState<any>(null)
   const [printingProduct, setPrintingProduct] = React.useState<any>(null)
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'name', direction: 'asc' })
@@ -110,6 +130,7 @@ export default function ProductsPage() {
 
   const [productName, setProductName] = React.useState("")
   const [productCode, setProductCode] = React.useState("")
+  const [imageUrl, setImageUrl] = React.useState("")
   const [categoryId, setCategoryId] = React.useState("")
   const [quantity, setQuantity] = React.useState(0)
   const [minStock, setMinStock] = React.useState(1)
@@ -169,6 +190,17 @@ export default function ProductsPage() {
     return `${getFullCategoryPath(cat.parentId, allCats)} > ${cat.name}`;
   }
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImageUrl(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleSaveProduct = () => {
     if (!productName || !categoryId || salePrice <= 0) {
       toast({ title: "خطأ", description: "يرجى ملء الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
@@ -182,6 +214,7 @@ export default function ProductsPage() {
     const productData = {
       name: productName,
       productCode: finalCode,
+      imageUrl: imageUrl,
       categoryId,
       categoryName: selectedCat?.name || "بدون تصنيف",
       categoryPath: categoryPath,
@@ -206,7 +239,7 @@ export default function ProductsPage() {
   }
 
   const resetForm = React.useCallback(() => {
-    setProductName(""); setProductCode(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(1); setPurchasePrice(0); setCategoryId("")
+    setProductName(""); setProductCode(""); setImageUrl(""); setQuantity(0); setSalePrice(0); setRepairPrice(0); setEditingProduct(null); setMinStock(1); setPurchasePrice(0); setCategoryId("")
   }, [])
 
   const handleOpenPrint = React.useCallback((p: any) => {
@@ -214,12 +247,12 @@ export default function ProductsPage() {
   }, [])
 
   const handleEdit = React.useCallback((p: any) => {
-    setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 1); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true);
+    setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setImageUrl(p.imageUrl || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 1); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true);
   }, [])
 
   const handleDelete = React.useCallback((p: any) => {
     if(confirm("هل أنت متأكد من حذف المنتج؟")) deleteDocumentNonBlocking(doc(db, "products", p.id))
-  }, [db])
+  }, [])
 
   const executePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -346,7 +379,13 @@ export default function ProductsPage() {
               ) : sortedProducts.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-20 opacity-30 italic font-black">لا توجد منتجات مسجلة</TableCell></TableRow>
               ) : sortedProducts.map((p) => (
-                <ProductRow key={p.id} p={p} onEdit={handleEdit} onDelete={handleDelete} onPrint={handleOpenPrint} />
+                <ProductRow 
+                  key={p.id} p={p} 
+                  onEdit={handleEdit} 
+                  onDelete={handleDelete} 
+                  onPrint={handleOpenPrint} 
+                  onZoomQR={(code: string, name: string) => setZoomQR({ code, name })}
+                />
               ))}
             </TableBody>
           </Table>
@@ -359,6 +398,32 @@ export default function ProductsPage() {
             <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">{editingProduct ? 'تحديث المنتج' : 'إضافة منتج جديد'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 md:gap-6 py-4">
+            <div className="flex items-center gap-6 p-4 glass rounded-2xl border-primary/10">
+               <div className="h-24 w-24 rounded-2xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 relative group">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                  )}
+                  <Label htmlFor="image-upload" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <Upload className="h-6 w-6 text-white" />
+                  </Label>
+                  <Input id="image-upload" type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+               </div>
+               <div className="flex-1 space-y-2">
+                  <Label className="font-black text-[10px] text-primary">رابط الصورة (اختياري)</Label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input 
+                      placeholder="https://example.com/image.jpg" 
+                      value={imageUrl} 
+                      onChange={(e) => setImageUrl(e.target.value)} 
+                      className="pl-9 h-10 glass border-none rounded-xl font-bold text-xs" 
+                    />
+                  </div>
+               </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label className="font-black text-[10px] text-primary">اسم المنتج</Label>
@@ -408,6 +473,27 @@ export default function ProductsPage() {
           <DialogFooter>
             <Button onClick={handleSaveProduct} className="w-full h-12 md:h-14 rounded-2xl font-black bg-primary text-white shadow-xl">حفظ بيانات المنتج</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Zoom Dialog */}
+      <Dialog open={!!zoomQR} onOpenChange={() => setZoomQR(null)}>
+        <DialogContent dir="rtl" className="glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[400] max-w-sm">
+           <DialogHeader className="p-6 bg-primary/5 border-b border-white/5">
+              <DialogTitle className="text-xl font-black text-center">{zoomQR?.name}</DialogTitle>
+           </DialogHeader>
+           <div className="p-10 flex flex-col items-center gap-6 bg-white">
+              <div className="p-4 bg-white rounded-3xl shadow-2xl border border-black/5">
+                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${zoomQR?.code}`} className="h-64 w-64" alt="Enlarged QR" />
+              </div>
+              <div className="flex flex-col items-center">
+                 <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">كود المنتج</p>
+                 <p className="text-2xl font-mono font-black text-primary">#{zoomQR?.code}</p>
+              </div>
+           </div>
+           <div className="p-6 bg-black/5 flex justify-center">
+              <Button onClick={() => setZoomQR(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق</Button>
+           </div>
         </DialogContent>
       </Dialog>
 

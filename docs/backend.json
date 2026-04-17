@@ -39,6 +39,7 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
+        "imageUrl": { "type": "string", "description": "URL or Base64 string for the product image." },
         "categoryId": { "type": "string", "description": "Reference to the hierarchical Category." },
         "categoryName": { "type": "string", "description": "Denormalized category name for display." },
         "categoryPath": { "type": "string", "description": "Full path of categories for statistics." },
