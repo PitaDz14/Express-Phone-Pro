@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -116,6 +117,14 @@ service cloud.firestore {
         allow create: if isAuthorizedStaff() && request.resource.data.recordedByUserId == request.auth.uid;
         allow update, delete: if (isAdmin() || isExistingOwner(resource.data.recordedByUserId)) && resource != null;
       }
+    }
+
+    /**
+     * @description Repairs and service requests.
+     */
+    match /repairs/{repairId} {
+      allow get, list: if isAuthorizedStaff();
+      allow create, update, delete: if isAuthorizedStaff();
     }
 
     /**

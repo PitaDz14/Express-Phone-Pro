@@ -10,6 +10,7 @@ import {
   History,
   BarChart3,
   Layers,
+  Settings,
   LogOut
 } from "lucide-react"
 import Link from "next/link"
@@ -30,6 +31,7 @@ const items = [
   { title: "نقطة البيع", url: "/invoices", icon: FileText },
   { title: "السجل", url: "/invoices/history", icon: History },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
+  { title: "النظام", url: "/settings", icon: Settings },
 ]
 
 export function NavigationDock() {

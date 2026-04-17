@@ -81,6 +81,21 @@
         "generatedByUserId": { "type": "string" }
       },
       "required": ["id", "customerId", "totalAmount", "createdAt", "generatedByUserId"]
+    },
+    "Repair": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Repair",
+      "type": "object",
+      "description": "Legacy service requests mapped to repairs.",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "phoneType": { "type": "string" },
+        "status": { "type": "string" },
+        "finalCost": { "type": "number" },
+        "receivedDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "clientName", "status"]
     }
   },
   "auth": {
@@ -92,7 +107,8 @@
       { "path": "/categories/{categoryId}", "definition": { "entityName": "Category" } },
       { "path": "/products/{productId}", "definition": { "entityName": "Product" } },
       { "path": "/customers/{customerId}", "definition": { "entityName": "Customer" } },
-      { "path": "/invoices/{invoiceId}", "definition": { "entityName": "Invoice" } }
+      { "path": "/invoices/{invoiceId}", "definition": { "entityName": "Invoice" } },
+      { "path": "/repairs/{repairId}", "definition": { "entityName": "Repair" } }
     ]
   }
 }
