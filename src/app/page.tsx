@@ -20,7 +20,8 @@ import {
   Edit3,
   Plus,
   Minus,
-  Sparkles
+  Sparkles,
+  PlusCircle
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -44,8 +45,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
-import { collection, query, limit, orderBy, doc } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase"
+import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -60,7 +61,7 @@ const chartData = [
 ]
 
 // مكون فرعي لكل منتج في نافذة التعديل السريع لضمان عمل الأزرار والحقول بدقة
-function QuickEditItem({ product, db }: { product: any, db: any }) {
+const QuickEditItem = React.memo(({ product, db }: { product: any, db: any }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
@@ -78,7 +79,7 @@ function QuickEditItem({ product, db }: { product: any, db: any }) {
   }
 
   return (
-    <div className="p-6 rounded-[2rem] glass border-white/20 flex flex-col md:flex-row items-center gap-6 group hover:bg-white/50 transition-all">
+    <div className="p-6 rounded-[2rem] glass border-white/20 flex flex-col md:flex-row items-center gap-6 group hover:bg-white/50 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
        <div className="flex-1 min-w-[200px]">
           <p className="font-black text-base">{product.name}</p>
           <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{product.productCode} | متاح حالياً: {product.quantity}</p>
@@ -144,7 +145,8 @@ function QuickEditItem({ product, db }: { product: any, db: any }) {
        </div>
     </div>
   )
-}
+})
+QuickEditItem.displayName = "QuickEditItem"
 
 export default function Dashboard() {
   const db = useFirestore()
@@ -157,6 +159,13 @@ export default function Dashboard() {
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
 
+  // Quick Add States
+  const [newName, setNewName] = React.useState("")
+  const [newQty, setNewQty] = React.useState(0)
+  const [newSalePrice, setNewSalePrice] = React.useState(0)
+  const [newRepairPrice, setNewRepairPrice] = React.useState(0)
+  const [isAdding, setIsAdding] = React.useState(false)
+
   React.useEffect(() => {
     setMounted(true)
   }, [])
@@ -167,28 +176,65 @@ export default function Dashboard() {
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
-  const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(
-    useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(8)), [invoicesRef])
-  )
+  
+  const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(8)), [invoicesRef])
+  const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
   const filteredProducts = React.useMemo(() => {
     if (!searchTerm || !products) return []
+    const term = searchTerm.toLowerCase()
     return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.productCode?.toLowerCase().includes(searchTerm.toLowerCase())
+      p.name.toLowerCase().includes(term) || 
+      p.productCode?.toLowerCase().includes(term)
     ).slice(0, 5)
   }, [searchTerm, products])
 
   const quickEditProducts = React.useMemo(() => {
-    if (!quickEditSearch || !products) return products?.slice(0, 8) || []
+    if (!products) return []
+    if (!quickEditSearch) return products.slice(0, 8)
+    const term = quickEditSearch.toLowerCase()
     return products.filter(p => 
-      p.name.toLowerCase().includes(quickEditSearch.toLowerCase()) || 
-      p.productCode?.toLowerCase().includes(quickEditSearch.toLowerCase())
+      p.name.toLowerCase().includes(term) || 
+      p.productCode?.toLowerCase().includes(term)
     ).slice(0, 15)
   }, [quickEditSearch, products])
 
-  const totalSalesMonth = recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0
-  const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0
+  const stats = React.useMemo(() => ({
+    totalSales: recentInvoices?.reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0,
+    lowStock: products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0,
+    productCount: products?.length || 0,
+    customerCount: customers?.length || 0
+  }), [recentInvoices, products, customers])
+
+  const handleQuickAdd = async () => {
+    if (!newName || newSalePrice <= 0) {
+      toast({ title: "خطأ", description: "يرجى إدخال اسم المنتج وسعر البيع", variant: "destructive" })
+      return
+    }
+
+    setIsAdding(true)
+    try {
+      const code = `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+      await addDocumentNonBlocking(productsRef, {
+        name: newName,
+        productCode: code,
+        quantity: Number(newQty),
+        salePrice: Number(newSalePrice),
+        repairPrice: Number(newRepairPrice),
+        minStockQuantity: 5,
+        categoryId: "quick-added",
+        categoryName: "إضافة سريعة",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      toast({ title: "تمت الإضافة", description: `تمت إضافة ${newName} بنجاح` })
+      setNewName(""); setNewQty(0); setNewSalePrice(0); setNewRepairPrice(0)
+    } catch (error) {
+      toast({ title: "خطأ", description: "فشلت عملية الإضافة السريعة", variant: "destructive" })
+    } finally {
+      setIsAdding(false)
+    }
+  }
 
   if (!mounted) return null
 
@@ -293,7 +339,7 @@ export default function Dashboard() {
               <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">مبيعات الشهر</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black tabular-nums">{totalSalesMonth.toLocaleString()} دج</div>
+              <div className="text-3xl font-black tabular-nums">{stats.totalSales.toLocaleString()} دج</div>
               <div className="mt-4 flex items-center gap-2">
                  <Badge variant="success" className="rounded-lg px-2 text-[10px]">+12%</Badge>
                  <span className="text-[10px] text-muted-foreground font-bold">مقارنة بالشهر الماضي</span>
@@ -309,10 +355,10 @@ export default function Dashboard() {
               <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">أصناف المخزون</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black tabular-nums">{products?.length || 0}</div>
+              <div className="text-3xl font-black tabular-nums">{stats.productCount}</div>
               <div className="mt-4">
-                {lowStockCount > 0 ? (
-                  <Badge variant="warning" className="rounded-lg px-3 text-[10px]">{lowStockCount} بحاجة لتوريد</Badge>
+                {stats.lowStock > 0 ? (
+                  <Badge variant="warning" className="rounded-lg px-3 text-[10px]">{stats.lowStock} بحاجة لتوريد</Badge>
                 ) : (
                   <Badge variant="success" className="rounded-lg px-3 text-[10px]">المخزون مثالي</Badge>
                 )}
@@ -328,7 +374,7 @@ export default function Dashboard() {
               <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">إجمالي العملاء</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black tabular-nums">{customers?.length || 0}</div>
+              <div className="text-3xl font-black tabular-nums">{stats.customerCount}</div>
               <div className="mt-4 flex items-center gap-2">
                  <div className="h-1 flex-1 bg-emerald-100 rounded-full">
                     <div className="h-full bg-emerald-500 w-[75%]" />
@@ -361,17 +407,74 @@ export default function Dashboard() {
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">يتم حفظ التعديلات تلقائياً بمجرد تغيير القيم | Khaled_Deragha</p>
               </DialogHeader>
               <div className="p-8 space-y-6">
+                
+                {/* Quick Add Section */}
+                <div className="p-6 rounded-[2.5rem] bg-primary/5 border border-primary/10 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PlusCircle className="h-5 w-5 text-primary" />
+                    <span className="font-black text-sm text-primary uppercase">إضافة صنف جديد بسرعة</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <Input 
+                        placeholder="اسم المنتج الجديد..." 
+                        className="h-12 glass border-none rounded-xl font-bold text-xs" 
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                      />
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="الكمية" 
+                      className="h-12 glass border-none rounded-xl font-bold text-xs text-center"
+                      value={newQty}
+                      onChange={(e) => setNewQty(Number(e.target.value))}
+                    />
+                    <Button 
+                      className="h-12 rounded-xl bg-primary text-white font-black"
+                      onClick={handleQuickAdd}
+                      disabled={isAdding}
+                    >
+                      {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة الآن"}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black text-emerald-600 mr-2">سعر البيع</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="سعر البيع" 
+                        className="h-11 glass border-none rounded-xl font-bold text-xs text-emerald-700"
+                        value={newSalePrice}
+                        onChange={(e) => setNewSalePrice(Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black text-accent mr-2">سعر التصليح</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="سعر التصليح" 
+                        className="h-11 glass border-none rounded-xl font-bold text-xs text-primary"
+                        value={newRepairPrice}
+                        onChange={(e) => setNewRepairPrice(Number(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-black/5" />
+
                 <div className="relative group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
-                    placeholder="ابحث باسم المنتج أو الكود للبدء بالتعديل..." 
+                    placeholder="ابحث باسم المنتج أو الكود لتعديل الموجود..." 
                     className="pl-12 h-14 glass border-none shadow-inner rounded-2xl font-bold" 
                     value={quickEditSearch}
                     onChange={(e) => setQuickEditSearch(e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {quickEditProducts.length === 0 ? (
                     <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة للبحث</div>
                   ) : quickEditProducts.map(p => (
