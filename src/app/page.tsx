@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -20,7 +21,9 @@ import {
   Plus,
   Minus,
   Sparkles,
-  PlusCircle
+  PlusCircle,
+  Smartphone,
+  Info
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -154,7 +157,7 @@ export default function Dashboard() {
   const filteredProducts = React.useMemo(() => {
     if (!searchTerm || !products) return []
     const term = searchTerm.toLowerCase()
-    return products.filter(p => p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)).slice(0, 4)
+    return products.filter(p => p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)).slice(0, 5)
   }, [searchTerm, products])
 
   const quickEditProducts = React.useMemo(() => {
@@ -192,16 +195,51 @@ export default function Dashboard() {
         <div className="hidden md:flex flex-1 max-w-lg mx-8 relative">
            <div className="relative w-full group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="بحث سريع..." className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowResults(true); }} onFocus={() => setShowResults(true)} />
+              <Input placeholder="بحث سريع عن منتج..." className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowResults(true); }} onFocus={() => setShowResults(true)} />
            </div>
            {showResults && searchTerm && (
-              <div className="absolute top-full left-0 right-0 mt-2 glass-premium border-white/10 rounded-2xl shadow-xl z-[60] overflow-hidden">
-                {filteredProducts.map(p => (
-                  <div key={p.id} className="p-3 hover:bg-muted/50 transition-colors border-b border-black/5 last:border-0">
-                     <span className="font-black text-sm block">{p.name}</span>
-                     <span className="text-[9px] text-muted-foreground font-bold">#{p.productCode} • {p.quantity} متوفر</span>
+              <div className="absolute top-full left-0 right-0 mt-2 glass-premium border-white/10 rounded-2xl shadow-xl z-[60] overflow-hidden max-h-[400px] overflow-y-auto">
+                {filteredProducts.length === 0 ? (
+                  <div className="p-8 text-center opacity-30 italic font-black text-xs">لا توجد نتائج مطابقة</div>
+                ) : filteredProducts.map(p => (
+                  <div key={p.id} className="p-4 hover:bg-primary/5 transition-all border-b border-black/5 last:border-0 flex items-center justify-between group">
+                     <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
+                           {p.imageUrl ? (
+                             <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                           ) : (
+                             <Smartphone className="h-6 w-6 text-muted-foreground/40" />
+                           )}
+                        </div>
+                        <div className="flex flex-col">
+                           <span className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                           <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">#{p.productCode}</span>
+                              <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
+                                {p.quantity} متوفر
+                              </Badge>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5">
+                           <span className="text-[8px] font-black text-muted-foreground uppercase">بيع:</span>
+                           <span className="text-sm font-black text-emerald-600 tabular-nums">{p.salePrice.toLocaleString()} دج</span>
+                        </div>
+                        {p.repairPrice > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-black text-muted-foreground uppercase">تصليح:</span>
+                            <span className="text-[10px] font-black text-accent tabular-nums">{p.repairPrice.toLocaleString()} دج</span>
+                          </div>
+                        )}
+                     </div>
                   </div>
                 ))}
+                {filteredProducts.length > 0 && (
+                  <Link href="/products" className="block p-3 text-center bg-muted/30 hover:bg-muted text-[10px] font-black text-primary uppercase tracking-widest transition-colors">
+                    عرض كافة المنتجات
+                  </Link>
+                )}
               </div>
            )}
         </div>

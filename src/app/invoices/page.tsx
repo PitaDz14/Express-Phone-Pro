@@ -320,19 +320,35 @@ export default function InvoicesPage() {
                       />
                     </div>
                     {searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-3 glass border-border rounded-3xl shadow-2xl z-20 overflow-hidden">
-                        {filteredProducts.map(p => (
-                          <div key={p.id} className="p-4 hover:bg-muted cursor-pointer flex justify-between items-center border-b border-border transition-colors" onClick={() => addToCart(p)}>
-                            <div className="flex items-center gap-3">
-                               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                                  <Package className="h-5 w-5" />
+                      <div className="absolute top-full left-0 right-0 mt-3 glass border-border rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[400px] overflow-y-auto">
+                        {filteredProducts.length === 0 ? (
+                          <div className="p-8 text-center opacity-30 italic font-black text-xs text-foreground">لا توجد نتائج مطابقة</div>
+                        ) : filteredProducts.map(p => (
+                          <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer flex justify-between items-center border-b border-border transition-all group" onClick={() => addToCart(p)}>
+                            <div className="flex items-center gap-4">
+                               <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
+                                  {p.imageUrl ? (
+                                    <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <Smartphone className="h-6 w-6 text-muted-foreground/40" />
+                                  )}
                                </div>
-                               <div>
-                                  <p className="font-black text-sm text-foreground">{p.name}</p>
-                                  <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode} • متاح: {p.quantity}</p>
+                               <div className="flex flex-col">
+                                  <p className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</p>
+                                    <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
+                                       متاح: {p.quantity}
+                                    </Badge>
+                                  </div>
                                </div>
                             </div>
-                            <p className="font-black text-primary tabular-nums">{p.salePrice.toLocaleString()} دج</p>
+                            <div className="flex flex-col items-end gap-1">
+                               <p className="font-black text-primary tabular-nums text-sm">{p.salePrice.toLocaleString()} دج</p>
+                               {p.repairPrice > 0 && (
+                                 <p className="text-[9px] font-black text-muted-foreground tabular-nums opacity-60">تصليح: {p.repairPrice.toLocaleString()} دج</p>
+                               )}
+                            </div>
                           </div>
                         ))}
                       </div>
