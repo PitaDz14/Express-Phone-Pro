@@ -23,7 +23,9 @@ import {
   Sparkles,
   PlusCircle,
   Smartphone,
-  Info
+  Info,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -63,16 +65,18 @@ const chartData = [
   { name: "الجمعة", total: 85000 },
 ]
 
-const QuickEditItem = React.memo(({ product, db }: { product: any, db: any }) => {
+const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any, db: any, showPurchase: boolean }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
+  const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
   const [localRepairPrice, setLocalRepairPrice] = React.useState(product.repairPrice || 0)
 
   React.useEffect(() => {
     setLocalQty(product.quantity)
     setLocalSalePrice(product.salePrice)
+    setLocalPurchasePrice(product.purchasePrice || 0)
     setLocalRepairPrice(product.repairPrice || 0)
-  }, [product.quantity, product.salePrice, product.repairPrice])
+  }, [product.quantity, product.salePrice, product.repairPrice, product.purchasePrice])
 
   const handleUpdate = React.useCallback((field: string, value: number) => {
     const productRef = doc(db, "products", product.id)
@@ -87,7 +91,7 @@ const QuickEditItem = React.memo(({ product, db }: { product: any, db: any }) =>
           <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{product.productCode}</p>
        </div>
        
-       <div className="grid grid-cols-3 gap-3 w-full md:w-auto">
+       <div className={cn("grid gap-3 w-full md:w-auto", showPurchase ? "grid-cols-4" : "grid-cols-3")}>
           <div className="space-y-1">
              <Label className="text-[8px] font-black text-primary uppercase">الكمية</Label>
              <div className="flex items-center gap-1.5">
@@ -96,6 +100,12 @@ const QuickEditItem = React.memo(({ product, db }: { product: any, db: any }) =>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-primary/10" onClick={() => { const v = Number(localQty) + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3"/></Button>
              </div>
           </div>
+          {showPurchase && (
+            <div className="space-y-1 animate-in fade-in zoom-in duration-200">
+               <Label className="text-[8px] font-black text-orange-400 uppercase">الشراء</Label>
+               <Input type="number" className="h-8 w-20 glass border-none font-bold text-xs" value={localPurchasePrice} onChange={(e) => setLocalPurchasePrice(e.target.value)} onBlur={(e) => handleUpdate('purchasePrice', Number(e.target.value))} />
+            </div>
+          )}
           <div className="space-y-1">
              <Label className="text-[8px] font-black text-emerald-500 uppercase">البيع</Label>
              <Input type="number" className="h-8 w-20 glass border-none font-bold text-xs" value={localSalePrice} onChange={(e) => setLocalSalePrice(e.target.value)} onBlur={(e) => handleUpdate('salePrice', Number(e.target.value))} />
@@ -138,9 +148,11 @@ export default function Dashboard() {
   const [showResults, setShowResults] = React.useState(false)
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
+  const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
 
   const [newName, setNewName] = React.useState("")
   const [newQty, setNewQty] = React.useState(0)
+  const [newPurchasePrice, setNewPurchasePrice] = React.useState(0)
   const [newSalePrice, setNewSalePrice] = React.useState(0)
   const [newRepairPrice, setNewRepairPrice] = React.useState(0)
   const [isAdding, setIsAdding] = React.useState(false)
@@ -186,8 +198,21 @@ export default function Dashboard() {
     if (!newName || newSalePrice <= 0) { toast({ title: "خطأ", description: "بيانات ناقصة", variant: "destructive" }); return; }
     setIsAdding(true)
     try {
-      await addDocumentNonBlocking(productsRef, { name: newName, productCode: `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`, quantity: Number(newQty), salePrice: Number(newSalePrice), repairPrice: Number(newRepairPrice), minStockQuantity: 1, categoryId: "quick", categoryName: "إضافة سريعة", categoryPath: "إضافة سريعة", createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
-      toast({ title: "تمت الإضافة" }); setNewName(""); setNewQty(0); setNewSalePrice(0); setNewRepairPrice(0)
+      await addDocumentNonBlocking(productsRef, { 
+        name: newName, 
+        productCode: `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`, 
+        quantity: Number(newQty), 
+        purchasePrice: Number(newPurchasePrice),
+        salePrice: Number(newSalePrice), 
+        repairPrice: Number(newRepairPrice), 
+        minStockQuantity: 1, 
+        categoryId: "quick", 
+        categoryName: "إضافة سريعة", 
+        categoryPath: "إضافة سريعة", 
+        createdAt: serverTimestamp(), 
+        updatedAt: serverTimestamp() 
+      })
+      toast({ title: "تمت الإضافة" }); setNewName(""); setNewQty(0); setNewPurchasePrice(0); setNewSalePrice(0); setNewRepairPrice(0)
     } finally { setIsAdding(false) }
   }
 
@@ -276,19 +301,31 @@ export default function Dashboard() {
                 <CardContent className="p-4 pt-0 text-[10px] opacity-70">إدارة الكميات والأسعار لحظياً</CardContent>
               </Card>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
-              <DialogHeader className="p-6 border-b border-black/5"><DialogTitle className="text-xl font-black text-gradient-premium">نافذة التعديل السريع</DialogTitle></DialogHeader>
+            <DialogContent dir="rtl" className="max-w-5xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
+              <DialogHeader className="p-6 border-b border-black/5 flex items-center justify-between">
+                <DialogTitle className="text-xl font-black text-gradient-premium">نافذة التعديل السريع</DialogTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={cn("rounded-xl gap-2 font-black text-[10px]", showPurchaseInEdit ? "bg-orange-500 text-white" : "bg-primary/10 text-primary")}
+                  onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}
+                >
+                  {showPurchaseInEdit ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {showPurchaseInEdit ? "إخفاء أسعار الشراء" : "إظهار أسعار الشراء"}
+                </Button>
+              </DialogHeader>
               <div className="p-6 space-y-6">
-                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                   <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">اسم المنتج</Label><Input placeholder="مثال: شاشة سامسونج A10..." className="h-10 text-xs" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
                   <div><Label className="text-[10px] font-black mb-1 block">الكمية</Label><Input type="number" className="h-10 text-xs text-center" value={newQty} onChange={(e) => setNewQty(Number(e.target.value))} /></div>
+                  <div><Label className="text-[10px] font-black mb-1 block">سعر الشراء</Label><Input type="number" placeholder="0" className="h-10 text-xs" value={newPurchasePrice} onChange={(e) => setNewPurchasePrice(Number(e.target.value))} /></div>
                   <Button className="h-10 bg-primary text-white text-xs font-black" onClick={handleQuickAdd} disabled={isAdding}>{isAdding ? "جاري..." : "إضافة"}</Button>
                   <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">سعر البيع</Label><Input type="number" placeholder="0" className="h-10 text-xs" value={newSalePrice} onChange={(e) => setNewSalePrice(Number(e.target.value))} /></div>
                   <div className="md:col-span-2"><Label className="text-[10px] font-black mb-1 block">سعر التصليح</Label><Input type="number" placeholder="0" className="h-10 text-xs" value={newRepairPrice} onChange={(e) => setNewRepairPrice(Number(e.target.value))} /></div>
                 </div>
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="ابحث لتعديل الموجود..." className="pl-10 h-12 text-sm" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} /></div>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-                  {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} />)}
+                  {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
                 </div>
               </div>
             </DialogContent>
