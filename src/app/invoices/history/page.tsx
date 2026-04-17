@@ -18,7 +18,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Smartphone
+  Smartphone,
+  QrCode,
+  Maximize2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +47,7 @@ import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 type SortConfig = {
   key: string;
@@ -60,6 +63,7 @@ export default function InvoiceHistoryPage() {
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
   const [isLoadingItems, setIsLoadingItems] = React.useState(false)
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'createdAt', direction: 'desc' })
+  const [zoomQR, setZoomQR] = React.useState<{ code: string, id: string } | null>(null)
 
   const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices")), [db])
   const { data: invoices, isLoading } = useCollection(invoicesRef)
@@ -208,7 +212,7 @@ export default function InvoiceHistoryPage() {
             </div>
 
             <div class="qr-footer">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invoice.id}" width="120" />
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invoice.id}" width="120" />
               <p style="font-weight: 800; margin-top: 10px;">شكراً لتعاملكم معنا</p>
             </div>
           </body>
@@ -229,7 +233,7 @@ export default function InvoiceHistoryPage() {
     <div className="min-h-screen bg-transparent">
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print">
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#3960AC] to-[#3CC2DD] flex items-center justify-center text-white shadow-lg transform -rotate-3">
                 <Smartphone className="h-6 w-6" />
               </div>
@@ -237,7 +241,7 @@ export default function InvoiceHistoryPage() {
                 <span className="font-black text-lg tracking-tighter text-[#3960AC]">EXPRESS</span>
                 <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Phone Pro</span>
               </div>
-            </div>
+            </Link>
             <div className="h-8 w-px bg-black/5" />
             <div className="flex flex-col">
               <h1 className="text-xl font-black text-gradient">سجل الفواتير والمبيعات</h1>
@@ -273,6 +277,7 @@ export default function InvoiceHistoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b border-white/10 hover:bg-transparent">
+                      <TableHead className="font-black text-center w-[80px]">كود QR</TableHead>
                       <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
                         <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
                       </TableHead>
@@ -292,19 +297,34 @@ export default function InvoiceHistoryPage() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-20">
+                        <TableCell colSpan={7} className="text-center py-20">
                           <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
                           <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
                         </TableCell>
                       </TableRow>
                     ) : sortedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
+                        <TableCell colSpan={7} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
                           لا توجد فواتير مسجلة حالياً
                         </TableCell>
                       </TableRow>
                     ) : sortedInvoices.map((inv) => (
-                      <TableRow key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group">
+                      <TableRow 
+                        key={inv.id} 
+                        id={`inv-${inv.id}`}
+                        className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group target:bg-primary/10 target:animate-pulse"
+                      >
+                        <TableCell className="text-center">
+                          <div 
+                            className="h-10 w-10 mx-auto bg-white p-1 rounded-lg shadow-sm border border-black/5 cursor-pointer hover:scale-110 transition-transform flex items-center justify-center relative group/qr-cell"
+                            onClick={() => setZoomQR({ id: inv.id, code: inv.id })}
+                          >
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${inv.id}`} className="w-full h-full" alt="INV QR" />
+                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/qr-cell:opacity-100 transition-opacity">
+                               <Maximize2 className="h-3 w-3 text-white" />
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
                         <TableCell>
                            <div className="flex items-center gap-3">
@@ -438,6 +458,27 @@ export default function InvoiceHistoryPage() {
                    إغلاق
                  </Button>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* QR Zoom Dialog */}
+          <Dialog open={!!zoomQR} onOpenChange={() => setZoomQR(null)}>
+            <DialogContent dir="rtl" className="glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[400] max-w-sm">
+               <DialogHeader className="p-6 bg-primary/5 border-b border-white/5">
+                  <DialogTitle className="text-xl font-black text-center">كود QR للفاتورة</DialogTitle>
+               </DialogHeader>
+               <div className="p-10 flex flex-col items-center gap-6 bg-white">
+                  <div className="p-4 bg-white rounded-3xl shadow-2xl border border-black/5">
+                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${zoomQR?.id}`} className="h-64 w-64" alt="Enlarged QR" />
+                  </div>
+                  <div className="flex flex-col items-center">
+                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">امسح الكود للانتقال لهذه الفاتورة في السجل</p>
+                     <p className="text-lg font-mono font-black text-primary mt-2">#{zoomQR?.id.slice(0, 15)}</p>
+                  </div>
+               </div>
+               <div className="p-6 bg-black/5 flex justify-center">
+                  <Button onClick={() => setZoomQR(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق</Button>
+               </div>
             </DialogContent>
           </Dialog>
 

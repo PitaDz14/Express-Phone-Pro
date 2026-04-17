@@ -63,11 +63,14 @@ type SortConfig = {
   direction: 'asc' | 'desc' | null;
 }
 
-const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR }: { p: any, onEdit: any, onDelete: any, onPrint: any, onZoomQR: any }) => (
+const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR, onZoomImage }: { p: any, onEdit: any, onDelete: any, onPrint: any, onZoomQR: any, onZoomImage: any }) => (
   <TableRow className="group border-white/5 hover:bg-muted/30 transition-colors duration-200">
     <TableCell>
        <div className="flex items-center gap-3 min-w-[150px]">
-          <div className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+          <div 
+            className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:scale-110 transition-transform"
+            onClick={() => p.imageUrl && onZoomImage(p.imageUrl, p.name)}
+          >
             {p.imageUrl ? (
               <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
             ) : (
@@ -125,6 +128,7 @@ export default function ProductsPage() {
   const [open, setOpen] = React.useState(false)
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false)
   const [zoomQR, setZoomQR] = React.useState<{ code: string, name: string } | null>(null)
+  const [zoomImage, setZoomImage] = React.useState<{ url: string, name: string } | null>(null)
   const [editingProduct, setEditingProduct] = React.useState<any>(null)
   const [printingProduct, setPrintingProduct] = React.useState<any>(null)
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'name', direction: 'asc' })
@@ -394,6 +398,7 @@ export default function ProductsPage() {
                   onDelete={handleDelete} 
                   onPrint={handleOpenPrint} 
                   onZoomQR={(code: string, name: string) => setZoomQR({ code, name })}
+                  onZoomImage={(url: string, name: string) => setZoomImage({ url, name })}
                 />
               ))}
             </TableBody>
@@ -502,6 +507,21 @@ export default function ProductsPage() {
            </div>
            <div className="p-6 bg-black/5 flex justify-center">
               <Button onClick={() => setZoomQR(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent dir="rtl" className="glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[410] max-w-2xl">
+           <DialogHeader className="p-6 bg-primary/5 border-b border-white/5">
+              <DialogTitle className="text-xl font-black text-center">{zoomImage?.name}</DialogTitle>
+           </DialogHeader>
+           <div className="p-4 bg-white flex items-center justify-center">
+              <img src={zoomImage?.url} className="max-h-[70vh] w-auto object-contain rounded-2xl" alt="Zoomed Product" />
+           </div>
+           <div className="p-6 bg-black/5 flex justify-center">
+              <Button onClick={() => setZoomImage(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق المعاينة</Button>
            </div>
         </DialogContent>
       </Dialog>

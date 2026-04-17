@@ -354,11 +354,11 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        <div className="hidden md:flex flex-1 max-w-xl mx-8 relative group">
+        <div className="flex flex-1 max-w-xl mx-2 md:mx-8 relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="ابحث عن منتج بالاسم أو الكود..." 
-            className="pl-12 h-12 glass border-none rounded-2xl font-bold text-sm focus:ring-2 focus:ring-primary/20 transition-all" 
+            placeholder="ابحث سريعا..." 
+            className="pl-12 h-10 md:h-12 glass border-none rounded-2xl font-bold text-xs md:text-sm focus:ring-2 focus:ring-primary/20 transition-all" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -599,3 +599,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
