@@ -45,6 +45,7 @@ interface CartItem {
   name: string
   price: number
   qty: number
+  categoryPath?: string
 }
 
 export default function InvoicesPage() {
@@ -74,7 +75,8 @@ export default function InvoicesPage() {
 
   const filteredProducts = products?.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.productCode.toLowerCase().includes(searchTerm.toLowerCase())
+    p.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.categoryPath && p.categoryPath.toLowerCase().includes(searchTerm.toLowerCase()))
   ).slice(0, 5) || []
 
   const addToCart = (product: any) => {
@@ -90,7 +92,13 @@ export default function InvoicesPage() {
       }
       setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
     } else {
-      setCart([...cart, { id: product.id, name: product.name, price: product.salePrice, qty: 1 }])
+      setCart([...cart, { 
+        id: product.id, 
+        name: product.name, 
+        price: product.salePrice, 
+        qty: 1,
+        categoryPath: product.categoryPath || product.categoryName 
+      }])
     }
     setSearchTerm("")
   }
@@ -155,7 +163,7 @@ export default function InvoicesPage() {
             <table>
               <thead>
                 <tr>
-                  <th>المنتج</th>
+                  <th>المنتج / التصنيف</th>
                   <th style="text-align: center">الكمية</th>
                   <th style="text-align: center">سعر الوحدة</th>
                   <th style="text-align: left">الإجمالي</th>
@@ -164,7 +172,10 @@ export default function InvoicesPage() {
               <tbody>
                 ${cartItems.map(item => `
                   <tr>
-                    <td>${item.name}</td>
+                    <td>
+                      <div style="font-weight: 800">${item.name}</div>
+                      <div style="font-size: 10px; color: #666">${item.categoryPath || ""}</div>
+                    </td>
                     <td style="text-align: center">${item.qty}</td>
                     <td style="text-align: center">${item.price.toLocaleString()} دج</td>
                     <td style="text-align: left">${(item.price * item.qty).toLocaleString()} دج</td>
@@ -236,6 +247,7 @@ export default function InvoicesPage() {
             invoiceId: invRef.id,
             productId: item.id,
             productName: item.name,
+            categoryPath: item.categoryPath || "",
             quantity: item.qty,
             unitPrice: item.price,
             itemTotal: item.price * item.qty,
@@ -313,7 +325,7 @@ export default function InvoicesPage() {
                     <div className="relative group">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input 
-                        placeholder="ابحث عن منتج بالاسم أو الكود..." 
+                        placeholder="ابحث عن منتج، ماركة، أو قسم..." 
                         className="pl-12 h-14 glass border-none shadow-inner rounded-2xl font-bold text-foreground" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -335,11 +347,14 @@ export default function InvoicesPage() {
                                </div>
                                <div className="flex flex-col">
                                   <p className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</p>
-                                    <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
-                                       متاح: {p.quantity}
-                                    </Badge>
+                                  <div className="flex flex-col gap-0.5 mt-1">
+                                    <p className="text-[9px] text-primary font-black uppercase tracking-tighter">{p.categoryPath || p.categoryName}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-[10px] text-muted-foreground font-bold">#{p.productCode}</p>
+                                      <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
+                                         متاح: {p.quantity}
+                                      </Badge>
+                                    </div>
                                   </div>
                                </div>
                             </div>
@@ -369,6 +384,7 @@ export default function InvoicesPage() {
                           </div>
                           <div>
                             <p className="font-black text-sm text-foreground">{item.name}</p>
+                            <p className="text-[9px] text-primary font-bold">{item.categoryPath}</p>
                             <div className="flex items-center gap-2 mt-1">
                                <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">سعر الوحدة:</span>
                                <Input 
@@ -533,7 +549,7 @@ export default function InvoicesPage() {
                    <Table>
                       <TableHeader>
                         <TableRow className="border-b-2 border-black/10">
-                           <TableHead className="font-black text-black">المنتج</TableHead>
+                           <TableHead className="font-black text-black">المنتج / التصنيف</TableHead>
                            <TableHead className="text-center font-black text-black">الكمية</TableHead>
                            <TableHead className="text-center font-black text-black">الوحدة</TableHead>
                            <TableHead className="text-left font-black text-black">الإجمالي</TableHead>
@@ -542,10 +558,13 @@ export default function InvoicesPage() {
                       <TableBody>
                         {cart.map((item) => (
                           <TableRow key={item.id} className="border-b border-black/5">
-                            <TableCell className="font-bold py-4">{item.name}</TableCell>
+                            <TableCell className="font-bold py-4">
+                              <div>{item.name}</div>
+                              <div className="text-[9px] text-muted-foreground font-normal">{item.categoryPath}</div>
+                            </TableCell>
                             <TableCell className="text-center font-bold">{item.qty}</TableCell>
                             <TableCell className="text-center font-bold">{item.price.toLocaleString()} دج</TableCell>
-                            <TableCell className="text-left font-black">{(item.price * item.qty).toLocaleString()} دج</TableCell>
+                            <TableCell className="text-left font-black">{ (item.price * item.qty).toLocaleString() } دج</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

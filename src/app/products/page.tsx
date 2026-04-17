@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -19,7 +20,8 @@ import {
   Tag,
   Layers,
   ChevronLeft,
-  Sparkles
+  Sparkles,
+  ChevronRight
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -74,9 +76,11 @@ const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint }: { p: any, onEdi
       </div>
     </TableCell>
     <TableCell className="text-center">
-      <Badge variant="outline" className="px-3 rounded-lg border-primary/20 bg-primary/5 text-primary font-bold">
-        {p.categoryName}
-      </Badge>
+      <div className="flex flex-col items-center gap-1">
+        <Badge variant="outline" className="px-3 rounded-lg border-primary/20 bg-primary/5 text-primary font-bold text-[10px]">
+          {p.categoryPath || p.categoryName || "بدون تصنيف"}
+        </Badge>
+      </div>
     </TableCell>
     <TableCell className="text-center">
       <Badge className={cn("px-4 rounded-lg font-black tabular-nums border-none", p.quantity <= (p.minStockQuantity || 1) ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600')}>
@@ -172,7 +176,8 @@ export default function ProductsPage() {
     let items = products.filter(p => 
       p.name.toLowerCase().includes(term) || 
       (p.productCode && p.productCode.toLowerCase().includes(term)) ||
-      (p.categoryName && p.categoryName.toLowerCase().includes(term))
+      (p.categoryName && p.categoryName.toLowerCase().includes(term)) ||
+      (p.categoryPath && p.categoryPath.toLowerCase().includes(term))
     );
 
     if (sortConfig.key && sortConfig.direction) {
@@ -187,6 +192,13 @@ export default function ProductsPage() {
     return items;
   }, [products, searchTerm, sortConfig]);
 
+  const getFullCategoryPath = (catId: string, allCats: any[]): string => {
+    const cat = allCats.find(c => c.id === catId);
+    if (!cat) return "";
+    if (!cat.parentId) return cat.name;
+    return `${getFullCategoryPath(cat.parentId, allCats)} > ${cat.name}`;
+  }
+
   const handleSaveProduct = () => {
     if (!productName || !categoryId || salePrice <= 0) {
       toast({ title: "خطأ", description: "يرجى ملء الحقول الإجبارية واختيار التصنيف", variant: "destructive" })
@@ -195,12 +207,14 @@ export default function ProductsPage() {
     
     const finalCode = productCode.trim() || `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const selectedCat = categories?.find(c => c.id === categoryId)
+    const categoryPath = categories ? getFullCategoryPath(categoryId, categories) : (selectedCat?.name || "بدون تصنيف");
 
     const productData = {
       name: productName,
       productCode: finalCode,
       categoryId,
       categoryName: selectedCat?.name || "بدون تصنيف",
+      categoryPath: categoryPath,
       quantity: Number(quantity),
       minStockQuantity: Number(minStock),
       purchasePrice: Number(purchasePrice),
@@ -251,20 +265,23 @@ export default function ProductsPage() {
     setPrintDialogOpen(false);
   }
 
-  const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0) => {
+  const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0, currentPath = "") => {
     return cats
       .filter(c => c.parentId === parentId)
-      .map(cat => (
-        <React.Fragment key={cat.id}>
-          <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6")}>
-            <div className="flex items-center gap-2">
-              {depth > 0 && <ChevronLeft className="h-3 w-3 opacity-30" />}
-              {cat.name}
-            </div>
-          </SelectItem>
-          {renderCategoryOptions(cats, cat.id, depth + 1)}
-        </React.Fragment>
-      ))
+      .map(cat => {
+        const fullPath = currentPath ? `${currentPath} > ${cat.name}` : cat.name;
+        return (
+          <React.Fragment key={cat.id}>
+            <SelectItem value={cat.id} className={cn(depth > 0 && "pr-6 font-medium")}>
+              <div className="flex items-center gap-2">
+                {depth > 0 && <ChevronLeft className="h-3 w-3 opacity-30" />}
+                <span className={cn(depth === 0 ? "font-black" : "text-xs")}>{fullPath}</span>
+              </div>
+            </SelectItem>
+            {renderCategoryOptions(cats, cat.id, depth + 1, fullPath)}
+          </React.Fragment>
+        )
+      })
   }
 
   return (
@@ -302,7 +319,7 @@ export default function ProductsPage() {
                 المنتج {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </TableHead>
               <TableHead className="text-center font-black h-16 text-foreground">باركود</TableHead>
-              <TableHead className="text-center font-black h-16 text-foreground">التصنيف</TableHead>
+              <TableHead className="text-center font-black h-16 text-foreground">التصنيف الكامل (الهيكل)</TableHead>
               <TableHead className="text-center font-black h-16 text-foreground">الكمية</TableHead>
               <TableHead className="text-left font-black h-16 text-foreground">السعر</TableHead>
               <TableHead className="text-center font-black h-16 w-48 text-foreground">الإجراءات</TableHead>
@@ -339,12 +356,12 @@ export default function ProductsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="font-black text-xs text-primary px-1">التصنيف</Label>
+              <Label className="font-black text-xs text-primary px-1">اختيار التصنيف / العلامة التجارية</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger className="h-12 rounded-2xl glass border-none font-bold">
-                  <SelectValue placeholder="اختر التصنيف..." />
+                  <SelectValue placeholder="اختر التصنيف أو الماركة..." />
                 </SelectTrigger>
-                <SelectContent className="glass border-none rounded-2xl z-[220]">
+                <SelectContent className="glass border-none rounded-2xl z-[220] max-h-[300px]">
                   {categories && renderCategoryOptions(categories)}
                 </SelectContent>
               </Select>

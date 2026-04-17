@@ -83,6 +83,7 @@ const QuickEditItem = React.memo(({ product, db }: { product: any, db: any }) =>
     <div className="p-5 rounded-[2rem] glass border-white/10 flex flex-col md:flex-row items-center gap-4 group transition-colors duration-200">
        <div className="flex-1 min-w-[150px]">
           <p className="font-black text-sm text-foreground">{product.name}</p>
+          <p className="text-[10px] text-primary font-black uppercase">{product.categoryPath || product.categoryName}</p>
           <p className="text-[10px] text-muted-foreground font-bold tabular-nums">#{product.productCode}</p>
        </div>
        
@@ -157,13 +158,21 @@ export default function Dashboard() {
   const filteredProducts = React.useMemo(() => {
     if (!searchTerm || !products) return []
     const term = searchTerm.toLowerCase()
-    return products.filter(p => p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)).slice(0, 5)
+    return products.filter(p => 
+      p.name.toLowerCase().includes(term) || 
+      p.productCode?.toLowerCase().includes(term) ||
+      (p.categoryPath && p.categoryPath.toLowerCase().includes(term))
+    ).slice(0, 5)
   }, [searchTerm, products])
 
   const quickEditProducts = React.useMemo(() => {
     if (!products) return []
     const term = quickEditSearch.toLowerCase()
-    return products.filter(p => p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)).slice(0, 10)
+    return products.filter(p => 
+      p.name.toLowerCase().includes(term) || 
+      p.productCode?.toLowerCase().includes(term) ||
+      (p.categoryPath && p.categoryPath.toLowerCase().includes(term))
+    ).slice(0, 10)
   }, [quickEditSearch, products])
 
   const stats = React.useMemo(() => ({
@@ -177,7 +186,7 @@ export default function Dashboard() {
     if (!newName || newSalePrice <= 0) { toast({ title: "خطأ", description: "بيانات ناقصة", variant: "destructive" }); return; }
     setIsAdding(true)
     try {
-      await addDocumentNonBlocking(productsRef, { name: newName, productCode: `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`, quantity: Number(newQty), salePrice: Number(newSalePrice), repairPrice: Number(newRepairPrice), minStockQuantity: 1, categoryId: "quick", categoryName: "إضافة سريعة", createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+      await addDocumentNonBlocking(productsRef, { name: newName, productCode: `EP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`, quantity: Number(newQty), salePrice: Number(newSalePrice), repairPrice: Number(newRepairPrice), minStockQuantity: 1, categoryId: "quick", categoryName: "إضافة سريعة", categoryPath: "إضافة سريعة", createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
       toast({ title: "تمت الإضافة" }); setNewName(""); setNewQty(0); setNewSalePrice(0); setNewRepairPrice(0)
     } finally { setIsAdding(false) }
   }
@@ -195,7 +204,7 @@ export default function Dashboard() {
         <div className="hidden md:flex flex-1 max-w-lg mx-8 relative">
            <div className="relative w-full group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="بحث سريع عن منتج..." className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowResults(true); }} onFocus={() => setShowResults(true)} />
+              <Input placeholder="بحث عن منتج، ماركة، أو قسم..." className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowResults(true); }} onFocus={() => setShowResults(true)} />
            </div>
            {showResults && searchTerm && (
               <div className="absolute top-full left-0 right-0 mt-2 glass-premium border-white/10 rounded-2xl shadow-xl z-[60] overflow-hidden max-h-[400px] overflow-y-auto">
@@ -213,11 +222,14 @@ export default function Dashboard() {
                         </div>
                         <div className="flex flex-col">
                            <span className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
-                           <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">#{p.productCode}</span>
-                              <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
-                                {p.quantity} متوفر
-                              </Badge>
+                           <div className="flex flex-col gap-0.5 mt-1">
+                              <span className="text-[9px] text-primary font-black uppercase tracking-tighter">{p.categoryPath || p.categoryName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">#{p.productCode}</span>
+                                <Badge variant={p.quantity <= 1 ? "destructive" : "success"} className="text-[8px] px-1.5 h-4 font-black">
+                                  {p.quantity} متوفر
+                                </Badge>
+                              </div>
                            </div>
                         </div>
                      </div>
