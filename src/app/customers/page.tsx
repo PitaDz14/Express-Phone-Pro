@@ -291,20 +291,22 @@ export default function CustomersPage() {
       {/* History Dialog */}
       <Dialog open={!!selectedHistoryCustomer} onOpenChange={() => setSelectedHistoryCustomer(null)}>
         <DialogContent dir="rtl" className="max-w-5xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[310] h-[90vh] flex flex-col">
-          <div className="p-8 bg-primary/5 border-b border-white/10 flex items-center justify-between shrink-0">
-             <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                   <History className="h-8 w-8" />
-                </div>
-                <div>
-                   <h2 className="text-2xl font-black text-gradient-premium">سجل عمليات العميل</h2>
-                   <p className="text-sm font-bold text-muted-foreground">{selectedHistoryCustomer?.name}</p>
-                </div>
+          <DialogHeader className="p-8 bg-primary/5 border-b border-white/10 shrink-0">
+             <div className="flex items-center justify-between">
+               <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                     <History className="h-8 w-8" />
+                  </div>
+                  <div>
+                     <DialogTitle className="text-2xl font-black text-gradient-premium">سجل عمليات العميل</DialogTitle>
+                     <p className="text-sm font-bold text-muted-foreground">{selectedHistoryCustomer?.name}</p>
+                  </div>
+               </div>
+               <Badge variant={selectedHistoryCustomer?.debt > 0 ? "destructive" : "success"} className="h-10 px-6 rounded-xl font-black text-lg tabular-nums">
+                  {selectedHistoryCustomer?.debt > 0 ? `المستحقات: ${selectedHistoryCustomer.debt.toLocaleString()} دج` : "الحساب مسوى"}
+               </Badge>
              </div>
-             <Badge variant={selectedHistoryCustomer?.debt > 0 ? "destructive" : "success"} className="h-10 px-6 rounded-xl font-black text-lg tabular-nums">
-                {selectedHistoryCustomer?.debt > 0 ? `المستحقات: ${selectedHistoryCustomer.debt.toLocaleString()} دج` : "الحساب مسوى"}
-             </Badge>
-          </div>
+          </DialogHeader>
 
           <div className="p-6 bg-card/40 border-b border-white/5 flex flex-col md:flex-row gap-4 shrink-0">
              <div className="relative flex-1 group">
@@ -400,11 +402,11 @@ export default function CustomersPage() {
       {/* Invoice Details Preview */}
       <Dialog open={!!selectedInvPreview} onOpenChange={() => setSelectedInvPreview(null)}>
         <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[350]">
-           <div className="p-6 md:p-8 bg-accent/5 border-b border-border flex justify-between items-center">
+           <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
               <DialogTitle className="text-xl font-black text-gradient-premium flex items-center gap-3">
                  <FileText className="h-6 w-6 text-primary" /> تفاصيل الفاتورة #{selectedInvPreview?.id.slice(0, 8)}
               </DialogTitle>
-           </div>
+           </DialogHeader>
            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4 glass p-4 rounded-2xl border-white/5">
                  <div>

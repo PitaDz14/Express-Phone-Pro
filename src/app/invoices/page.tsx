@@ -41,6 +41,13 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, doc, serverTimestamp, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -488,10 +495,12 @@ export default function InvoicesPage() {
 
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
-             <div className="p-6 md:p-8 bg-primary/5 border-b border-border flex justify-between items-center">
-                <DialogTitle className="text-xl font-black text-gradient-premium">مراجعة الفاتورة النهائية</DialogTitle>
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowPreview(false)}><X className="h-4 w-4" /></Button>
-             </div>
+             <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-border">
+                <div className="flex justify-between items-center">
+                  <DialogTitle className="text-xl font-black text-gradient-premium">مراجعة الفاتورة النهائية</DialogTitle>
+                  <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowPreview(false)}><X className="h-4 w-4" /></Button>
+                </div>
+             </DialogHeader>
 
              <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 <div className="bg-white text-black p-6 md:p-10 rounded-2xl border border-black/10 space-y-8 text-sm shadow-inner">

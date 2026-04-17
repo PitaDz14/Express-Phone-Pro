@@ -356,14 +356,16 @@ export default function Dashboard() {
               </Button>
             </DialogTrigger>
             <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh] md:h-[90vh]">
-               <div className="p-4 md:p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
-                  <h2 className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</h2>
-                  <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
-                    {showPurchaseInEdit ? <EyeOff className="h-3 w-3 md:h-4 md:w-4" /> : <Eye className="h-3 w-3 md:h-4 md:w-4" />} سعر الشراء
-                  </Button>
-               </div>
+               <DialogHeader className="p-4 md:p-8 border-b border-white/5 bg-primary/5 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
+                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
+                      {showPurchaseInEdit ? <EyeOff className="h-3 w-3 md:h-4 md:w-4" /> : <Eye className="h-3 w-3 md:h-4 md:w-4" />} سعر الشراء
+                    </Button>
+                  </div>
+               </DialogHeader>
                
-               <div className="p-4 md:p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto">
+               <div className="p-4 md:p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-1 bg-primary rounded-full" />
                     <p className="text-[10px] md:text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
@@ -447,7 +449,7 @@ export default function Dashboard() {
                       <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
                          <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
-                      <CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات</CardTitle>
+                      <CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات الحصرية</CardTitle>
                    </div>
                 </CardHeader>
                 <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
