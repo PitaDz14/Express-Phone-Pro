@@ -6,6 +6,8 @@ import {
   Wallet, 
   Search, 
   ArrowUpDown, 
+  ArrowUp,
+  ArrowDown,
   Loader2, 
   ChevronLeft, 
   Eye, 
@@ -13,13 +15,10 @@ import {
   Edit3, 
   History,
   User,
-  Smartphone,
-  CheckCircle2,
-  AlertCircle,
   ShoppingBag,
   FileText
 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -64,12 +63,19 @@ export default function DebtsPage() {
 
   const indebtedCustomers = React.useMemo(() => {
     if (!allCustomers) return []
-    return allCustomers
+    let items = allCustomers
       .filter(c => c.debt > 0 && c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => {
-        if (sortConfig.direction === 'asc') return a[sortConfig.key] - b[sortConfig.key]
-        return b[sortConfig.key] - a[sortConfig.key]
+    
+    if (sortConfig.key) {
+      items.sort((a, b) => {
+        const valA = a[sortConfig.key] || 0
+        const valB = b[sortConfig.key] || 0
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
       })
+    }
+    return items
   }, [allCustomers, searchTerm, sortConfig])
 
   const totalGlobalDebt = React.useMemo(() => {
@@ -157,6 +163,20 @@ export default function DebtsPage() {
     }
   }
 
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (sortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32">
       <header className="flex flex-col md:flex-row md:h-20 shrink-0 md:items-center justify-between glass p-6 md:px-8 rounded-[2rem] gap-4">
@@ -193,14 +213,16 @@ export default function DebtsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="font-black text-foreground">العميل</TableHead>
+                <TableHead className="font-black text-foreground cursor-pointer" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-2">العميل <SortIcon column="name" /></div>
+                </TableHead>
                 <TableHead className="font-black text-foreground text-center">رقم الهاتف</TableHead>
                 <TableHead 
                   className="text-left font-black text-foreground cursor-pointer group"
-                  onClick={() => setSortConfig({ key: 'debt', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
+                  onClick={() => handleSort('debt')}
                 >
                   <div className="flex items-center gap-2 justify-end">
-                    الدين <ArrowUpDown className="h-3 w-3 opacity-30" />
+                    الدين <SortIcon column="debt" />
                   </div>
                 </TableHead>
                 <TableHead className="text-center font-black text-foreground">الإجراءات</TableHead>
@@ -313,14 +335,14 @@ export default function DebtsPage() {
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600"
                         onClick={() => handleUpdatePayment(inv)}
-                        title="تحديث"
+                        title="تحديث الدفع"
                        >
                          <Edit3 className="h-4 w-4" />
                        </Button>
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-destructive/10 text-destructive"
                         onClick={() => handleDeleteDebtInvoice(inv)}
-                        title="حذف"
+                        title="حذف الفاتورة"
                        >
                          <Trash2 className="h-4 w-4" />
                        </Button>

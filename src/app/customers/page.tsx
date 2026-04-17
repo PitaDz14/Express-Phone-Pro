@@ -14,13 +14,13 @@ import {
   FileText,
   Filter,
   ArrowUpDown,
-  ChevronLeft,
-  X,
+  ArrowUp,
+  ArrowDown,
   Eye,
   CheckCircle2,
   AlertCircle
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, doc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore"
+import { collection, doc, serverTimestamp, query, where, getDocs, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
@@ -64,6 +64,7 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = React.useState<any>(null)
   const [customerName, setCustomerName] = React.useState("")
   const [customerPhone, setCustomerPhone] = React.useState("")
+  const [sortConfig, setSortConfig] = React.useState({ key: 'createdAt', direction: 'desc' })
   
   // States for History Dialog
   const [selectedHistoryCustomer, setSelectedHistoryCustomer] = React.useState<any>(null)
@@ -83,11 +84,30 @@ export default function CustomersPage() {
 
   const sortedCustomers = React.useMemo(() => {
     if (!customers) return [];
-    return [...customers].filter(c => 
+    let items = [...customers].filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.phone.includes(searchTerm)
-    ).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-  }, [customers, searchTerm])
+    )
+
+    if (sortConfig.key) {
+      items.sort((a, b) => {
+        const valA = a[sortConfig.key] || 0
+        const valB = b[sortConfig.key] || 0
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    return items
+  }, [customers, searchTerm, sortConfig])
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
 
   const handleAddOrUpdate = () => {
     if (!customerName || !customerPhone) {
@@ -173,6 +193,51 @@ export default function CustomersPage() {
     }
   }
 
+  const handleEditInvoiceInHistory = (inv: any) => {
+    const newName = prompt("تعديل اسم العميل في هذه الفاتورة:", inv.customerName)
+    if (newName && newName !== inv.customerName) {
+      updateDocumentNonBlocking(doc(db, "invoices", inv.id), { customerName: newName })
+      setHistoryInvoices(prev => prev.map(item => item.id === inv.id ? { ...item, customerName: newName } : item))
+      toast({ title: "تم التعديل", description: "تم تحديث اسم العميل في السجل" })
+    }
+  }
+
+  const handleDeleteInvoiceInHistory = async (inv: any) => {
+    if (confirm("هل أنت متأكد من حذف الفاتورة؟ سيتم إعادة المنتجات للمخزون وخصم المبلغ من حساب العميل.")) {
+      try {
+        const itemsSnap = await getDocs(collection(db, "invoices", inv.id, "items"))
+        itemsSnap.docs.forEach(itemDoc => {
+          const item = itemDoc.data()
+          if (item.productId) {
+            updateDocumentNonBlocking(doc(db, "products", item.productId), {
+              quantity: increment(item.quantity)
+            })
+          }
+        })
+
+        if (inv.status === "Debt") {
+          const unpaid = inv.totalAmount - inv.paidAmount
+          updateDocumentNonBlocking(doc(db, "customers", inv.customerId), {
+            debt: increment(-unpaid)
+          })
+        }
+
+        deleteDocumentNonBlocking(doc(db, "invoices", inv.id))
+        setHistoryInvoices(prev => prev.filter(i => i.id !== inv.id))
+        toast({ title: "تم الحذف", description: "تم مسح الفاتورة واسترجاع المخزون" })
+      } catch (err) {
+        toast({ title: "خطأ", description: "فشل حذف الفاتورة", variant: "destructive" })
+      }
+    }
+  }
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (sortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32">
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -200,9 +265,13 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="font-black text-foreground">الاسم الكامل</TableHead>
+                <TableHead className="font-black text-foreground cursor-pointer" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-2">الاسم الكامل <SortIcon column="name" /></div>
+                </TableHead>
                 <TableHead className="font-black text-foreground text-center">رقم الهاتف</TableHead>
-                <TableHead className="text-left font-black text-foreground">إجمالي الدين</TableHead>
+                <TableHead className="text-left font-black text-foreground cursor-pointer" onClick={() => handleSort('debt')}>
+                  <div className="flex items-center justify-end gap-2">إجمالي الدين <SortIcon column="debt" /></div>
+                </TableHead>
                 <TableHead className="text-center font-black text-foreground">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -255,7 +324,6 @@ export default function CustomersPage() {
         </div>
       </Card>
 
-      {/* Add / Edit Dialog */}
       <Dialog open={openAdd} onOpenChange={setOpenAdd}>
         <DialogContent dir="rtl" className="w-[90%] glass border-none rounded-[2rem] md:rounded-[2.5rem] shadow-2xl p-6 md:p-8 z-[300]">
           <DialogHeader>
@@ -268,7 +336,7 @@ export default function CustomersPage() {
               <Label className="font-black text-[10px] md:text-xs text-primary px-1">الاسم الكامل</Label>
               <Input 
                 value={customerName} 
-                onChange={(e) => setcustomerName(e.target.value)} 
+                onChange={(e) => setCustomerName(e.target.value)} 
                 className="rounded-xl md:rounded-2xl h-11 md:h-14 glass border-none font-bold text-sm md:text-lg" 
                 placeholder="اسم العميل" 
               />
@@ -277,7 +345,7 @@ export default function CustomersPage() {
               <Label className="font-black text-[10px] md:text-xs text-primary px-1">رقم الهاتف</Label>
               <Input 
                 value={customerPhone} 
-                onChange={(e) => setcustomerPhone(e.target.value)} 
+                onChange={(e) => setCustomerPhone(e.target.value)} 
                 className="rounded-xl md:rounded-2xl h-11 md:h-14 glass border-none font-bold text-sm md:text-lg" 
                 placeholder="06XXXXXXXX" 
               />
@@ -393,6 +461,20 @@ export default function CustomersPage() {
                     onClick={() => fetchInvItems(inv)}
                    >
                      <Eye className="h-4 w-4" />
+                   </Button>
+                   <Button 
+                    variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600"
+                    onClick={() => handleEditInvoiceInHistory(inv)}
+                    title="تعديل الفاتورة"
+                   >
+                     <Edit3 className="h-4 w-4" />
+                   </Button>
+                   <Button 
+                    variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-destructive/10 text-destructive"
+                    onClick={() => handleDeleteInvoiceInHistory(inv)}
+                    title="حذف الفاتورة"
+                   >
+                     <Trash2 className="h-4 w-4" />
                    </Button>
                 </div>
               </div>

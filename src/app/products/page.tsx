@@ -13,17 +13,10 @@ import {
   ArrowDown,
   Loader2,
   Printer,
-  Settings2,
   X,
-  Eye,
-  Wrench,
-  Tag,
-  Layers,
-  ChevronLeft,
-  Sparkles,
-  ChevronRight
+  ChevronLeft
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -75,11 +68,9 @@ const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint }: { p: any, onEdi
       </div>
     </TableCell>
     <TableCell className="text-center">
-      <div className="flex flex-col items-center gap-1 min-w-[100px]">
-        <Badge variant="outline" className="px-2 md:px-3 rounded-lg border-primary/20 bg-primary/5 text-primary font-bold text-[8px] md:text-[10px]">
-          {p.categoryPath || p.categoryName || "بدون تصنيف"}
-        </Badge>
-      </div>
+      <Badge variant="outline" className="px-2 md:px-3 rounded-lg border-primary/20 bg-primary/5 text-primary font-bold text-[8px] md:text-[10px]">
+        {p.categoryPath || p.categoryName || "بدون تصنيف"}
+      </Badge>
     </TableCell>
     <TableCell className="text-center">
       <Badge className={cn("px-2 md:px-4 rounded-lg font-black tabular-nums border-none text-[10px] md:text-xs", p.quantity <= (p.minStockQuantity || 1) ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600')}>
@@ -136,14 +127,16 @@ export default function ProductsPage() {
   const { data: products, isLoading } = useCollection(productsRef)
   const { data: categories } = useCollection(categoriesRef)
 
-  const handleSort = React.useCallback((key: string) => {
+  const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' | null = 'desc';
     if (sortConfig.key === key) {
       if (sortConfig.direction === 'desc') direction = 'asc';
-      else if (sortConfig.direction === 'asc') direction = null;
+      else if (sortConfig.direction === 'asc') direction = 'desc';
+    } else {
+      direction = 'asc';
     }
     setSortConfig({ key, direction });
-  }, [sortConfig])
+  }
 
   const sortedProducts = React.useMemo(() => {
     if (!products) return [];
@@ -156,8 +149,8 @@ export default function ProductsPage() {
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
-        const aValue = a[sortConfig.key] || "";
-        const bValue = b[sortConfig.key] || "";
+        const aValue = a[sortConfig.key] ?? "";
+        const bValue = b[sortConfig.key] ?? "";
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -253,6 +246,13 @@ export default function ProductsPage() {
       })
   }
 
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (sortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32 overflow-x-hidden">
       <header className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -282,11 +282,19 @@ export default function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-white/10">
-                <TableHead className="font-black text-foreground" onClick={() => handleSort('name')}>المنتج</TableHead>
+                <TableHead className="font-black text-foreground cursor-pointer group" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-2">المنتج <SortIcon column="name" /></div>
+                </TableHead>
                 <TableHead className="text-center font-black text-foreground">باركود</TableHead>
-                <TableHead className="text-center font-black text-foreground">التصنيف</TableHead>
-                <TableHead className="text-center font-black text-foreground">كمية</TableHead>
-                <TableHead className="text-left font-black text-foreground">السعر</TableHead>
+                <TableHead className="text-center font-black text-foreground cursor-pointer" onClick={() => handleSort('categoryName')}>
+                  <div className="flex items-center justify-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
+                </TableHead>
+                <TableHead className="text-center font-black text-foreground cursor-pointer" onClick={() => handleSort('quantity')}>
+                  <div className="flex items-center justify-center gap-2">كمية <SortIcon column="quantity" /></div>
+                </TableHead>
+                <TableHead className="text-left font-black text-foreground cursor-pointer" onClick={() => handleSort('salePrice')}>
+                  <div className="flex items-center justify-end gap-2">السعر <SortIcon column="salePrice" /></div>
+                </TableHead>
                 <TableHead className="text-center font-black text-foreground">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
