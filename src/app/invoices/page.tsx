@@ -80,6 +80,9 @@ export default function InvoicesPage() {
   const [isLoadingInvoice, setIsLoadingInvoice] = React.useState(false)
   const [showPreview, setShowPreview] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
+  
+  // Real ID generation for preview
+  const [pendingId, setPendingId] = React.useState("")
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
@@ -87,6 +90,13 @@ export default function InvoicesPage() {
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
+
+  // Generate a real potential ID if not editing
+  React.useEffect(() => {
+    if (!editId && !pendingId) {
+      setPendingId(doc(collection(db, "invoices")).id);
+    }
+  }, [editId, db, pendingId])
 
   // Load Invoice for Editing
   React.useEffect(() => {
@@ -212,7 +222,7 @@ export default function InvoicesPage() {
             <div class="header">
               <h1>EXPRESS PHONE</h1>
               <p style="font-size: 10px; font-weight: 800;">فاتورة مبيعات</p>
-              <p style="font-size: 9px;">#${invId.slice(0, 15)}</p>
+              <p style="font-size: 9px;">#${invId}</p>
               <p style="font-size: 9px;">التاريخ: ${format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
             </div>
 
@@ -296,6 +306,9 @@ export default function InvoicesPage() {
         }
       }
 
+      const currentInvoiceId = editId || pendingId;
+      const targetDocRef = doc(db, "invoices", currentInvoiceId);
+
       const invoiceData: any = {
         customerId: selectedCustomer?.id || "walk-in",
         customerName: selectedCustomer?.name || "عميل عام",
@@ -311,7 +324,6 @@ export default function InvoicesPage() {
         invoiceData.createdAt = serverTimestamp();
       }
 
-      const targetDocRef = editId ? doc(db, "invoices", editId) : doc(collection(db, "invoices"));
       batch.set(targetDocRef, invoiceData, { merge: true });
       
       const itemsRef = collection(db, "invoices", targetDocRef.id, "items")
@@ -353,6 +365,7 @@ export default function InvoicesPage() {
       setDiscount(0)
       setPaidAmount("")
       setShowPreview(false)
+      setPendingId("") // Reset pre-generated ID
       if (editId) router.push('/invoices/history')
     } catch (error) {
       console.error("Save Error:", error);
@@ -578,7 +591,7 @@ export default function InvoicesPage() {
                      </div>
 
                      <div className="space-y-1">
-                        <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_جديد"}</span></p>
+                        <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || pendingId}</span></p>
                         <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
                         <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
                      </div>
@@ -613,7 +626,7 @@ export default function InvoicesPage() {
                      </div>
 
                      <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
-                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || "NEW"}`} alt="QR" />
+                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || pendingId}`} alt="QR" />
                         <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
                      </div>
                   </div>
