@@ -403,7 +403,7 @@ export default function Dashboard() {
                         <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right">
                           <SelectValue placeholder="اختر الفئة..." />
                         </SelectTrigger>
-                        <SelectContent className="glass border-none rounded-xl">
+                        <SelectContent className="glass border-none rounded-xl z-[220]">
                             {categories && renderCategoryOptions(categories)}
                         </SelectContent>
                       </Select>
