@@ -50,6 +50,7 @@ import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp, query, where, getDocs, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -57,6 +58,7 @@ import { cn } from "@/lib/utils"
 export default function CustomersPage() {
   const { toast } = useToast()
   const db = useFirestore()
+  const router = useRouter()
   
   // States for Customers List
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -64,7 +66,7 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = React.useState<any>(null)
   const [customerName, setCustomerName] = React.useState("")
   const [customerPhone, setCustomerPhone] = React.useState("")
-  const [sortConfig, setSortConfig] = React.useState({ key: 'createdAt', direction: 'desc' })
+  const [sortConfig, setSortConfig] = React.useState({ key: 'name', direction: 'asc' })
   
   // States for History Dialog
   const [selectedHistoryCustomer, setSelectedHistoryCustomer] = React.useState<any>(null)
@@ -99,7 +101,7 @@ export default function CustomersPage() {
       })
     }
 
-    return items
+    return items;
   }, [customers, searchTerm, sortConfig])
 
   const handleSort = (key: string) => {
@@ -139,7 +141,7 @@ export default function CustomersPage() {
     setCustomerPhone("")
   }
 
-  const openEdit = (customer: any) => {
+  const openEditCustomer = (customer: any) => {
     setEditingCustomer(customer)
     setCustomerName(customer.name)
     setCustomerPhone(customer.phone)
@@ -193,16 +195,12 @@ export default function CustomersPage() {
     }
   }
 
-  const handleEditInvoiceInHistory = (inv: any) => {
-    const newName = prompt("تعديل اسم العميل في هذه الفاتورة:", inv.customerName)
-    if (newName && newName !== inv.customerName) {
-      updateDocumentNonBlocking(doc(db, "invoices", inv.id), { customerName: newName })
-      setHistoryInvoices(prev => prev.map(item => item.id === inv.id ? { ...item, customerName: newName } : item))
-      toast({ title: "تم التعديل", description: "تم تحديث اسم العميل في السجل" })
-    }
+  const handleEditInvoice = (inv: any) => {
+    // Redirect to POS with edit mode
+    router.push(`/invoices?editId=${inv.id}`)
   }
 
-  const handleDeleteInvoiceInHistory = async (inv: any) => {
+  const handleDeleteInvoice = async (inv: any) => {
     if (confirm("هل أنت متأكد من حذف الفاتورة؟ سيتم إعادة المنتجات للمخزون وخصم المبلغ من حساب العميل.")) {
       try {
         const itemsSnap = await getDocs(collection(db, "invoices", inv.id, "items"))
@@ -303,8 +301,8 @@ export default function CustomersPage() {
                       </Button>
                       <Button 
                         variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-orange-500/10 text-orange-600"
-                        onClick={() => openEdit(c)}
-                        title="تعديل"
+                        onClick={() => openEditCustomer(c)}
+                        title="تعديل بيانات العميل"
                       >
                         <Edit3 className="h-4 w-4 md:h-5 md:w-5" />
                       </Button>
@@ -459,20 +457,21 @@ export default function CustomersPage() {
                    <Button 
                     variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-primary/10 text-primary"
                     onClick={() => fetchInvItems(inv)}
+                    title="معاينة العناصر"
                    >
                      <Eye className="h-4 w-4" />
                    </Button>
                    <Button 
                     variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600"
-                    onClick={() => handleEditInvoiceInHistory(inv)}
-                    title="تعديل الفاتورة"
+                    onClick={() => handleEditInvoice(inv)}
+                    title="تعديل الفاتورة في نقطة البيع"
                    >
                      <Edit3 className="h-4 w-4" />
                    </Button>
                    <Button 
                     variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-destructive/10 text-destructive"
-                    onClick={() => handleDeleteInvoiceInHistory(inv)}
-                    title="حذف الفاتورة"
+                    onClick={() => handleDeleteInvoice(inv)}
+                    title="حذف الفاتورة واسترجاع المخزون"
                    >
                      <Trash2 className="h-4 w-4" />
                    </Button>

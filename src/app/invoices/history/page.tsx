@@ -41,6 +41,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, orderBy, getDocs, doc, increment } from "firebase/firestore"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -53,6 +54,7 @@ type SortConfig = {
 export default function InvoiceHistoryPage() {
   const { toast } = useToast()
   const db = useFirestore()
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedInvoice, setSelectedInvoice] = React.useState<any>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
@@ -144,7 +146,6 @@ export default function InvoiceHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       const hasDiscount = (invoice.discount || 0) > 0;
-      const subtotal = items.reduce((sum, item) => sum + (item.itemTotal || 0), 0);
       
       printWindow.document.write(`
         <html dir="rtl">
@@ -152,19 +153,17 @@ export default function InvoiceHistoryPage() {
             <title>فاتورة - ${invoice.id}</title>
             <style>
               @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-              body { font-family: 'Almarai', sans-serif; padding: 40px; color: #000; background: #fff; line-height: 1.4; }
-              .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #000; padding-bottom: 20px; }
-              .header h1 { font-size: 32px; font-weight: 800; margin: 0; }
-              .info { display: flex; justify-content: space-between; margin-bottom: 30px; font-weight: 700; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
-              th, td { border: 1px solid #000; padding: 12px; text-align: right; }
-              th { background-color: #eee; font-weight: 800; }
-              .summary { border-top: 2px solid #000; padding-top: 15px; }
-              .summary-row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 5px; }
-              .total { text-align: left; font-size: 24px; font-weight: 800; border-top: 1px solid #000; padding-top: 10px; }
-              .footer { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 50px; border-top: 1px dashed #000; padding-top: 30px; }
-              .qr-code { width: 120px; height: 120px; margin-bottom: 15px; }
-              @media print { body { padding: 20px; } }
+              body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
+              .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+              .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
+              .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+              th, td { border-bottom: 1px solid #000; padding: 8px; text-align: right; }
+              th { background-color: #f0f0f0; }
+              .summary { border-top: 2px solid #000; padding-top: 10px; font-size: 14px; }
+              .summary-row { display: flex; justify-content: space-between; font-weight: 700; }
+              .total { font-size: 18px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
+              .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
             </style>
           </head>
           <body onload="window.print(); window.close();">
@@ -174,7 +173,7 @@ export default function InvoiceHistoryPage() {
             </div>
             <div class="info">
               <div>
-                <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
+                <strong>رقم الفاتورة:</strong> ${invoice.id.slice(0, 15)}<br>
                 <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}
               </div>
               <div style="text-align: left;">
@@ -187,7 +186,6 @@ export default function InvoiceHistoryPage() {
                 <tr>
                   <th>المنتج</th>
                   <th style="text-align: center">كمية</th>
-                  <th style="text-align: center">سعر الوحدة</th>
                   <th style="text-align: left">الإجمالي</th>
                 </tr>
               </thead>
@@ -196,7 +194,6 @@ export default function InvoiceHistoryPage() {
                   <tr>
                     <td>${item.productName}</td>
                     <td style="text-align: center">${item.quantity}</td>
-                    <td style="text-align: center">${item.unitPrice.toLocaleString()} دج</td>
                     <td style="text-align: left">${item.itemTotal.toLocaleString()} دج</td>
                   </tr>
                 `).join('')}
@@ -204,16 +201,15 @@ export default function InvoiceHistoryPage() {
             </table>
             
             <div class="summary">
-               <div class="summary-row"><span>المجموع:</span> <span>${subtotal.toLocaleString()} دج</span></div>
+               <div class="summary-row"><span>المجموع:</span> <span>${(invoice.totalAmount + (invoice.discount || 0)).toLocaleString()} دج</span></div>
                ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${invoice.discount.toLocaleString()} دج</span></div>` : ''}
                <div class="summary-row"><span>المدفوع:</span> <span>${invoice.paidAmount.toLocaleString()} دج</span></div>
-               <div class="total">الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج</div>
+               <div class="summary-row total">الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج</div>
             </div>
 
-            <div class="footer">
-              <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invoice.id}" alt="QR" />
-              <p style="font-weight: 800;">شكراً لتعاملكم معنا</p>
-              <p style="font-size: 10px; margin-top: 10px;">ID: ${invoice.id}</p>
+            <div class="qr-footer">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invoice.id}" width="120" />
+              <p style="font-weight: 800; margin-top: 10px;">شكراً لتعاملكم معنا</p>
             </div>
           </body>
         </html>
@@ -273,109 +269,105 @@ export default function InvoiceHistoryPage() {
 
           <Card className="border-none glass shadow-2xl overflow-hidden rounded-[2.5rem] card-3d">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-white/10 hover:bg-transparent">
-                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
-                      <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
-                    </TableHead>
-                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
-                      <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
-                    </TableHead>
-                    <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('createdAt')}>
-                      <div className="flex items-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
-                    </TableHead>
-                    <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
-                      <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
-                    </TableHead>
-                    <TableHead className="text-center font-black">الحالة</TableHead>
-                    <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-20">
-                        <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
-                        <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
-                      </TableCell>
+              <div className="table-container">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-white/10 hover:bg-transparent">
+                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
+                        <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
+                      </TableHead>
+                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
+                        <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
+                      </TableHead>
+                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('createdAt')}>
+                        <div className="flex items-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
+                      </TableHead>
+                      <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
+                        <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
+                      </TableHead>
+                      <TableHead className="text-center font-black">الحالة</TableHead>
+                      <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
-                  ) : sortedInvoices.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
-                        لا توجد فواتير مسجلة حالياً
-                      </TableCell>
-                    </TableRow>
-                  ) : sortedInvoices.map((inv) => (
-                    <TableRow key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group">
-                      <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
-                      <TableCell>
-                         <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                               <User className="h-4 w-4 text-primary" />
-                            </div>
-                            <span className="font-bold">{inv.customerName}</span>
-                         </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground font-bold text-xs tabular-nums">
-                        {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: ar }) : "---"}
-                      </TableCell>
-                      <TableCell className="text-left font-black tabular-nums text-lg text-primary">
-                        {inv.totalAmount.toLocaleString()} دج
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">ناجحة</Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
-                           <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
-                            onClick={() => handleViewDetails(inv)}
-                            title="عرض التفاصيل"
-                           >
-                             <Eye className="h-4 w-4" />
-                           </Button>
-                           <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-accent hover:text-white"
-                            onClick={() => handleViewDetails(inv).then(() => handlePrintInvoice(inv, invoiceItems))}
-                            title="طباعة"
-                           >
-                             <Printer className="h-4 w-4" />
-                           </Button>
-                           <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
-                            onClick={() => {
-                              const newName = prompt("تعديل اسم العميل:", inv.customerName);
-                              if (newName) {
-                                updateDocumentNonBlocking(doc(db, "invoices", inv.id), { customerName: newName });
-                                toast({ title: "تم التعديل", description: "تم تحديث اسم العميل بنجاح" });
-                              }
-                            }}
-                            title="تعديل سريع"
-                           >
-                             <Edit3 className="h-4 w-4" />
-                           </Button>
-                           <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
-                            onClick={() => handleDeleteInvoice(inv.id)}
-                            title="حذف الفاتورة واسترجاع المخزون"
-                           >
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-20">
+                          <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
+                          <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : sortedInvoices.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
+                          لا توجد فواتير مسجلة حالياً
+                        </TableCell>
+                      </TableRow>
+                    ) : sortedInvoices.map((inv) => (
+                      <TableRow key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group">
+                        <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
+                        <TableCell>
+                           <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                 <User className="h-4 w-4 text-primary" />
+                              </div>
+                              <span className="font-bold">{inv.customerName}</span>
+                           </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground font-bold text-xs tabular-nums">
+                          {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: ar }) : "---"}
+                        </TableCell>
+                        <TableCell className="text-left font-black tabular-nums text-lg text-primary">
+                          {inv.totalAmount.toLocaleString()} دج
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">ناجحة</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
+                              onClick={() => handleViewDetails(inv)}
+                              title="عرض التفاصيل"
+                             >
+                               <Eye className="h-4 w-4" />
+                             </Button>
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-accent hover:text-white"
+                              onClick={() => handleViewDetails(inv).then(() => handlePrintInvoice(inv, invoiceItems))}
+                              title="طباعة"
+                             >
+                               <Printer className="h-4 w-4" />
+                             </Button>
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
+                              onClick={() => router.push(`/invoices?editId=${inv.id}`)}
+                              title="تعديل الفاتورة في نقطة البيع"
+                             >
+                               <Edit3 className="h-4 w-4" />
+                             </Button>
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              title="حذف الفاتورة واسترجاع المخزون"
+                             >
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 

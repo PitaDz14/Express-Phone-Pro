@@ -18,7 +18,9 @@ import {
   X,
   ShoppingBag,
   Info,
-  Camera
+  Camera,
+  ArrowRight,
+  History
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,17 +43,11 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
-import { collection, doc, serverTimestamp, increment } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, setDocumentNonBlocking } from "@/firebase"
+import { collection, doc, serverTimestamp, increment, getDoc, getDocs, deleteDoc, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -59,6 +55,7 @@ import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 
 interface CartItem {
   id: string
+  productId: string
   name: string
   price: number
   qty: number
@@ -69,6 +66,10 @@ export default function InvoicesPage() {
   const { toast } = useToast()
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const editId = searchParams.get('editId')
+
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [customerSearch, setCustomerSearch] = React.useState("")
@@ -76,6 +77,7 @@ export default function InvoicesPage() {
   const [discount, setDiscount] = React.useState(0)
   const [paidAmount, setPaidAmount] = React.useState<number | "">("")
   const [isProcessing, setIsProcessing] = React.useState(false)
+  const [isLoadingInvoice, setIsLoadingInvoice] = React.useState(false)
   const [showPreview, setShowPreview] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
@@ -85,6 +87,43 @@ export default function InvoicesPage() {
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
+
+  // Load Invoice for Editing
+  React.useEffect(() => {
+    if (editId && products) {
+      const loadInvoice = async () => {
+        setIsLoadingInvoice(true)
+        try {
+          const invDoc = await getDoc(doc(db, "invoices", editId))
+          if (invDoc.exists()) {
+            const data = invDoc.data()
+            setSelectedCustomer({ id: data.customerId, name: data.customerName, debt: 0 }) // Basic info
+            setDiscount(data.discount || 0)
+            setPaidAmount(data.paidAmount)
+            
+            const itemsSnap = await getDocs(collection(db, "invoices", editId, "items"))
+            const items = itemsSnap.docs.map(d => {
+              const itemData = d.data()
+              return {
+                id: d.id, // Internal item doc id
+                productId: itemData.productId,
+                name: itemData.productName,
+                price: itemData.unitPrice,
+                qty: itemData.quantity,
+                categoryPath: itemData.categoryPath
+              }
+            })
+            setCart(items)
+          }
+        } catch (e) {
+          toast({ variant: "destructive", title: "خطأ", description: "فشل تحميل الفاتورة للتعديل" })
+        } finally {
+          setIsLoadingInvoice(false)
+        }
+      }
+      loadInvoice()
+    }
+  }, [editId, products, db])
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
   const total = subtotal - discount
@@ -102,16 +141,17 @@ export default function InvoicesPage() {
       toast({ title: "خطأ", description: "هذا المنتج غير متوفر في المخزون", variant: "destructive" })
       return
     }
-    const existing = cart.find(item => item.id === product.id)
+    const existing = cart.find(item => item.productId === product.id)
     if (existing) {
       if (existing.qty >= product.quantity) {
         toast({ title: "تنبيه", description: "وصلت للكمية المتاحة في المخزون" })
         return
       }
-      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
+      setCart(cart.map(item => item.productId === product.id ? { ...item, qty: item.qty + 1 } : item))
     } else {
       setCart([...cart, { 
-        id: product.id, 
+        id: Math.random().toString(36).substring(7), // Temp ID
+        productId: product.id,
         name: product.name, 
         price: product.salePrice, 
         qty: 1,
@@ -123,28 +163,23 @@ export default function InvoicesPage() {
 
   const handleQRScan = (code: string) => {
     const product = products?.find(p => p.productCode === code)
-    if (product) {
-      addToCart(product)
-    } else {
-      toast({ title: "منتج غير مسجل", description: `كود المنتج ${code} غير موجود`, variant: "destructive" })
-    }
+    if (product) addToCart(product)
+    else toast({ title: "منتج غير مسجل", description: `كود ${code} غير موجود`, variant: "destructive" })
   }
 
-  const updateQty = (id: string, delta: number) => {
-    setCart(cart.map(item => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item))
+  const updateQty = (productId: string, delta: number) => {
+    setCart(cart.map(item => item.productId === productId ? { ...item, qty: Math.max(1, item.qty + delta) } : item))
   }
 
-  const updatePrice = (id: string, newPrice: number) => {
-    setCart(cart.map(item => item.id === id ? { ...item, price: newPrice } : item))
+  const updatePrice = (productId: string, newPrice: number) => {
+    setCart(cart.map(item => item.productId === productId ? { ...item, price: newPrice } : item))
   }
 
   const handlePrintInvoice = (invId: string, invoiceData: any, cartItems: CartItem[], customer: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const previousDebt = customer?.debt || 0;
-    const currentTotalDebt = previousDebt + (invoiceData.totalAmount - invoiceData.paidAmount);
-    const hasDiscount = (discount || 0) > 0;
+    const hasDiscount = (invoiceData.discount || 0) > 0;
 
     printWindow.document.write(`
       <html dir="rtl">
@@ -152,36 +187,33 @@ export default function InvoicesPage() {
           <title>فاتورة - ${invId}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-            body { font-family: 'Almarai', sans-serif; padding: 20px; color: #000; line-height: 1.4; background: #fff; }
-            .invoice-box { max-width: 800px; margin: auto; padding: 10px; border: 1px solid #000; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-            .shop-info h1 { margin: 0; color: #000; font-size: 28px; font-weight: 800; text-transform: uppercase; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-            th { background: #eee; border: 1px solid #000; padding: 10px; text-align: right; font-weight: 800; }
-            td { border: 1px solid #000; padding: 8px; }
-            .summary { margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
-            .summary-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 700; font-size: 14px; }
-            .summary-row.total { font-size: 20px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
-            .customer-section { margin-bottom: 20px; border: 1px solid #eee; padding: 10px; border-radius: 4px; }
-            .footer-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed #000; }
-            .qr-img { width: 120px; height: 120px; margin-bottom: 10px; }
-            @media print { body { padding: 0; } .invoice-box { border: 1px solid #000; } }
+            @page { margin: 5mm; }
+            body { font-family: 'Almarai', sans-serif; color: #000; background: #fff; line-height: 1.2; padding: 0; margin: 0; }
+            .invoice-box { width: 100%; max-width: 80mm; margin: 0 auto; padding: 5px; }
+            .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+            .header h1 { margin: 0; font-size: 18px; font-weight: 800; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; }
+            th { border-bottom: 1px solid #000; padding: 4px; text-align: right; }
+            td { padding: 4px; border-bottom: 1px dotted #ccc; }
+            .summary { border-top: 1px solid #000; padding-top: 5px; font-size: 12px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-weight: 700; }
+            .total { font-size: 14px; border-top: 1px solid #000; padding-top: 4px; font-weight: 800; }
+            .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; }
+            .qr-img { width: 100px; height: 100px; }
+            .no-print { display: none !important; }
+            @media print { .no-print { display: none; } }
           </style>
         </head>
         <body onload="window.print(); window.close();">
           <div class="invoice-box">
             <div class="header">
-              <div class="shop-info">
-                <h1>EXPRESS PHONE</h1>
-                <p style="font-weight: 800; margin-top: 5px;">فاتورة مبيعات</p>
-              </div>
-              <div style="text-align: left; font-size: 13px; font-weight: 700;">
-                <p><strong>رقم الفاتورة:</strong> ${invId}</p>
-                <p><strong>التاريخ:</strong> ${format(new Date(), "yyyy/MM/dd", { locale: ar })}</p>
-              </div>
+              <h1>EXPRESS PHONE</h1>
+              <p style="font-size: 10px; font-weight: 800;">فاتورة مبيعات</p>
+              <p style="font-size: 9px;">#${invId.slice(0, 12)}</p>
+              <p style="font-size: 9px;">التاريخ: ${format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
             </div>
 
-            <div class="customer-section">
+            <div style="font-size: 10px; margin-bottom: 10px;">
               <p><strong>العميل:</strong> ${customer?.name || "عميل عام"}</p>
               <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? "لا يوجد" : customer.phone}</p>
             </div>
@@ -190,20 +222,15 @@ export default function InvoicesPage() {
               <thead>
                 <tr>
                   <th>المنتج</th>
-                  <th style="text-align: center; width: 60px;">كمية</th>
-                  <th style="text-align: center; width: 100px;">السعر</th>
-                  <th style="text-align: left; width: 120px;">الإجمالي</th>
+                  <th style="text-align: center">كمية</th>
+                  <th style="text-align: left">الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 ${cartItems.map(item => `
                   <tr>
-                    <td>
-                      <div style="font-weight: 700">${item.name}</div>
-                      <div style="font-size: 10px;">${item.categoryPath || ""}</div>
-                    </td>
+                    <td>${item.name}</td>
                     <td style="text-align: center">${item.qty}</td>
-                    <td style="text-align: center">${item.price.toLocaleString()}</td>
                     <td style="text-align: left">${(item.price * item.qty).toLocaleString()}</td>
                   </tr>
                 `).join('')}
@@ -211,23 +238,15 @@ export default function InvoicesPage() {
             </table>
 
             <div class="summary">
-              <div class="summary-row"><span>المجموع:</span> <span>${(invoiceData.totalAmount + (discount || 0)).toLocaleString()} دج</span></div>
-              ${hasDiscount ? `<div class="summary-row"><span>الخصم الممنوح:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>` : ''}
-              <div class="summary-row"><span>المبلغ المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row"><span>المجموع:</span> <span>${(subtotal).toLocaleString()} دج</span></div>
+              ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${(invoiceData.discount || 0).toLocaleString()} دج</span></div>` : ''}
+              <div class="summary-row"><span>المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
               <div class="summary-row total"><span>الإجمالي النهائي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
             </div>
 
-            ${customer && (invoiceData.totalAmount - invoiceData.paidAmount > 0) ? `
-              <div style="margin-top: 15px; border: 1px solid #000; padding: 10px; font-size: 12px;">
-                <p><strong>دين الفاتورة الحالية:</strong> ${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</p>
-                <p><strong>إجمالي الحساب المتبقي:</strong> ${currentTotalDebt.toLocaleString()} دج</p>
-              </div>
-            ` : ''}
-
-            <div class="footer-qr">
+            <div class="qr-footer">
               <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invId}" alt="QR" />
-              <p style="font-weight: 800; font-size: 14px;">شكراً لتعاملكم معنا</p>
-              <p style="font-size: 10px; margin-top: 5px;">#${invId}</p>
+              <p style="font-weight: 800; font-size: 11px; margin-top: 5px;">شكراً لتعاملكم معنا</p>
             </div>
           </div>
         </body>
@@ -237,74 +256,99 @@ export default function InvoicesPage() {
   }
 
   const handleProcessInvoice = async () => {
-    if (cart.length === 0) {
-      toast({ title: "خطأ", description: "السلة فارغة", variant: "destructive" })
-      return
-    }
+    if (cart.length === 0 || !user) return
 
     if (debtAmount > 0 && !selectedCustomer) {
       toast({ title: "تنبيه", description: "يجب تحديد عميل لتسجيل الدين باسمه", variant: "destructive" })
       return
     }
 
-    if (!user) return
-
     setIsProcessing(true)
     try {
+      // If Editing, revert old quantities first
+      if (editId) {
+        const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
+        for (const d of oldItemsSnap.docs) {
+          const item = d.data();
+          if (item.productId) {
+            updateDocumentNonBlocking(doc(db, "products", item.productId), {
+              quantity: increment(item.quantity)
+            });
+          }
+          await deleteDoc(d.ref); // Clear old items to replace with new ones
+        }
+        
+        // Revert old debt if applicable
+        const oldInvSnap = await getDoc(doc(db, "invoices", editId));
+        if (oldInvSnap.exists()) {
+          const oldData = oldInvSnap.data();
+          const oldDebt = oldData.totalAmount - oldData.paidAmount;
+          if (oldDebt > 0) {
+            updateDocumentNonBlocking(doc(db, "customers", oldData.customerId), {
+              debt: increment(-oldDebt)
+            });
+          }
+        }
+      }
+
       const invoiceData = {
         customerId: selectedCustomer?.id || "walk-in",
         customerName: selectedCustomer?.name || "عميل عام",
-        invoiceDate: serverTimestamp(),
         totalAmount: total,
         paidAmount: finalPaid,
+        discount: discount,
         status: debtAmount > 0 ? "Debt" : "Paid",
         generatedByUserId: user.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        createdAt: editId ? undefined : serverTimestamp() // Don't overwrite original creation date
       }
 
-      const invRef = await addDocumentNonBlocking(invoicesRef, invoiceData)
+      const targetDocRef = editId ? doc(db, "invoices", editId) : doc(invoicesRef);
+      await setDocumentNonBlocking(targetDocRef, invoiceData, { merge: true });
       
-      if (invRef) {
-        const itemsRef = collection(db, "invoices", invRef.id, "items")
-        cart.forEach(item => {
-          addDocumentNonBlocking(itemsRef, {
-            invoiceId: invRef.id,
-            productId: item.id,
-            productName: item.name,
-            categoryPath: item.categoryPath || "",
-            quantity: item.qty,
-            unitPrice: item.price,
-            itemTotal: item.price * item.qty,
-            generatedByUserId: user.uid,
-            createdAt: serverTimestamp()
-          })
-
-          updateDocumentNonBlocking(doc(db, "products", item.id), {
-            quantity: increment(-item.qty)
-          })
+      const itemsRef = collection(db, "invoices", targetDocRef.id, "items")
+      cart.forEach(item => {
+        addDocumentNonBlocking(itemsRef, {
+          invoiceId: targetDocRef.id,
+          productId: item.productId,
+          productName: item.name,
+          categoryPath: item.categoryPath || "",
+          quantity: item.qty,
+          unitPrice: item.price,
+          itemTotal: item.price * item.qty,
+          generatedByUserId: user.uid,
+          createdAt: serverTimestamp()
         })
 
-        if (debtAmount > 0 && selectedCustomer) {
-          updateDocumentNonBlocking(doc(db, "customers", selectedCustomer.id), {
-            debt: increment(debtAmount)
-          })
-        }
+        updateDocumentNonBlocking(doc(db, "products", item.productId), {
+          quantity: increment(-item.qty)
+        })
+      })
 
-        toast({ title: "تم إصدار الفاتورة", description: `رقم الفاتورة: ${invRef.id.slice(0, 8)}` })
-        handlePrintInvoice(invRef.id, invoiceData, cart, selectedCustomer)
-
-        setCart([])
-        setSelectedCustomer(null)
-        setDiscount(0)
-        setPaidAmount("")
-        setShowPreview(false)
+      if (debtAmount > 0 && selectedCustomer) {
+        updateDocumentNonBlocking(doc(db, "customers", selectedCustomer.id), {
+          debt: increment(debtAmount)
+        })
       }
+
+      toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: `رقم العملية: ${targetDocRef.id.slice(0, 8)}` })
+      handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
+
+      setCart([])
+      setSelectedCustomer(null)
+      setDiscount(0)
+      setPaidAmount("")
+      setShowPreview(false)
+      if (editId) router.push('/invoices/history')
     } catch (error) {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء معالجة الفاتورة", variant: "destructive" })
+      toast({ title: "خطأ", description: "حدث خطأ أثناء المعالجة", variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  if (isLoadingInvoice) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
   }
 
   return (
@@ -317,16 +361,22 @@ export default function InvoicesPage() {
               <Smartphone className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">EXPRESS POS</h1>
+              <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
+                {editId ? `تعديل فاتورة #${editId.slice(0,8)}` : "نقطة بيع EXPRESS"}
+              </h1>
               <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
             </div>
           </div>
-          <Button asChild variant="outline" className="h-10 px-4 rounded-xl glass border-white/20 gap-2 font-black text-xs">
-             <Link href="/debts">
-               <Wallet className="h-4 w-4" />
-               <span className="hidden sm:inline">إدارة الديون</span>
-             </Link>
-          </Button>
+          <div className="flex gap-2">
+            {editId && (
+              <Button asChild variant="ghost" className="h-10 px-4 rounded-xl font-black text-xs gap-2">
+                 <Link href="/invoices/history"><History className="h-4 w-4" /> إلغاء التعديل</Link>
+              </Button>
+            )}
+            <Button asChild variant="outline" className="h-10 px-4 rounded-xl glass border-white/20 gap-2 font-black text-xs">
+               <Link href="/debts"><Wallet className="h-4 w-4" /> <span className="hidden sm:inline">إدارة الديون</span></Link>
+            </Button>
+          </div>
         </header>
 
         <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
@@ -386,7 +436,7 @@ export default function InvoicesPage() {
                           </TableHeader>
                           <TableBody>
                             {cart.map((item) => (
-                              <TableRow key={item.id} className="border-b border-white/5 hover:bg-white/10 transition-colors">
+                              <TableRow key={item.productId} className="border-b border-white/5 hover:bg-white/10 transition-colors">
                                 <TableCell>
                                   <div className="flex flex-col gap-1">
                                     <span className="font-black text-sm">{item.name}</span>
@@ -396,25 +446,25 @@ export default function InvoicesPage() {
                                         type="number" 
                                         className="h-7 w-20 glass border-none font-black text-[11px] tabular-nums text-primary text-center" 
                                         value={item.price} 
-                                        onChange={(e) => updatePrice(item.id, Number(e.target.value))} 
+                                        onChange={(e) => updatePrice(item.productId, Number(e.target.value))} 
                                       />
                                     </div>
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center gap-2 glass border-border rounded-xl px-2 py-1 mx-auto max-w-fit">
-                                    <button onClick={() => updateQty(item.id, -1)} className="text-primary font-black hover:scale-125 transition-transform">-</button>
+                                    <button onClick={() => updateQty(item.productId, -1)} className="text-primary font-black hover:scale-125 transition-transform">-</button>
                                     <span className="w-6 text-center font-black text-xs tabular-nums">{item.qty}</span>
-                                    <button onClick={() => updateQty(item.id, 1)} className="text-primary font-black hover:scale-125 transition-transform">+</button>
+                                    <button onClick={() => updateQty(item.productId, 1)} className="text-primary font-black hover:scale-125 transition-transform">+</button>
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-left font-black text-sm tabular-nums text-primary">
                                   {(item.price * item.qty).toLocaleString()} دج
                                 </TableCell>
                                 <TableCell>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setCart(cart.filter(i => i.id !== item.id))}>
+                                  <button className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg flex items-center justify-center" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}>
                                     <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  </button>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -471,7 +521,7 @@ export default function InvoicesPage() {
                   <h3 className="text-xl font-black">ملخص الحساب</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between opacity-80"><span>المجموع الفرعي:</span> <span className="tabular-nums">{subtotal.toLocaleString()} دج</span></div>
-                    <div className="flex justify-between text-orange-200"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>
+                    {discount > 0 && <div className="flex justify-between text-orange-200"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>}
                     <div className="flex justify-between text-emerald-200"><span>المبلغ المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
                     {debtAmount > 0 && (
                       <div className="flex justify-between text-red-200 font-black"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>
@@ -487,7 +537,7 @@ export default function InvoicesPage() {
                     onClick={() => cart.length > 0 && setShowPreview(true)} 
                     disabled={cart.length === 0}
                   >
-                    معاينة الفاتورة قبل الإصدار
+                    {editId ? "حفظ التعديلات والمعاينة" : "معاينة الفاتورة للطباعة"}
                   </Button>
                 </div>
               </Card>
@@ -495,97 +545,70 @@ export default function InvoicesPage() {
           </div>
         </main>
 
+        {/* Professional Preview Dialog (Thermal Simulated) */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
-             <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-border">
-                <div className="flex justify-between items-center">
-                  <DialogTitle className="text-xl font-black text-gradient-premium">مراجعة الفاتورة النهائية</DialogTitle>
-                  <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowPreview(false)}><X className="h-4 w-4" /></Button>
-                </div>
+          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210]">
+             <DialogHeader className="p-4 bg-primary/5 border-b border-border">
+                <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
              </DialogHeader>
 
-             <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                <div className="bg-white text-black p-6 md:p-10 rounded-2xl border border-black/10 space-y-8 text-sm shadow-inner">
-                   <div className="flex justify-between border-b-2 border-primary pb-6">
-                      <div className="flex flex-col">
-                        <h2 className="text-2xl font-black text-primary">EXPRESS PHONE</h2>
-                        <p className="text-[10px] font-bold opacity-60">فاتورة مبيعات</p>
-                      </div>
-                      <div className="text-left">
-                        <p className="font-black text-xs">تاريخ الإصدار</p>
-                        <p className="text-xs font-bold opacity-70">{format(new Date(), "yyyy/MM/dd", { locale: ar })}</p>
-                      </div>
-                   </div>
-                   
-                   <div className="grid grid-cols-2 gap-8">
-                     <div className="space-y-1">
-                       <p className="text-[10px] font-black text-muted-foreground uppercase">بيانات العميل</p>
-                       <p className="font-black text-lg">{selectedCustomer ? selectedCustomer.name : "عميل عام"}</p>
-                       <p className="text-xs font-bold opacity-70">الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
-                     </div>
-                     <div className="text-left space-y-1">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase">رقم الفاتورة</p>
-                        <p className="font-black">#رقم_تلقائي</p>
-                     </div>
+             <div className="p-4 md:p-6 bg-black/5 flex flex-col items-center gap-4">
+                {/* Simulated Paper */}
+                <div className="bg-white text-black w-full shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 overflow-hidden select-none">
+                   <div className="text-center space-y-1 border-b-2 border-black pb-4">
+                      <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
+                      <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
+                      <p className="text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
                    </div>
 
-                   <div className="table-container">
-                    <Table>
-                        <TableHeader>
-                          <TableRow className="border-b-2 border-black/20 hover:bg-transparent">
-                            <TableHead className="font-black text-black">المنتج / التصنيف</TableHead>
-                            <TableHead className="text-center font-black text-black">الكمية</TableHead>
-                            <TableHead className="text-left font-black text-black">الإجمالي</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {cart.map((item) => (
-                            <TableRow key={item.id} className="border-b border-black/5">
-                              <TableCell className="py-4">
-                                <div className="font-black">{item.name}</div>
-                                <div className="text-[10px] opacity-60 font-bold">${item.categoryPath}</div>
-                              </TableCell>
-                              <TableCell className="text-center font-black tabular-nums">{item.qty}</TableCell>
-                              <TableCell className="text-left font-black tabular-nums">{(item.price * item.qty).toLocaleString()} دج</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                    </Table>
+                   <div className="space-y-1">
+                      <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || "رقم_تلقائي"}</span></p>
+                      <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
+                      <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
                    </div>
 
-                   <div className="pt-6 space-y-3 border-t border-black/10">
-                      <div className="flex justify-between font-bold opacity-60"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
-                      {discount > 0 && <div className="flex justify-between text-orange-600 font-bold"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>}
-                      <div className="flex justify-between text-emerald-600 font-black text-lg"><span>المبلغ المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
-                      
-                      {selectedCustomer && debtAmount > 0 && (
-                         <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 mt-4 space-y-2">
-                            <div className="flex justify-between text-[11px] font-bold"><span>دين سابق للعميل:</span> <span>{(selectedCustomer.debt || 0).toLocaleString()} دج</span></div>
-                            <div className="flex justify-between text-[11px] font-bold text-red-600"><span>دين الفاتورة الحالية:</span> <span>{debtAmount.toLocaleString()} دج</span></div>
-                            <div className="flex justify-between font-black border-t border-primary/10 pt-2 text-primary">
-                               <span>إجمالي الدين المتبقي:</span> <span>{((selectedCustomer.debt || 0) + debtAmount).toLocaleString()} دج</span>
-                            </div>
-                         </div>
-                      )}
-                      
-                      <div className="flex justify-between border-t-2 border-primary pt-4">
-                        <span className="text-xl font-black">الإجمالي النهائي:</span>
-                        <span className="text-2xl font-black text-primary tabular-nums">{total.toLocaleString()} دج</span>
+                   <table className="w-full text-left">
+                      <thead className="border-b border-black">
+                        <tr>
+                           <th className="py-2 text-right">المنتج</th>
+                           <th className="py-2 text-center">كمية</th>
+                           <th className="py-2 text-left">المجموع</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/10">
+                        {cart.map((item) => (
+                          <tr key={item.productId}>
+                             <td className="py-2 text-right font-bold">{item.name}</td>
+                             <td className="py-2 text-center tabular-nums">{item.qty}</td>
+                             <td className="py-2 text-left tabular-nums">{(item.price * item.qty).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                   </table>
+
+                   <div className="space-y-1 border-t border-black pt-4">
+                      <div className="flex justify-between"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
+                      {discount > 0 && <div className="flex justify-between"><span>الخصم:</span> <span className="tabular-nums">-${discount.toLocaleString()} دج</span></div>}
+                      <div className="flex justify-between font-black text-base border-t-2 border-double border-black pt-2">
+                         <span>الإجمالي النهائي:</span> <span className="tabular-nums">{total.toLocaleString()} دج</span>
                       </div>
+                      <div className="flex justify-between text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
+                      {debtAmount > 0 && <div className="flex justify-between text-red-600 font-bold"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>}
                    </div>
 
-                   <div className="text-center pt-8 border-t border-black/5">
-                     <p className="font-black text-primary text-lg">شكراً لثقتكم بنا</p>
+                   <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
+                      <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${editId || "NEW"}`} alt="QR" />
+                      <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
                    </div>
                 </div>
-             </div>
 
-             <DialogFooter className="p-6 md:p-8 bg-black/5 flex flex-col md:flex-row gap-3">
-                <Button variant="outline" className="h-12 rounded-xl font-black md:flex-1 border-white/20" onClick={() => setShowPreview(false)}>إلغاء وتعديل</Button>
-                <Button className="h-12 rounded-xl bg-primary text-white font-black md:flex-1 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform gap-2" onClick={handleProcessInvoice} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} تأكيد وحفظ الفاتورة
-                </Button>
-             </DialogFooter>
+                <div className="flex flex-col w-full gap-2">
+                   <Button className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2" onClick={handleProcessInvoice} disabled={isProcessing}>
+                      {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} تأكيد وتنفيذ الطباعة
+                   </Button>
+                   <Button variant="outline" className="w-full h-11 rounded-xl font-bold border-white/20" onClick={() => setShowPreview(false)}>تراجع للتعديل</Button>
+                </div>
+             </div>
           </DialogContent>
         </Dialog>
     </div>
