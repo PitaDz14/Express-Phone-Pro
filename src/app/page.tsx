@@ -415,45 +415,51 @@ export default function Dashboard() {
                     <span className="font-black text-sm text-primary uppercase">إضافة صنف جديد بسرعة</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 space-y-1">
+                      <Label className="text-[10px] font-black text-muted-foreground mr-2">اسم المنتج</Label>
                       <Input 
-                        placeholder="اسم المنتج الجديد..." 
+                        placeholder="أدخل اسم المنتج الجديد هنا..." 
                         className="h-12 glass border-none rounded-xl font-bold text-xs" 
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                       />
                     </div>
-                    <Input 
-                      type="number" 
-                      placeholder="الكمية" 
-                      className="h-12 glass border-none rounded-xl font-bold text-xs text-center"
-                      value={newQty}
-                      onChange={(e) => setNewQty(Number(e.target.value))}
-                    />
-                    <Button 
-                      className="h-12 rounded-xl bg-primary text-white font-black"
-                      onClick={handleQuickAdd}
-                      disabled={isAdding}
-                    >
-                      {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة الآن"}
-                    </Button>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black text-muted-foreground mr-2">الكمية</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="0" 
+                        className="h-12 glass border-none rounded-xl font-bold text-xs text-center"
+                        value={newQty}
+                        onChange={(e) => setNewQty(Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        className="h-12 w-full rounded-xl bg-primary text-white font-black"
+                        onClick={handleQuickAdd}
+                        disabled={isAdding}
+                      >
+                        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة الآن"}
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black text-emerald-600 mr-2">سعر البيع</Label>
+                      <Label className="text-[10px] font-black text-emerald-600 mr-2">سعر البيع المقترح (دج)</Label>
                       <Input 
                         type="number" 
-                        placeholder="سعر البيع" 
+                        placeholder="مثال: 2500" 
                         className="h-11 glass border-none rounded-xl font-bold text-xs text-emerald-700"
                         value={newSalePrice}
                         onChange={(e) => setNewSalePrice(Number(e.target.value))}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[9px] font-black text-accent mr-2">سعر التصليح</Label>
+                      <Label className="text-[10px] font-black text-accent mr-2">سعر التصليح المقترح (دج)</Label>
                       <Input 
                         type="number" 
-                        placeholder="سعر التصليح" 
+                        placeholder="مثال: 500" 
                         className="h-11 glass border-none rounded-xl font-bold text-xs text-primary"
                         value={newRepairPrice}
                         onChange={(e) => setNewRepairPrice(Number(e.target.value))}
