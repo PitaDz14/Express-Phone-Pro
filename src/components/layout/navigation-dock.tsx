@@ -61,7 +61,7 @@ export function NavigationDock() {
   return (
     <div className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] no-print w-full max-w-[95%] md:max-w-max px-2">
       <TooltipProvider delayDuration={0}>
-        <div className="flex items-center gap-1 p-1 md:p-2 rounded-[1.5rem] md:rounded-[2rem] glass-premium border border-white/20 shadow-2xl backdrop-blur-3xl px-2 md:px-4 overflow-x-auto no-scrollbar justify-center">
+        <div className="flex items-center gap-1 p-1 md:p-2 pt-3 md:pt-4 rounded-[1.5rem] md:rounded-[2rem] glass-premium border border-white/20 shadow-2xl backdrop-blur-3xl px-4 md:px-6 overflow-x-auto no-scrollbar justify-start md:justify-center">
           
           {/* Connection & Sync Indicator */}
           <Tooltip>
@@ -96,7 +96,7 @@ export function NavigationDock() {
                     className={cn(
                       "relative group flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl transition-all duration-300 ease-out shrink-0",
                       isActive 
-                        ? "bg-primary text-white scale-105 md:scale-110 -translate-y-1 md:-translate-y-2 shadow-xl shadow-primary/30" 
+                        ? "bg-primary text-white scale-105 md:scale-110 -translate-y-2 md:-translate-y-3 shadow-xl shadow-primary/30" 
                         : "hover:bg-primary/10 text-muted-foreground hover:text-primary hover:-translate-y-1"
                     )}
                   >
