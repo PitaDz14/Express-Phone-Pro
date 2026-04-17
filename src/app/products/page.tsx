@@ -14,7 +14,9 @@ import {
   Loader2,
   Printer,
   X,
-  ChevronLeft
+  ChevronLeft,
+  Eye,
+  Settings2
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,6 +46,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Separator } from "@/components/ui/separator"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -221,8 +224,47 @@ export default function ProductsPage() {
   const executePrint = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const labelsHtml = Array(copies).fill(0).map(() => `<div class="label-container"><div class="product-name">${printName}</div>${showPrice ? `<div class="product-price">${printPrice.toLocaleString()} دج</div>` : ''}<div class="qr-code"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${printingProduct.productCode}" /></div><div class="product-code">#${printingProduct.productCode}</div></div>`).join('');
-    printWindow.document.write(`<html dir="rtl"><head><title>طباعة ملصقات - ${printName}</title><style>@page { margin: 0; } body { margin: 0; padding: 0; font-family: sans-serif; } .label-container { width: ${labelWidth}mm; height: ${labelHeight}mm; border: 1px dashed #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 2mm; page-break-after: always; text-align: center; } .product-name { font-size: 10pt; font-weight: bold; margin-bottom: 1mm; } .product-price { font-size: 12pt; font-weight: black; color: #000; margin-bottom: 1mm; } .qr-code img { width: ${labelHeight * 0.4}mm; height: ${labelHeight * 0.4}mm; } .product-code { font-size: 8pt; color: #666; margin-top: 1mm; } @media print { .label-container { border: none; } }</style></head><body onload="window.print(); window.close();">${labelsHtml}</body></html>`);
+    const labelsHtml = Array(copies).fill(0).map(() => `
+      <div class="label-container">
+        <div class="product-name">${printName}</div>
+        ${showPrice ? `<div class="product-price">${printPrice.toLocaleString()} دج</div>` : ''}
+        <div class="qr-code">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${printingProduct.productCode}" />
+        </div>
+        <div class="product-code">#${printingProduct.productCode}</div>
+      </div>
+    `).join('');
+
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head>
+          <title>طباعة ملصقات - ${printName}</title>
+          <style>
+            @page { margin: 0; }
+            body { margin: 0; padding: 0; font-family: sans-serif; }
+            .label-container { 
+              width: ${labelWidth}mm; 
+              height: ${labelHeight}mm; 
+              display: flex; 
+              flex-direction: column; 
+              align-items: center; 
+              justify-content: center; 
+              overflow: hidden; 
+              box-sizing: border-box; 
+              padding: 2mm; 
+              page-break-after: always; 
+              text-align: center; 
+              background: white;
+            }
+            .product-name { font-size: 10pt; font-weight: bold; margin-bottom: 1mm; line-height: 1.1; }
+            .product-price { font-size: 12pt; font-weight: 800; color: #000; margin-bottom: 1mm; }
+            .qr-code img { width: ${labelHeight * 0.45}mm; height: ${labelHeight * 0.45}mm; }
+            .product-code { font-size: 8pt; color: #000; margin-top: 1mm; font-weight: 600; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">${labelsHtml}</body>
+      </html>
+    `);
     printWindow.document.close();
     setPrintDialogOpen(false);
   }
@@ -370,32 +412,84 @@ export default function ProductsPage() {
       </Dialog>
 
       <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
-        <DialogContent dir="rtl" className="glass border-none rounded-[2rem] max-w-xl shadow-2xl z-[310]">
-          <DialogHeader><DialogTitle className="text-xl font-black">إعدادات طباعة الملصق</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
-             <div className="space-y-4 p-4 glass rounded-xl">
-               <Label className="text-[10px] font-black uppercase opacity-50">الاسم المعروض على الملصق</Label>
-               <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl border-none shadow-sm font-bold" />
-               <div className="flex items-center justify-between">
+        <DialogContent dir="rtl" className="glass border-none rounded-[2rem] max-w-4xl shadow-2xl z-[310] flex flex-col md:flex-row p-0 overflow-hidden">
+          <div className="flex-1 p-6 md:p-8 space-y-6 bg-primary/5">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Settings2 className="h-5 w-5" /> إعدادات طباعة الملصق
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+               <div className="space-y-1">
+                 <Label className="text-[10px] font-black uppercase opacity-50 px-1">الاسم المعروض على الملصق</Label>
+                 <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl border-none shadow-sm font-bold glass" />
+               </div>
+               
+               <div className="flex items-center justify-between p-3 glass rounded-xl">
                  <Label className="font-black text-xs">عرض السعر على الملصق</Label>
                  <Switch checked={showPrice} onCheckedChange={setShowPrice} />
                </div>
+
                {showPrice && (
                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.salePrice || 0)}>سعر البيع</Button>
-                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.repairPrice || 0)}>سعر التصليح</Button>
+                    <Button variant={printPrice === printingProduct?.salePrice ? "default" : "outline"} className="text-[10px] h-9 rounded-lg" onClick={() => setPrintPrice(printingProduct?.salePrice || 0)}>سعر البيع</Button>
+                    <Button variant={printPrice === printingProduct?.repairPrice ? "default" : "outline"} className="text-[10px] h-9 rounded-lg" onClick={() => setPrintPrice(printingProduct?.repairPrice || 0)}>سعر التصليح</Button>
                  </div>
                )}
-               <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-50">عدد الملصقات (نسخ)</Label>
-                  <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl border-none" />
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase opacity-50 px-1">عدد النسخ</Label>
+                    <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl border-none glass" />
+                 </div>
+                 <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase opacity-50 px-1">العرض (مم)</Label>
+                    <Input type="number" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="rounded-xl border-none glass" />
+                 </div>
                </div>
+            </div>
+
+            <Separator className="bg-white/10" />
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPrintDialogOpen(false)} className="flex-1 rounded-xl h-12 font-bold glass border-white/20">إلغاء</Button>
+              <Button onClick={executePrint} className="flex-1 rounded-xl bg-primary text-white h-12 font-black shadow-lg">طباعة النسخ</Button>
+            </div>
+          </div>
+
+          <div className="flex-1 bg-muted/30 p-8 flex flex-col items-center justify-center border-r border-white/10 relative">
+             <div className="absolute top-4 right-6 flex items-center gap-2 text-muted-foreground opacity-50">
+               <Eye className="h-4 w-4" />
+               <span className="text-[10px] font-black uppercase tracking-widest">معاينة مباشرة</span>
+             </div>
+
+             {/* Live Label Preview */}
+             <div 
+               className="bg-white shadow-2xl rounded-sm flex flex-col items-center justify-center p-4 transition-all duration-300"
+               style={{ 
+                 width: `${labelWidth * 4}px`, // Scaled up for screen display
+                 height: `${labelHeight * 4}px`,
+                 color: 'black'
+               }}
+             >
+                <p className="text-center font-bold mb-1 leading-none w-full truncate" style={{ fontSize: '12px' }}>{printName}</p>
+                {showPrice && <p className="text-center font-black mb-1" style={{ fontSize: '16px' }}>{printPrice.toLocaleString()} دج</p>}
+                <div className="flex-1 flex items-center justify-center overflow-hidden">
+                   <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${printingProduct?.productCode}`} 
+                    className="object-contain"
+                    style={{ height: '70%' }}
+                    alt="QR Preview" 
+                   />
+                </div>
+                <p className="text-center font-semibold mt-1 opacity-80" style={{ fontSize: '10px' }}>#{printingProduct?.productCode}</p>
+             </div>
+
+             <div className="mt-8 text-center max-w-[200px]">
+                <p className="text-[9px] text-muted-foreground font-bold">هذه المعاينة توضح شكل الملصق النهائي قبل إرساله للطابعة.</p>
              </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPrintDialogOpen(false)} className="flex-1 rounded-xl">إلغاء</Button>
-            <Button onClick={executePrint} className="flex-1 rounded-xl bg-primary text-white">طباعة الآن</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
