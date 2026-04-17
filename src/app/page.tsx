@@ -345,96 +345,126 @@ export default function Dashboard() {
         onScan={handleQRScan} 
       />
 
-      <header className="flex h-20 shrink-0 items-center justify-between px-4 md:px-10 glass sticky top-0 z-50">
-        <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0">
-             <Smartphone className="h-6 w-6 text-primary" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
-            <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pro System</span>
-          </div>
-        </Link>
+      <header className="flex flex-col md:flex-row h-auto md:h-20 shrink-0 items-center justify-between p-4 md:px-10 glass sticky top-0 z-50 gap-4">
+        <div className="flex w-full md:w-auto items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2 md:gap-3 group">
+            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0">
+               <Smartphone className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
+              <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pro System</span>
+            </div>
+          </Link>
 
-        <div className="flex flex-1 max-w-xl mx-2 md:mx-8 relative group">
+          <div className="flex md:hidden items-center gap-2">
+             <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl glass">
+                  <Edit3 className="h-4 w-4 text-primary" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh]">
+                 <DialogHeader className="p-4 border-b border-white/5 bg-primary/5 shrink-0">
+                    <DialogTitle className="text-lg font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
+                 </DialogHeader>
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="بحث سريع..." className="pl-10 h-10 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                    </div>
+                    <div className="space-y-3">
+                      {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} userId={user?.uid || ""} />)}
+                    </div>
+                 </div>
+              </DialogContent>
+             </Dialog>
+
+             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
+               <User className="h-6 w-6" />
+             </div>
+          </div>
+        </div>
+
+        <div className="flex flex-1 w-full md:max-w-xl md:mx-8 relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="ابحث سريعا..." 
-            className="pl-12 h-10 md:h-12 glass border-none rounded-2xl font-bold text-xs md:text-sm focus:ring-2 focus:ring-primary/20 transition-all" 
+            placeholder="ابحث سريعا عن منتج أو كود..." 
+            className="pl-12 h-11 md:h-12 w-full glass border-none rounded-2xl font-bold text-xs md:text-sm focus:ring-2 focus:ring-primary/20 transition-all" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-50 overflow-hidden border-white/20 animate-in slide-in-from-top-2">
-              {filteredProducts.map(p => (
-                <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
-                   <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
-                        {p.imageUrl ? (
-                           <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
-                        ) : p.quantity === 0 ? (
-                           <Badge variant="destructive" className="h-full w-full rounded-none flex items-center justify-center p-0 text-[7px] font-black">X</Badge>
-                        ) : (
-                           <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
-                        )}
-                      </div>
-                      <div className="flex flex-col">
-                         <div className="flex items-center gap-2">
-                            <span className="font-black text-xs md:text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
-                            {p.quantity === 0 && <Badge variant="destructive" className="h-4 px-1 text-[8px] font-black">غير متوفر</Badge>}
-                         </div>
-                         <span className="text-[8px] md:text-[9px] text-primary font-black uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-4">
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs md:text-lg font-black text-primary tabular-nums">
-                          {p.repairPrice.toLocaleString()} <span className="text-[8px] md:text-[10px] opacity-60">دج</span>
-                        </span>
-                        <div className="flex items-center gap-2">
-                           <span className="text-[8px] text-muted-foreground font-bold line-through">{p.salePrice.toLocaleString()} دج</span>
-                           <span className="text-[10px] text-emerald-600 font-black">متوفر: {p.quantity}</span>
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              ))}
-              <Link href="/products" className="block p-3 text-center bg-muted/20 text-[10px] font-black text-primary uppercase">مشاهدة الكل</Link>
+            <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-[1.5rem] md:rounded-3xl shadow-2xl z-50 overflow-hidden border-white/20 animate-in slide-in-from-top-2 max-h-[70vh] overflow-y-auto">
+              {filteredProducts.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground font-bold italic text-xs">لا توجد نتائج مطابقة</div>
+              ) : (
+                <>
+                  {filteredProducts.map(p => (
+                    <div key={p.id} className="p-4 md:p-5 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all cursor-pointer" onClick={() => { setSearchTerm(p.productCode); setQuickEditSearch(p.productCode); setIsQuickEditOpen(true); setSearchTerm(""); }}>
+                       <div className="flex items-center gap-3 md:gap-4">
+                          <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+                            {p.imageUrl ? (
+                               <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                            ) : (
+                               <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                             <span className="font-black text-xs md:text-base text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                             <span className="text-[8px] md:text-[10px] text-primary font-bold uppercase tracking-widest leading-none mt-1">{p.categoryPath || p.categoryName}</span>
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-4">
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm md:text-xl font-black text-primary tabular-nums">
+                              {p.salePrice.toLocaleString()} <span className="text-[10px] md:text-xs opacity-60 font-bold">دج</span>
+                            </span>
+                            <div className="flex items-center gap-2">
+                               <span className="text-[10px] text-emerald-600 font-black">متوفر: {p.quantity}</span>
+                            </div>
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                  <Link href="/products" className="block p-4 text-center bg-primary/5 text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary/10 transition-colors">مشاهدة كافة المنتجات</Link>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="hidden md:flex items-center gap-4">
            <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl glass hover:scale-105 transition-transform">
-                <Edit3 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform">
+                <Edit3 className="h-5 w-5 text-primary" />
               </Button>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh] md:h-[90vh]">
-               <DialogHeader className="p-4 md:p-8 border-b border-white/5 bg-primary/5 shrink-0">
+            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
+               <DialogHeader className="p-8 border-b border-white/5 bg-primary/5 shrink-0">
                   <div className="flex items-center justify-between">
-                    <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
-                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
-                      {showPurchaseInEdit ? <EyeOff className="h-3 w-3 md:h-4 md:w-4" /> : <Eye className="h-3 w-3 md:h-4 md:w-4" />} سعر الشراء
+                    <DialogTitle className="text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
+                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
+                      {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
                     </Button>
                   </div>
                </DialogHeader>
                
-               <div className="p-4 md:p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto shrink-0">
+               <div className="p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-1 bg-primary rounded-full" />
-                    <p className="text-[10px] md:text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
+                    <p className="text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
-                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-xs" />
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
+                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
                       <Select value={qaCat} onValueChange={setQaCat}>
-                        <SelectTrigger className="h-10 md:h-11 glass border-none rounded-xl font-bold text-right text-xs">
+                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right text-xs">
                           <SelectValue placeholder="اختر الفئة..." />
                         </SelectTrigger>
                         <SelectContent className="glass border-none rounded-xl z-[350]">
@@ -443,30 +473,30 @@ export default function Dashboard() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">رابط الصورة</Label>
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">رابط الصورة</Label>
                       <div className="relative">
                         <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                        <Input placeholder="http://..." value={qaImageUrl} onChange={e => setQaImageUrl(e.target.value)} className="h-10 md:h-11 pl-7 glass border-none rounded-xl font-bold text-[10px]" />
+                        <Input placeholder="http://..." value={qaImageUrl} onChange={e => setQaImageUrl(e.target.value)} className="h-11 pl-7 glass border-none rounded-xl font-bold text-[10px]" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية</Label>
-                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-xs" />
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية</Label>
+                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
-                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
+                      <Label className="text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
+                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
-                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
+                      <Label className="text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
+                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] md:text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
-                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 md:h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
+                      <Label className="text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
+                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
                     </div>
-                    <div className="col-span-full md:col-span-1 pt-4">
-                      <Button onClick={handleQuickAdd} disabled={isAdding} className="w-full h-10 md:h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
+                    <div className="col-span-1 pt-4">
+                      <Button onClick={handleQuickAdd} disabled={isAdding} className="w-full h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
                          {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                          حفظ
                       </Button>
@@ -474,10 +504,10 @@ export default function Dashboard() {
                   </div>
                </div>
 
-               <div className="p-4 md:p-8 flex-1 overflow-hidden flex flex-col gap-4">
+               <div className="p-8 flex-1 overflow-hidden flex flex-col gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-10 md:h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                    <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                     {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} userId={user?.uid || ""} />)}
@@ -486,7 +516,7 @@ export default function Dashboard() {
             </DialogContent>
            </Dialog>
 
-           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
+           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
              <User className="h-6 w-6" />
            </div>
         </div>
