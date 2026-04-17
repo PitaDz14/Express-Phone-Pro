@@ -119,7 +119,6 @@ export default function InvoicesPage() {
       }])
     }
     setSearchTerm("")
-    toast({ title: "تم الإضافة", description: `تمت إضافة ${product.name} للسلة` })
   }
 
   const handleQRScan = (code: string) => {
@@ -145,26 +144,28 @@ export default function InvoicesPage() {
 
     const previousDebt = customer?.debt || 0;
     const currentTotalDebt = previousDebt + (invoiceData.totalAmount - invoiceData.paidAmount);
+    const hasDiscount = (discount || 0) > 0;
 
     printWindow.document.write(`
       <html dir="rtl">
         <head>
-          <title>فاتورة - ${invId.slice(0, 8)}</title>
+          <title>فاتورة - ${invId}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-            body { font-family: 'Almarai', sans-serif; padding: 20px; color: #1a1a1a; line-height: 1.6; }
-            .invoice-box { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3960AC; padding-bottom: 10px; margin-bottom: 20px; }
-            .shop-info h1 { margin: 0; color: #3960AC; font-size: 24px; font-weight: 800; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-            th { background: #f8f9fa; border: 1px solid #ddd; padding: 8px; text-align: right; }
-            td { border: 1px solid #eee; padding: 8px; }
-            .summary { margin-top: 20px; border-top: 2px solid #3960AC; padding-top: 10px; }
-            .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: 700; font-size: 14px; }
-            .summary-row.total { font-size: 18px; color: #3960AC; border-top: 1px solid #eee; padding-top: 5px; }
-            .debt-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 12px; }
-            .footer-msg { text-align: center; margin-top: 30px; font-weight: 800; color: #3960AC; }
-            @media print { body { padding: 0; } .invoice-box { border: none; box-shadow: none; } }
+            body { font-family: 'Almarai', sans-serif; padding: 20px; color: #000; line-height: 1.4; background: #fff; }
+            .invoice-box { max-width: 800px; margin: auto; padding: 10px; border: 1px solid #000; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+            .shop-info h1 { margin: 0; color: #000; font-size: 28px; font-weight: 800; text-transform: uppercase; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+            th { background: #eee; border: 1px solid #000; padding: 10px; text-align: right; font-weight: 800; }
+            td { border: 1px solid #000; padding: 8px; }
+            .summary { margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 700; font-size: 14px; }
+            .summary-row.total { font-size: 20px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
+            .customer-section { margin-bottom: 20px; border: 1px solid #eee; padding: 10px; border-radius: 4px; }
+            .footer-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed #000; }
+            .qr-img { width: 120px; height: 120px; margin-bottom: 10px; }
+            @media print { body { padding: 0; } .invoice-box { border: 1px solid #000; } }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -172,26 +173,26 @@ export default function InvoicesPage() {
             <div class="header">
               <div class="shop-info">
                 <h1>EXPRESS PHONE</h1>
-                <p>إدارة المبيعات والتصليح</p>
+                <p style="font-weight: 800; margin-top: 5px;">فاتورة مبيعات</p>
               </div>
-              <div style="text-align: left; font-size: 12px;">
-                <p><strong>رقم:</strong> #${invId.slice(0, 8)}</p>
-                <p><strong>تاريخ:</strong> ${format(new Date(), "dd-MM-yyyy", { locale: ar })}</p>
+              <div style="text-align: left; font-size: 13px; font-weight: 700;">
+                <p><strong>رقم الفاتورة:</strong> ${invId}</p>
+                <p><strong>التاريخ:</strong> ${format(new Date(), "yyyy/MM/dd", { locale: ar })}</p>
               </div>
             </div>
 
-            <div style="margin-bottom: 20px; font-size: 13px;">
+            <div class="customer-section">
               <p><strong>العميل:</strong> ${customer?.name || "عميل عام"}</p>
-              <p><strong>الهاتف:</strong> ${customer?.phone || "---"}</p>
+              <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? "لا يوجد" : customer.phone}</p>
             </div>
 
             <table>
               <thead>
                 <tr>
-                  <th>المنتج / التصنيف</th>
-                  <th style="text-align: center">كمية</th>
-                  <th style="text-align: center">سعر</th>
-                  <th style="text-align: left">إجمالي</th>
+                  <th>المنتج</th>
+                  <th style="text-align: center; width: 60px;">كمية</th>
+                  <th style="text-align: center; width: 100px;">السعر</th>
+                  <th style="text-align: left; width: 120px;">الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,7 +200,7 @@ export default function InvoicesPage() {
                   <tr>
                     <td>
                       <div style="font-weight: 700">${item.name}</div>
-                      <div style="font-size: 10px; color: #666">${item.categoryPath || ""}</div>
+                      <div style="font-size: 10px;">${item.categoryPath || ""}</div>
                     </td>
                     <td style="text-align: center">${item.qty}</td>
                     <td style="text-align: center">${item.price.toLocaleString()}</td>
@@ -211,22 +212,23 @@ export default function InvoicesPage() {
 
             <div class="summary">
               <div class="summary-row"><span>المجموع:</span> <span>${(invoiceData.totalAmount + (discount || 0)).toLocaleString()} دج</span></div>
-              <div class="summary-row"><span>الخصم:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>
-              <div class="summary-row" style="color: #2f855a"><span>المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
+              ${hasDiscount ? `<div class="summary-row"><span>الخصم الممنوح:</span> <span>-${(discount || 0).toLocaleString()} دج</span></div>` : ''}
+              <div class="summary-row"><span>المبلغ المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
               <div class="summary-row total"><span>الإجمالي النهائي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
             </div>
 
-            ${customer ? `
-              <div class="debt-box">
-                <div class="summary-row"><span>دين سابق:</span> <span>${previousDebt.toLocaleString()} دج</span></div>
-                <div class="summary-row"><span>دين الفاتورة الحالية:</span> <span>${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</span></div>
-                <div class="summary-row" style="font-weight: 800; border-top: 1px solid #feb2b2; padding-top: 5px;">
-                  <span>إجمالي الحساب المتبقي:</span> <span>${currentTotalDebt.toLocaleString()} دج</span>
-                </div>
+            ${customer && (invoiceData.totalAmount - invoiceData.paidAmount > 0) ? `
+              <div style="margin-top: 15px; border: 1px solid #000; padding: 10px; font-size: 12px;">
+                <p><strong>دين الفاتورة الحالية:</strong> ${(invoiceData.totalAmount - invoiceData.paidAmount).toLocaleString()} دج</p>
+                <p><strong>إجمالي الحساب المتبقي:</strong> ${currentTotalDebt.toLocaleString()} دج</p>
               </div>
             ` : ''}
 
-            <div class="footer-msg">شكراً لثقتكم بنا</div>
+            <div class="footer-qr">
+              <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invId}" alt="QR" />
+              <p style="font-weight: 800; font-size: 14px;">شكراً لتعاملكم معنا</p>
+              <p style="font-size: 10px; margin-top: 5px;">#${invId}</p>
+            </div>
           </div>
         </body>
       </html>
@@ -507,11 +509,11 @@ export default function InvoicesPage() {
                    <div className="flex justify-between border-b-2 border-primary pb-6">
                       <div className="flex flex-col">
                         <h2 className="text-2xl font-black text-primary">EXPRESS PHONE</h2>
-                        <p className="text-[10px] font-bold opacity-60">نظام إدارة المبيعات الاحترافي</p>
+                        <p className="text-[10px] font-bold opacity-60">فاتورة مبيعات</p>
                       </div>
                       <div className="text-left">
                         <p className="font-black text-xs">تاريخ الإصدار</p>
-                        <p className="text-xs font-bold opacity-70">{format(new Date(), "dd MMMM yyyy", { locale: ar })}</p>
+                        <p className="text-xs font-bold opacity-70">{format(new Date(), "yyyy/MM/dd", { locale: ar })}</p>
                       </div>
                    </div>
                    
@@ -519,11 +521,11 @@ export default function InvoicesPage() {
                      <div className="space-y-1">
                        <p className="text-[10px] font-black text-muted-foreground uppercase">بيانات العميل</p>
                        <p className="font-black text-lg">{selectedCustomer ? selectedCustomer.name : "عميل عام"}</p>
-                       <p className="text-xs font-bold opacity-70">الهاتف: {selectedCustomer?.phone || "---"}</p>
+                       <p className="text-xs font-bold opacity-70">الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
                      </div>
                      <div className="text-left space-y-1">
                         <p className="text-[10px] font-black text-muted-foreground uppercase">رقم الفاتورة</p>
-                        <p className="font-black">#سيتم_توليده</p>
+                        <p className="font-black">#رقم_تلقائي</p>
                      </div>
                    </div>
 
@@ -541,7 +543,7 @@ export default function InvoicesPage() {
                             <TableRow key={item.id} className="border-b border-black/5">
                               <TableCell className="py-4">
                                 <div className="font-black">{item.name}</div>
-                                <div className="text-[10px] opacity-60 font-bold">{item.categoryPath}</div>
+                                <div className="text-[10px] opacity-60 font-bold">${item.categoryPath}</div>
                               </TableCell>
                               <TableCell className="text-center font-black tabular-nums">{item.qty}</TableCell>
                               <TableCell className="text-left font-black tabular-nums">{(item.price * item.qty).toLocaleString()} دج</TableCell>
@@ -553,10 +555,10 @@ export default function InvoicesPage() {
 
                    <div className="pt-6 space-y-3 border-t border-black/10">
                       <div className="flex justify-between font-bold opacity-60"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
-                      <div className="flex justify-between text-orange-600 font-bold"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>
+                      {discount > 0 && <div className="flex justify-between text-orange-600 font-bold"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>}
                       <div className="flex justify-between text-emerald-600 font-black text-lg"><span>المبلغ المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
                       
-                      {selectedCustomer && (
+                      {selectedCustomer && debtAmount > 0 && (
                          <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 mt-4 space-y-2">
                             <div className="flex justify-between text-[11px] font-bold"><span>دين سابق للعميل:</span> <span>{(selectedCustomer.debt || 0).toLocaleString()} دج</span></div>
                             <div className="flex justify-between text-[11px] font-bold text-red-600"><span>دين الفاتورة الحالية:</span> <span>{debtAmount.toLocaleString()} دج</span></div>
@@ -574,7 +576,6 @@ export default function InvoicesPage() {
 
                    <div className="text-center pt-8 border-t border-black/5">
                      <p className="font-black text-primary text-lg">شكراً لثقتكم بنا</p>
-                     <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mt-1">Express Phone Pro Dashboard</p>
                    </div>
                 </div>
              </div>

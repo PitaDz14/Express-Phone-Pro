@@ -94,12 +94,10 @@ export default function InvoiceHistoryPage() {
   const handleDeleteInvoice = async (id: string) => {
     if (confirm("هل أنت متأكد من حذف هذه الفاتورة؟ سيتم إعادة المنتجات للمخزون ومسح السجل.")) {
       try {
-        // 1. Fetch invoice items to return them to stock
         const itemsRef = collection(db, "invoices", id, "items")
         const snapshot = await getDocs(itemsRef)
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
-        // 2. Return quantities to products
         items.forEach((item: any) => {
           if (item.productId) {
             const productRef = doc(db, "products", item.productId)
@@ -109,7 +107,6 @@ export default function InvoiceHistoryPage() {
           }
         })
 
-        // 3. Delete the invoice
         const docRef = doc(db, "invoices", id)
         deleteDocumentNonBlocking(docRef)
         
@@ -146,62 +143,77 @@ export default function InvoiceHistoryPage() {
   const handlePrintInvoice = (invoice: any, items: any[]) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
+      const hasDiscount = (invoice.discount || 0) > 0;
+      const subtotal = items.reduce((sum, item) => sum + (item.itemTotal || 0), 0);
+      
       printWindow.document.write(`
         <html dir="rtl">
           <head>
-            <title>فاتورة - ${invoice.id.slice(0, 8)}</title>
+            <title>فاتورة - ${invoice.id}</title>
             <style>
-              body { font-family: 'Almarai', sans-serif; padding: 40px; }
-              .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #3960AC; padding-bottom: 20px; }
-              .info { display: flex; justify-content: space-between; margin-bottom: 30px; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-              th, td { border: 1px solid #eee; padding: 12px; text-align: right; }
-              th { bg-color: #f8f9fa; }
-              .total { text-align: left; font-size: 20px; font-weight: bold; color: #3960AC; }
-              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+              @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+              body { font-family: 'Almarai', sans-serif; padding: 40px; color: #000; background: #fff; line-height: 1.4; }
+              .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+              .header h1 { font-size: 32px; font-weight: 800; margin: 0; }
+              .info { display: flex; justify-content: space-between; margin-bottom: 30px; font-weight: 700; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+              th, td { border: 1px solid #000; padding: 12px; text-align: right; }
+              th { background-color: #eee; font-weight: 800; }
+              .summary { border-top: 2px solid #000; padding-top: 15px; }
+              .summary-row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 5px; }
+              .total { text-align: left; font-size: 24px; font-weight: 800; border-top: 1px solid #000; padding-top: 10px; }
+              .footer { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 50px; border-top: 1px dashed #000; padding-top: 30px; }
+              .qr-code { width: 120px; height: 120px; margin-bottom: 15px; }
+              @media print { body { padding: 20px; } }
             </style>
           </head>
           <body onload="window.print(); window.close();">
             <div class="header">
-              <h1>EXPRESS PHONE PRO</h1>
-              <p>نظام إدارة المبيعات الذكي</p>
+              <h1>EXPRESS PHONE</h1>
+              <p style="font-weight: 800;">فاتورة مبيعات</p>
             </div>
             <div class="info">
               <div>
-                <strong>رقم الفاتورة:</strong> ${invoice.id.slice(0, 8)}<br>
-                <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy-MM-dd HH:mm") : "---"}
+                <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
+                <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}
               </div>
-              <div>
+              <div style="text-align: left;">
                 <strong>العميل:</strong> ${invoice.customerName}<br>
-                <strong>الحالة:</strong> مدفوعة
+                <strong>الحالة:</strong> ${invoice.status === 'Paid' ? 'مدفوعة' : 'دين'}
               </div>
             </div>
             <table>
               <thead>
                 <tr>
                   <th>المنتج</th>
-                  <th>الكمية</th>
-                  <th>سعر الوحدة</th>
-                  <th>الإجمالي</th>
+                  <th style="text-align: center">كمية</th>
+                  <th style="text-align: center">سعر الوحدة</th>
+                  <th style="text-align: left">الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 ${items.map(item => `
                   <tr>
                     <td>${item.productName}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.unitPrice.toLocaleString()} دج</td>
-                    <td>${item.itemTotal.toLocaleString()} دج</td>
+                    <td style="text-align: center">${item.quantity}</td>
+                    <td style="text-align: center">${item.unitPrice.toLocaleString()} دج</td>
+                    <td style="text-align: left">${item.itemTotal.toLocaleString()} دج</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
-            <div class="total">
-              الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج
+            
+            <div class="summary">
+               <div class="summary-row"><span>المجموع:</span> <span>${subtotal.toLocaleString()} دج</span></div>
+               ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${invoice.discount.toLocaleString()} دج</span></div>` : ''}
+               <div class="summary-row"><span>المدفوع:</span> <span>${invoice.paidAmount.toLocaleString()} دج</span></div>
+               <div class="total">الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج</div>
             </div>
+
             <div class="footer">
-              تم إصدار هذه الفاتورة بواسطة نظام Express Phone Pro الذكي<br>
-              شكراً لتعاملكم معنا
+              <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=INV-${invoice.id}" alt="QR" />
+              <p style="font-weight: 800;">شكراً لتعاملكم معنا</p>
+              <p style="font-size: 10px; margin-top: 10px;">ID: ${invoice.id}</p>
             </div>
           </body>
         </html>
