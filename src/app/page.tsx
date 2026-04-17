@@ -55,9 +55,9 @@ import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 // --- Components ---
 
 const StatCard = ({ title, value, icon: Icon, color, subValue }: any) => (
-  <Card className="border-none glass rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300">
+  <Card className="border-none glass rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02] group">
     <CardContent className="p-6 flex items-center gap-4">
-      <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg", color)}>
+      <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-12", color)}>
         <Icon className="h-6 w-6" />
       </div>
       <div className="flex flex-col">
@@ -72,23 +72,23 @@ const StatCard = ({ title, value, icon: Icon, color, subValue }: any) => (
 const QuickActionButton = ({ href, icon: Icon, label, color, onClick }: any) => {
   const content = (
     <div className="flex flex-col items-center justify-center gap-3 p-6 h-full transition-all group">
-      <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-xl transform group-hover:scale-110 transition-transform", color)}>
+      <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-xl transform group-hover:scale-110 group-hover:rotate-6 transition-transform", color)}>
         <Icon className="h-7 w-7" />
       </div>
-      <span className="font-black text-sm text-foreground">{label}</span>
+      <span className="font-black text-sm text-foreground transition-colors group-hover:text-primary">{label}</span>
     </div>
   )
 
   if (href) {
     return (
-      <Link href={href} className="glass rounded-[2.5rem] hover:bg-white/40 transition-colors border-none">
+      <Link href={href} className="glass rounded-[2.5rem] hover:bg-white/40 transition-all border-none hover:shadow-xl hover:-translate-y-1">
         {content}
       </Link>
     )
   }
 
   return (
-    <button onClick={onClick} className="glass rounded-[2.5rem] hover:bg-white/40 transition-colors border-none">
+    <button onClick={onClick} className="glass rounded-[2.5rem] hover:bg-white/40 transition-all border-none hover:shadow-xl hover:-translate-y-1 text-right w-full">
       {content}
     </button>
   )
@@ -114,7 +114,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
   }, [db, product.id])
 
   return (
-    <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all">
+    <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all animate-in fade-in zoom-in duration-300">
        <div className="flex items-center justify-between">
           <div className="flex-1">
             <p className="font-black text-sm text-foreground truncate">{product.name}</p>
@@ -253,7 +253,7 @@ export default function Dashboard() {
         productCode: code,
         categoryId: qaCat,
         categoryName: selectedCat?.name || "بدون تصنيف",
-        categoryPath: selectedCat?.path?.replace(/\//g, ' > ').substring(3) || selectedCat?.name || "بدون تصنيف",
+        categoryPath: selectedCat?.path?.replace(/\//g, ' > ').substring(1) || selectedCat?.name || "بدون تصنيف",
         quantity: Number(qaQty),
         purchasePrice: Number(qaPurchase),
         salePrice: Number(qaSale),
@@ -300,7 +300,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent pb-32">
+    <div className="min-h-screen bg-transparent pb-32 animate-in fade-in duration-700">
       <QRScannerDialog 
         open={isQRScannerOpen} 
         onOpenChange={setIsQRScannerOpen} 
@@ -310,7 +310,7 @@ export default function Dashboard() {
       {/* Header with Search */}
       <header className="flex h-20 shrink-0 items-center justify-between px-10 glass sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg rotate-3">
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg rotate-3 transition-transform hover:rotate-0">
              <Smartphone className="h-6 w-6" />
           </div>
           <div className="flex flex-col">
@@ -323,7 +323,7 @@ export default function Dashboard() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="ابحث عن منتج بالاسم أو الكود..." 
-            className="pl-12 h-12 glass border-none rounded-2xl font-bold text-sm" 
+            className="pl-12 h-12 glass border-none rounded-2xl font-bold text-sm focus:ring-2 focus:ring-primary/20 transition-all" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -376,9 +376,9 @@ export default function Dashboard() {
                 <Edit3 className="h-5 w-5 text-primary" />
               </Button>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-3xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
+            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
-                  <h2 className="text-xl font-black text-gradient-premium">التعديل السريع للمخزون</h2>
+                  <h2 className="text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</h2>
                   <div className="flex items-center gap-3">
                     <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
                       {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
@@ -387,25 +387,46 @@ export default function Dashboard() {
                </div>
                
                {/* Quick Add Form Section */}
-               <div className="p-8 border-b border-white/5 bg-primary/5">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">إضافة منتج سريعة للفاتورة أو المخزن</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <Input placeholder="اسم المنتج..." value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold" />
-                    <Select value={qaCat} onValueChange={setQaCat}>
-                       <SelectTrigger className="h-11 glass border-none rounded-xl font-bold">
-                         <SelectValue placeholder="التصنيف..." />
-                       </SelectTrigger>
-                       <SelectContent className="glass border-none rounded-xl">
-                          {categories && renderCategoryOptions(categories)}
-                       </SelectContent>
-                    </Select>
-                    <Input type="number" placeholder="الكمية" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold" />
-                    <Input type="number" placeholder="سعر الشراء" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600" />
-                    <Input type="number" placeholder="سعر البيع" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600" />
-                    <Input type="number" placeholder="سعر التصليح" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary" />
-                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2">
+               <div className="p-8 border-b border-white/5 bg-primary/5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-1 bg-primary rounded-full" />
+                    <p className="text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
+                      <Input placeholder="مثال: شاشة سامسونج A51" value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
+                      <Select value={qaCat} onValueChange={setQaCat}>
+                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right">
+                          <SelectValue placeholder="اختر الفئة..." />
+                        </SelectTrigger>
+                        <SelectContent className="glass border-none rounded-xl">
+                            {categories && renderCategoryOptions(categories)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية الأولية</Label>
+                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
+                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
+                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
+                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary" />
+                    </div>
+                    <Button onClick={handleQuickAdd} disabled={isAdding} className="col-span-full h-12 rounded-xl bg-primary text-white font-black shadow-lg gap-2 hover:scale-[1.01] transition-transform">
                        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                       تأكيد الإضافة والحفظ
+                       حفظ وإضافة للمخزون
                     </Button>
                   </div>
                </div>
@@ -413,7 +434,7 @@ export default function Dashboard() {
                <div className="p-8 flex-1 overflow-hidden flex flex-col gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع لتعديل السعر أو الكمية..." className="pl-10 h-12 glass border-none rounded-xl font-bold" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                    <Input placeholder="بحث سريع في القائمة للتعديل..." className="pl-10 h-12 glass border-none rounded-xl font-bold" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                     {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} />)}
@@ -421,14 +442,14 @@ export default function Dashboard() {
                </div>
             </DialogContent>
            </Dialog>
-           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-sm shadow-lg">AD</div>
+           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-sm shadow-lg animate-pulse">AD</div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-8 space-y-10">
         
         {/* 1. Quick Actions - The Core Buttons */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-in slide-in-from-bottom-4 duration-500">
           <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة جديدة" color="bg-primary" />
           <QuickActionButton href="/products" icon={Plus} label="إضافة منتج" color="bg-accent" />
           <QuickActionButton href="/customers" icon={UserPlus} label="إضافة عميل" color="bg-emerald-500" />
@@ -436,7 +457,7 @@ export default function Dashboard() {
         </section>
 
         {/* 2. Smart Summary - Daily Stats */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-8 duration-700">
           <StatCard title="مبيعات اليوم" value={`${stats.todaySales.toLocaleString()} دج`} icon={TrendingUp} color="bg-emerald-500" />
           <StatCard title="إجمالي المنتجات" value={stats.productCount} icon={Package} color="bg-primary" />
           <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" subValue="بحاجة للتوريد قريباً" />
@@ -446,29 +467,29 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* 3. Screens Section - The Special Focus */}
-          <div className="lg:col-span-2 flex flex-col gap-8">
-             <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[3rem] overflow-hidden shadow-2xl relative">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
+          <div className="lg:col-span-2 flex flex-col gap-8 animate-in fade-in duration-1000">
+             <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[3rem] overflow-hidden shadow-2xl relative group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 transition-transform group-hover:scale-125 duration-700">
                    <Smartphone className="h-40 w-40 rotate-12" />
                 </div>
                 <CardHeader className="p-8 relative z-10">
                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 animate-bounce">
                          <Sparkles className="h-5 w-5" />
                       </div>
-                      <CardTitle className="text-xl font-black">إحصائيات الشاشات</CardTitle>
+                      <CardTitle className="text-xl font-black">إحصائيات الشاشات (الأكثر طلباً)</CardTitle>
                    </div>
                 </CardHeader>
                 <CardContent className="px-8 pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl">
+                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
                       <span className="text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
                       <p className="text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-50">قطعة</span></p>
                    </div>
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl">
+                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
                       <span className="text-[9px] font-black uppercase text-primary">قيمة البيع</span>
                       <p className="text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
                    </div>
-                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl">
+                   <div className="glass bg-white/5 border-white/5 p-5 rounded-3xl hover:bg-white/10 transition-colors">
                       <span className="text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span>
                       <p className="text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
                    </div>
@@ -476,10 +497,10 @@ export default function Dashboard() {
              </Card>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-none glass rounded-[2.5rem] p-6">
+                <Card className="border-none glass rounded-[2.5rem] p-6 hover:shadow-lg transition-all">
                    <div className="flex items-center justify-between mb-4">
                       <h3 className="font-black text-sm">نصيحة اليوم الذكية</h3>
-                      <Zap className="h-4 w-4 text-orange-500" />
+                      <Zap className="h-4 w-4 text-orange-500 animate-pulse" />
                    </div>
                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">
                       {stats.lowStock > 0 
@@ -488,7 +509,7 @@ export default function Dashboard() {
                       }
                    </p>
                 </Card>
-                <Card className="border-none bg-primary/10 rounded-[2.5rem] p-6 border border-primary/20">
+                <Card className="border-none bg-primary/10 rounded-[2.5rem] p-6 border border-primary/20 hover:shadow-lg transition-all">
                    <div className="flex items-center justify-between mb-4">
                       <h3 className="font-black text-sm text-primary">حالة الديون</h3>
                       <Wallet className="h-4 w-4 text-primary" />
@@ -501,8 +522,8 @@ export default function Dashboard() {
           </div>
 
           {/* 4. Recent Activity - Quick List */}
-          <Card className="lg:col-span-1 border-none glass rounded-[3rem] overflow-hidden shadow-xl flex flex-col">
-            <CardHeader className="p-8 border-b border-white/5">
+          <Card className="lg:col-span-1 border-none glass rounded-[3rem] overflow-hidden shadow-xl flex flex-col animate-in slide-in-from-right-8 duration-700">
+            <CardHeader className="p-8 border-b border-white/5 bg-primary/5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-black">آخر المبيعات</CardTitle>
                 <Button asChild variant="ghost" size="sm" className="text-[10px] font-black text-primary hover:bg-primary/5 rounded-xl">
@@ -516,8 +537,8 @@ export default function Dashboard() {
                   <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-20" /></div>
                 ) : recentInvoices?.length === 0 ? (
                   <div className="p-10 text-center opacity-30 italic font-black text-xs">لا توجد مبيعات مؤخراً</div>
-                ) : recentInvoices?.map((inv) => (
-                  <div key={inv.id} className="p-6 flex items-center justify-between hover:bg-white/30 transition-colors group">
+                ) : recentInvoices?.map((inv, idx) => (
+                  <div key={inv.id} className="p-6 flex items-center justify-between hover:bg-white/30 transition-all group animate-in slide-in-from-top-2 duration-300" style={{ animationDelay: `${idx * 100}ms` }}>
                     <div className="flex items-center gap-4">
                       <div className="h-10 w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
                         <ShoppingBag className="h-5 w-5" />
@@ -536,7 +557,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
             <div className="p-6 bg-black/5 text-center">
-               <p className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Express Phone Pro &copy; 2026</p>
+               <p className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em] animate-pulse">Express Phone Pro &copy; 2026</p>
             </div>
           </Card>
         </div>

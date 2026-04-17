@@ -56,10 +56,21 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
-    background-image: 
-      radial-gradient(at 0% 0%, hsla(221, 50%, 45%, 0.03) 0, transparent 50%),
-      radial-gradient(at 100% 100%, hsla(190, 70%, 55%, 0.03) 0, transparent 50%);
+    background: linear-gradient(-45deg, #f8fafc, #f1f5f9, #e2e8f0, #f8fafc);
+    background-size: 400% 400%;
+    animation: gradient-animation 15s ease infinite;
   }
+  .dark body {
+    background: linear-gradient(-45deg, #020617, #0f172a, #1e293b, #020617);
+    background-size: 400% 400%;
+    animation: gradient-animation 15s ease infinite;
+  }
+}
+
+@keyframes gradient-animation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .glass {
@@ -78,6 +89,12 @@
 
 .text-gradient-premium {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  background-size: 200% auto;
+  animation: shine 5s linear infinite;
+}
+
+@keyframes shine {
+  to { background-position: 200% center; }
 }
 
 [dir="rtl"] {
