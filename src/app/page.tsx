@@ -326,11 +326,7 @@ export default function Dashboard() {
                 <div key={p.id} className="p-4 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all">
                    <div className="flex items-center gap-4">
                       <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden">
-                        {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
-                        )}
+                        <Smartphone className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/40" />
                       </div>
                       <div className="flex flex-col">
                          <span className="font-black text-xs md:text-sm text-foreground group-hover:text-primary transition-colors">{p.name}</span>
@@ -342,6 +338,7 @@ export default function Dashboard() {
                         <span className="text-xs md:text-lg font-black text-primary tabular-nums">
                           {p.repairPrice.toLocaleString()} <span className="text-[8px] md:text-[10px] opacity-60">دج</span>
                         </span>
+                        <span className="text-[10px] text-muted-foreground font-bold">متوفر: {p.quantity}</span>
                       </div>
                    </div>
                 </div>
@@ -456,7 +453,7 @@ export default function Dashboard() {
                 <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                    <div className="glass bg-white/5 p-4 rounded-2xl">
                       <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
-                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-xs opacity-50">قطعة</span></p>
+                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-50">قطعة</span></p>
                    </div>
                    <div className="glass bg-white/5 p-4 rounded-2xl">
                       <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع</span>

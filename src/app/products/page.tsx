@@ -55,7 +55,6 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, d
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
 
 type SortConfig = {
   key: string;
@@ -270,7 +269,7 @@ export default function ProductsPage() {
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="بحث..." 
+            placeholder="بحث عن منتج..." 
             className="pl-12 h-12 md:h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -295,7 +294,7 @@ export default function ProductsPage() {
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : sortedProducts.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 opacity-30 italic font-black">لا توجد منتجات</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-20 opacity-30 italic font-black">لا توجد منتجات مسجلة</TableCell></TableRow>
               ) : sortedProducts.map((p) => (
                 <ProductRow key={p.id} p={p} onEdit={handleEdit} onDelete={handleDelete} onPrint={handleOpenPrint} />
               ))}
@@ -307,7 +306,7 @@ export default function ProductsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] md:rounded-[2.5rem] shadow-2xl max-w-2xl z-[310] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">{editingProduct ? 'تحديث المنتج' : 'إضافة منتج'}</DialogTitle>
+            <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">{editingProduct ? 'تحديث المنتج' : 'إضافة منتج جديد'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 md:gap-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,12 +315,12 @@ export default function ProductsPage() {
                 <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="rounded-xl h-10 md:h-12 glass border-none font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="font-black text-[10px] text-primary">كود المنتج</Label>
+                <Label className="font-black text-[10px] text-primary">كود المنتج (QR)</Label>
                 <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="rounded-xl h-10 md:h-12 glass border-none font-bold" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="font-black text-[10px] text-primary">التصنيف</Label>
+              <Label className="font-black text-[10px] text-primary">التصنيف الهرمي</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger className="h-10 md:h-12 rounded-xl glass border-none font-bold">
                   <SelectValue placeholder="اختر التصنيف..." />
@@ -333,17 +332,17 @@ export default function ProductsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label className="font-black text-[10px] text-primary">سعر الشراء</Label>
+                <Label className="font-black text-[10px] text-primary">سعر الشراء (دج)</Label>
                 <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="rounded-xl h-10 md:h-12 glass border-none font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="font-black text-[10px] text-primary">سعر البيع</Label>
+                <Label className="font-black text-[10px] text-primary">سعر البيع (دج)</Label>
                 <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="rounded-xl h-10 md:h-12 glass border-none font-bold text-emerald-600" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 md:gap-4">
               <div className="space-y-1">
-                <Label className="font-black text-[10px] text-primary">التصليح</Label>
+                <Label className="font-black text-[10px] text-primary">سعر التصليح</Label>
                 <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
               </div>
               <div className="space-y-1">
@@ -351,40 +350,43 @@ export default function ProductsPage() {
                 <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
               </div>
               <div className="space-y-1">
-                <Label className="font-black text-[10px] text-primary">الحد الأدنى</Label>
+                <Label className="font-black text-[10px] text-primary">حد التنبيه</Label>
                 <Input type="number" value={minStock} onChange={(e) => setMinStock(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveProduct} className="w-full h-12 md:h-14 rounded-2xl font-black bg-primary text-white shadow-xl">حفظ البيانات</Button>
+            <Button onClick={handleSaveProduct} className="w-full h-12 md:h-14 rounded-2xl font-black bg-primary text-white shadow-xl">حفظ بيانات المنتج</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] max-w-xl shadow-2xl z-[310]">
-          <DialogHeader><DialogTitle className="text-xl font-black">إعدادات الطباعة</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-xl font-black">إعدادات طباعة الملصق</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
              <div className="space-y-4 p-4 glass rounded-xl">
-               <Label className="text-[10px] font-black uppercase opacity-50">الاسم على الملصق</Label>
+               <Label className="text-[10px] font-black uppercase opacity-50">الاسم المعروض على الملصق</Label>
                <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="rounded-xl border-none shadow-sm font-bold" />
                <div className="flex items-center justify-between">
-                 <Label className="font-black text-xs">إدراج السعر</Label>
+                 <Label className="font-black text-xs">عرض السعر على الملصق</Label>
                  <Switch checked={showPrice} onCheckedChange={setShowPrice} />
                </div>
                {showPrice && (
                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.salePrice || 0)}>البيع</Button>
-                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.repairPrice || 0)}>التصليح</Button>
+                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.salePrice || 0)}>سعر البيع</Button>
+                    <Button variant="outline" className="text-[10px] h-8 rounded-lg" onClick={() => setPrintPrice(printingProduct?.repairPrice || 0)}>سعر التصليح</Button>
                  </div>
                )}
-               <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl border-none" placeholder="عدد النسخ" />
+               <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase opacity-50">عدد الملصقات (نسخ)</Label>
+                  <Input type="number" value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value)))} className="rounded-xl border-none" />
+               </div>
              </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPrintDialogOpen(false)} className="flex-1 rounded-xl">إلغاء</Button>
-            <Button onClick={executePrint} className="flex-1 rounded-xl bg-primary text-white">طباعة</Button>
+            <Button onClick={executePrint} className="flex-1 rounded-xl bg-primary text-white">طباعة الآن</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
