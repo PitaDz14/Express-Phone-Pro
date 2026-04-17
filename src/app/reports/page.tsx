@@ -42,8 +42,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy, limit } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ReportsPage() {
+  const { toast } = useToast()
   const db = useFirestore()
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
@@ -90,6 +92,32 @@ export default function ReportsPage() {
     }).filter(s => s.count > 0).sort((a, b) => b.value - a.value)
   }, [products, categories])
 
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const handleExport = () => {
+    const reportData = {
+      date: new Date().toISOString(),
+      summary: {
+        totalRevenue,
+        lowStockCount,
+        activeCategories: categories?.length || 0,
+      },
+      screenStats,
+      globalInventoryStats,
+      categoryStats: categoryStats.map(s => ({ name: s.name, count: s.count, totalValue: s.value }))
+    }
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `ExpressPhonePro_Report_${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    toast({ title: "تم التصدير", description: "تم تحميل ملف التقرير بنجاح" })
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-10 pb-32">
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-8 glass sticky top-0 z-50 no-print rounded-[2rem]">
@@ -110,10 +138,17 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="glass h-11 rounded-2xl px-5 font-bold gap-2 border-white/20">
+            <Button 
+              variant="outline" 
+              className="glass h-11 rounded-2xl px-5 font-bold gap-2 border-white/20"
+              onClick={handleExport}
+            >
               <Download className="h-4 w-4" /> تصدير
             </Button>
-            <Button className="h-11 rounded-2xl px-5 bg-primary text-white shadow-lg font-black gap-2">
+            <Button 
+              className="h-11 rounded-2xl px-5 bg-primary text-white shadow-lg font-black gap-2"
+              onClick={handlePrint}
+            >
               <Printer className="h-4 w-4" /> طباعة
             </Button>
           </div>
