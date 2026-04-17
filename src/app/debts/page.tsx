@@ -15,7 +15,9 @@ import {
   User,
   Smartphone,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ShoppingBag,
+  FileText
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,6 +52,11 @@ export default function DebtsPage() {
   const [isLoadingInvoices, setIsLoadingInvoices] = React.useState(false)
   const [sortConfig, setSortConfig] = React.useState({ key: 'debt', direction: 'desc' })
 
+  // States for Invoice Preview
+  const [selectedInvoiceForItems, setSelectedInvoiceForItems] = React.useState<any>(null)
+  const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
+  const [isLoadingItems, setIsLoadingItems] = React.useState(false)
+
   // 1. Fetch customers with debt > 0
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
   const { data: allCustomers, isLoading: isCustomersLoading } = useCollection(customersRef)
@@ -82,6 +89,22 @@ export default function DebtsPage() {
       console.error(error)
     } finally {
       setIsLoadingInvoices(false)
+    }
+  }
+
+  const fetchInvoiceItems = async (invoice: any) => {
+    setSelectedInvoiceForItems(invoice)
+    setIsLoadingItems(true)
+    try {
+      const itemsRef = collection(db, "invoices", invoice.id, "items")
+      const snapshot = await getDocs(itemsRef)
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      setInvoiceItems(items)
+    } catch (error) {
+      console.error("Error fetching items:", error)
+      toast({ variant: "destructive", title: "خطأ", description: "فشل استرجاع عناصر الفاتورة" })
+    } finally {
+      setIsLoadingItems(false)
     }
   }
 
@@ -220,6 +243,7 @@ export default function DebtsPage() {
         </Card>
       </div>
 
+      {/* Customer Invoices List Dialog */}
       <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
         <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210]">
           <DialogHeader className="p-8 bg-primary/5 border-b border-border">
@@ -272,6 +296,13 @@ export default function DebtsPage() {
                     
                     <div className="flex items-center gap-2">
                        <Button 
+                        variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                        onClick={() => fetchInvoiceItems(inv)}
+                        title="معاينة العناصر"
+                       >
+                         <Eye className="h-4 w-4" />
+                       </Button>
+                       <Button 
                         variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white"
                         onClick={() => handleUpdatePayment(inv)}
                         title="تعديل الدفعة"
@@ -294,6 +325,68 @@ export default function DebtsPage() {
           
           <div className="p-6 bg-black/5 text-center">
              <Button className="rounded-2xl px-12 h-12 font-black" onClick={() => setSelectedCustomer(null)}>إغلاق النافذة</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Items Details Dialog */}
+      <Dialog open={!!selectedInvoiceForItems} onOpenChange={() => setSelectedInvoiceForItems(null)}>
+        <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[220]">
+          <DialogHeader className="p-8 bg-accent/5 border-b border-border">
+            <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
+              <FileText className="h-6 w-6 text-primary" />
+              محتويات الفاتورة #{selectedInvoiceForItems?.id.slice(0, 8)}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-2 gap-4 glass p-4 rounded-2xl border-white/10">
+                <div>
+                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">العميل</p>
+                   <p className="font-bold text-foreground">{selectedInvoiceForItems?.customerName}</p>
+                </div>
+                <div className="text-left">
+                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">التاريخ</p>
+                   <p className="font-bold text-xs text-foreground">
+                    {selectedInvoiceForItems?.createdAt?.toDate ? format(selectedInvoiceForItems.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ar }) : "---"}
+                   </p>
+                </div>
+             </div>
+
+             <div className="space-y-3">
+                <p className="font-black text-sm text-primary px-2 uppercase tracking-widest">المنتجات المشتراة</p>
+                <div className="max-h-[350px] overflow-auto space-y-3 pr-2 custom-scrollbar">
+                   {isLoadingItems ? (
+                     <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>
+                   ) : invoiceItems.length === 0 ? (
+                     <div className="py-10 text-center opacity-30 italic font-black">لا توجد عناصر مسجلة</div>
+                   ) : invoiceItems.map((item) => (
+                     <div key={item.id} className="flex items-center justify-between p-4 glass rounded-[1.5rem] border-white/10 hover:bg-card/40 transition-all">
+                        <div className="flex items-center gap-4">
+                           <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                              <ShoppingBag className="h-5 w-5" />
+                           </div>
+                           <div>
+                              <p className="text-sm font-black text-foreground">{item.productName}</p>
+                              <p className="text-[10px] text-muted-foreground font-bold tabular-nums">
+                                {item.quantity} قطعة × {item.unitPrice.toLocaleString()} دج
+                              </p>
+                           </div>
+                        </div>
+                        <p className="font-black text-sm text-primary tabular-nums">{item.itemTotal.toLocaleString()} دج</p>
+                     </div>
+                   ))}
+                </div>
+             </div>
+
+             <div className="pt-6 border-t border-white/10 flex justify-between items-center px-2">
+                <span className="text-lg font-black text-foreground">إجمالي الفاتورة:</span>
+                <span className="text-2xl font-black text-primary tabular-nums">{selectedInvoiceForItems?.totalAmount.toLocaleString()} دج</span>
+             </div>
+          </div>
+
+          <div className="p-6 bg-black/5 text-center">
+             <Button className="rounded-2xl px-12 h-12 font-black" onClick={() => setSelectedInvoiceForItems(null)}>إغلاق المعاينة</Button>
           </div>
         </DialogContent>
       </Dialog>
