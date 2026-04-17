@@ -24,13 +24,16 @@ import {
   Smartphone,
   Image as ImageIcon,
   Link as LinkIcon,
-  User
+  User,
+  Settings2,
+  Settings
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -45,6 +48,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -95,7 +103,7 @@ const QuickActionButton = ({ href, icon: Icon, label, color, onClick }: any) => 
   )
 }
 
-const QuickEditItem = React.memo(({ product, db, showPurchase, userId }: { product: any, db: any, showPurchase: boolean, userId: string }) => {
+const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userId }: { product: any, db: any, showPurchase: boolean, showRepair: boolean, userId: string }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
@@ -140,9 +148,9 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, userId }: { produ
           </div>
        </div>
 
-       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+       <div className={cn("grid gap-3", (showPurchase && showRepair) ? "grid-cols-2 md:grid-cols-3" : (showPurchase || showRepair) ? "grid-cols-2" : "grid-cols-1")}>
           <div className="space-y-1">
-             <Label className="text-[8px] font-black uppercase text-primary px-1">البيع</Label>
+             <Label className="text-[8px] font-black uppercase text-primary px-1">سعر البيع</Label>
              <Input 
                 type="number" 
                 className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums text-primary focus:ring-1 focus:ring-primary"
@@ -150,18 +158,20 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, userId }: { produ
                 onChange={(e) => { const v = Number(e.target.value); setLocalSalePrice(v); handleUpdate('salePrice', v); }}
              />
           </div>
-          <div className="space-y-1">
-             <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">التصليح</Label>
-             <Input 
-                type="number" 
-                className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
-                value={localRepairPrice}
-                onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
-             />
-          </div>
+          {showRepair && (
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black uppercase text-muted-foreground px-1">سعر التصليح</Label>
+              <Input 
+                  type="number" 
+                  className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
+                  value={localRepairPrice}
+                  onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
+              />
+            </div>
+          )}
           {showPurchase && (
-            <div className="space-y-1 col-span-2 md:col-span-1">
-               <Label className="text-[8px] font-black uppercase text-orange-600 px-1">الشراء</Label>
+            <div className="space-y-1">
+               <Label className="text-[8px] font-black uppercase text-orange-600 px-1">سعر الشراء</Label>
                <Input 
                   type="number" 
                   className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums text-orange-600 focus:ring-1 focus:ring-orange-600"
@@ -189,6 +199,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
+  const [showRepairInEdit, setShowRepairInEdit] = React.useState(true)
+  const [showRepairInSearch, setShowRepairInSearch] = React.useState(false)
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
 
@@ -301,7 +313,6 @@ export default function Dashboard() {
   }
 
   const handleQRScan = (code: string) => {
-    // Check if scanned code is an Invoice URL
     if (code.includes("/invoices/history")) {
       const hash = code.split('#')[1];
       router.push(`/invoices/history${hash ? `#${hash}` : ''}`);
@@ -348,8 +359,8 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row h-auto md:h-20 shrink-0 items-center justify-between p-4 md:px-10 glass sticky top-0 z-50 gap-4">
         <div className="flex w-full md:w-auto items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0">
-               <Smartphone className="h-6 w-6 text-primary" />
+            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0 text-primary">
+               <Smartphone className="h-6 w-6" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
@@ -366,7 +377,27 @@ export default function Dashboard() {
               </DialogTrigger>
               <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh]">
                  <DialogHeader className="p-4 border-b border-white/5 bg-primary/5 shrink-0">
-                    <DialogTitle className="text-lg font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
+                    <div className="flex items-center justify-between">
+                       <DialogTitle className="text-lg font-black text-gradient-premium">الإدارة السريعة</DialogTitle>
+                       <Popover>
+                          <PopoverTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><Settings className="h-4 w-4" /></Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="glass border-none rounded-2xl w-56 p-4">
+                             <div className="space-y-4">
+                                <p className="text-[10px] font-black text-primary uppercase">خيارات العرض</p>
+                                <div className="flex items-center justify-between">
+                                   <Label className="text-xs font-bold">سعر الشراء</Label>
+                                   <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                   <Label className="text-xs font-bold">سعر التصليح</Label>
+                                   <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
+                                </div>
+                             </div>
+                          </PopoverContent>
+                       </Popover>
+                    </div>
                  </DialogHeader>
                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     <div className="relative">
@@ -374,7 +405,7 @@ export default function Dashboard() {
                       <Input placeholder="بحث سريع..." className="pl-10 h-10 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                     </div>
                     <div className="space-y-3">
-                      {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} userId={user?.uid || ""} />)}
+                      {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)}
                     </div>
                  </div>
               </DialogContent>
@@ -394,6 +425,25 @@ export default function Dashboard() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+             <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary">
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="glass border-none rounded-2xl w-56 p-4 z-[100]">
+                   <div className="space-y-4">
+                      <p className="text-[10px] font-black text-primary uppercase text-right">إعدادات البحث</p>
+                      <div className="flex items-center justify-between" dir="rtl">
+                         <Label className="text-xs font-bold">إظهار سعر التصليح</Label>
+                         <Switch checked={showRepairInSearch} onCheckedChange={setShowRepairInSearch} />
+                      </div>
+                   </div>
+                </PopoverContent>
+             </Popover>
+          </div>
+          
           {searchTerm && (
             <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-[1.5rem] md:rounded-3xl shadow-2xl z-50 overflow-hidden border-white/20 animate-in slide-in-from-top-2 max-h-[70vh] overflow-y-auto">
               {filteredProducts.length === 0 ? (
@@ -420,6 +470,9 @@ export default function Dashboard() {
                             <span className="text-sm md:text-xl font-black text-primary tabular-nums">
                               {p.salePrice.toLocaleString()} <span className="text-[10px] md:text-xs opacity-60 font-bold">دج</span>
                             </span>
+                            {showRepairInSearch && (
+                               <span className="text-[9px] font-bold text-muted-foreground">التصليح: {p.repairPrice?.toLocaleString()} دج</span>
+                            )}
                             <div className="flex items-center gap-2">
                                <span className="text-[10px] text-emerald-600 font-black">متوفر: {p.quantity}</span>
                             </div>
@@ -445,9 +498,32 @@ export default function Dashboard() {
                <DialogHeader className="p-8 border-b border-white/5 bg-primary/5 shrink-0">
                   <div className="flex items-center justify-between">
                     <DialogTitle className="text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
-                    <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs" onClick={() => setShowPurchaseInEdit(!showPurchaseInEdit)}>
-                      {showPurchaseInEdit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} سعر الشراء
-                    </Button>
+                    <Popover>
+                       <PopoverTrigger asChild>
+                          <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs">
+                             <Settings2 className="h-4 w-4" /> إعدادات العرض
+                          </Button>
+                       </PopoverTrigger>
+                       <PopoverContent className="glass border-none rounded-2xl w-64 p-5 z-[350]">
+                          <div className="space-y-5">
+                             <p className="text-[10px] font-black text-primary uppercase tracking-widest text-right">تخصيص أعمدة الإدارة</p>
+                             <div className="flex items-center justify-between" dir="rtl">
+                                <div className="flex flex-col">
+                                   <Label className="text-xs font-black">سعر الشراء</Label>
+                                   <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
+                                </div>
+                                <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
+                             </div>
+                             <div className="flex items-center justify-between" dir="rtl">
+                                <div className="flex flex-col">
+                                   <Label className="text-xs font-black">سعر التصليح</Label>
+                                   <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
+                                </div>
+                                <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
+                             </div>
+                          </div>
+                       </PopoverContent>
+                    </Popover>
                   </div>
                </DialogHeader>
                
@@ -510,7 +586,7 @@ export default function Dashboard() {
                     <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
                   </div>
                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                    {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} userId={user?.uid || ""} />)}
+                    {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)}
                   </div>
                </div>
             </DialogContent>
