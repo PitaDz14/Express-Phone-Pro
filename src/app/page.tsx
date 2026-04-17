@@ -23,7 +23,8 @@ import {
   Camera,
   Smartphone,
   Image as ImageIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  User
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -130,9 +131,9 @@ const QuickEditItem = React.memo(({ product, db, showPurchase }: { product: any,
             </div>
           </div>
           <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl shrink-0">
-            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></Button>
+            <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></button>
             <span className="w-6 md:w-8 text-center text-xs md:text-sm font-black tabular-nums">{localQty}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3 md:h-4 md:w-4"/></Button>
+            <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3 md:h-4 md:w-4"/></button>
           </div>
        </div>
 
@@ -332,24 +333,26 @@ export default function Dashboard() {
       />
 
       <header className="flex h-20 shrink-0 items-center justify-between px-4 md:px-10 glass sticky top-0 z-50">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 overflow-hidden border border-primary/10">
-             {logo && (
+        <Link href="/" className="flex items-center gap-2 md:gap-3 group">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 overflow-hidden border border-primary/10 transition-transform group-hover:rotate-0">
+             {logo?.imageUrl ? (
                <Image 
                 src={logo.imageUrl} 
                 alt="Logo" 
-                width={40} 
-                height={40} 
+                width={48} 
+                height={48} 
                 className="object-contain" 
-                data-ai-hint={logo.imageHint}
+                onError={(e: any) => { e.target.style.display = 'none' }}
                />
+             ) : (
+               <Smartphone className="h-6 w-6 text-primary" />
              )}
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm md:text-lg font-black tracking-tighter text-gradient-premium leading-none">EXPRESS PHONE</h1>
             <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest">Pro System</span>
           </div>
-        </div>
+        </Link>
 
         <div className="hidden md:flex flex-1 max-w-xl mx-8 relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -480,17 +483,9 @@ export default function Dashboard() {
                </div>
             </DialogContent>
            </Dialog>
-           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-black text-white text-xs md:text-sm shadow-lg overflow-hidden border border-white/20">
-             {logo && (
-               <Image 
-                src={logo.imageUrl} 
-                alt="User" 
-                width={40} 
-                height={40} 
-                className="object-contain" 
-                data-ai-hint={logo.imageHint}
-               />
-             )}
+
+           <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
+             <User className="h-6 w-6" />
            </div>
         </div>
       </header>

@@ -52,6 +52,8 @@ import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 interface CartItem {
   id: string
@@ -69,6 +71,7 @@ export default function InvoicesPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('editId')
+  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -270,7 +273,7 @@ export default function InvoicesPage() {
           const oldData = oldInvSnap.data();
           
           // Revert old debt
-          const oldDebt = oldData.totalAmount - oldData.paidAmount;
+          const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
           if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
             batch.update(doc(db, "customers", oldData.customerId), {
               debt: increment(-oldDebt)
@@ -283,7 +286,7 @@ export default function InvoicesPage() {
             const item = d.data();
             if (item.productId) {
               batch.update(doc(db, "products", item.productId), {
-                quantity: increment(item.quantity)
+                quantity: increment(item.quantity || 0)
               });
             }
             batch.delete(d.ref);
@@ -363,9 +366,13 @@ export default function InvoicesPage() {
         <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
         
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-4 md:px-8 glass sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
-              <Smartphone className="h-5 w-5" />
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-0 rotate-3 overflow-hidden">
+               {logo?.imageUrl ? (
+                 <Image src={logo.imageUrl} alt="Logo" width={40} height={40} className="object-contain" />
+               ) : (
+                 <Smartphone className="h-5 w-5" />
+               )}
             </div>
             <div className="flex flex-col">
               <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
@@ -373,7 +380,7 @@ export default function InvoicesPage() {
               </h1>
               <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
             </div>
-          </div>
+          </Link>
           <div className="flex gap-2">
             {editId && (
               <Button asChild variant="ghost" className="h-10 px-4 rounded-xl font-black text-xs gap-2">
