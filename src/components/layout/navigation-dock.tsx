@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -29,19 +28,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
-import { useAuth, useSyncStatus } from "@/firebase"
+import { useAuth, useSyncStatus, useUser } from "@/firebase"
 import { signOut } from "firebase/auth"
 
-const items = [
-  { title: "الرئيسية", url: "/", icon: LayoutDashboard },
-  { title: "المخزون", url: "/products", icon: Package },
-  { title: "العملاء", url: "/customers", icon: Users },
-  { title: "الديون", url: "/debts", icon: Wallet },
-  { title: "نقطة البيع", url: "/invoices", icon: FileText },
-  { title: "السجل", url: "/invoices/history", icon: History },
-  { title: "التقارير", url: "/reports", icon: BarChart3 },
-  { title: "الطاقم", url: "/users", icon: UserCog },
-  { title: "النظام", url: "/settings", icon: Settings },
+const allItems = [
+  { title: "الرئيسية", url: "/", icon: LayoutDashboard, roles: ["Admin", "Worker"] },
+  { title: "المخزون", url: "/products", icon: Package, roles: ["Admin", "Worker"] },
+  { title: "العملاء", url: "/customers", icon: Users, roles: ["Admin", "Worker"] },
+  { title: "الديون", url: "/debts", icon: Wallet, roles: ["Admin", "Worker"] },
+  { title: "نقطة البيع", url: "/invoices", icon: FileText, roles: ["Admin", "Worker"] },
+  { title: "السجل", url: "/invoices/history", icon: History, roles: ["Admin", "Worker"] },
+  { title: "التقارير", url: "/reports", icon: BarChart3, roles: ["Admin"] },
+  { title: "الطاقم", url: "/users", icon: UserCog, roles: ["Admin"] },
+  { title: "النظام", url: "/settings", icon: Settings, roles: ["Admin"] },
 ]
 
 export function NavigationDock() {
@@ -49,6 +48,7 @@ export function NavigationDock() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const auth = useAuth()
+  const { role } = useUser()
   const { isOnline, isSyncing } = useSyncStatus()
 
   const handleLogout = async () => {
@@ -57,6 +57,10 @@ export function NavigationDock() {
       router.push("/login")
     }
   }
+
+  const filteredItems = React.useMemo(() => {
+    return allItems.filter(item => item.roles.includes(role || "Worker"));
+  }, [role]);
 
   if (pathname === "/login") return null
 
@@ -88,7 +92,7 @@ export function NavigationDock() {
 
           <div className="w-[1px] h-6 md:h-8 bg-black/5 mx-1 md:mx-1 shrink-0" />
 
-          {items.map((item) => {
+          {filteredItems.map((item) => {
             const isActive = pathname === item.url
             return (
               <Tooltip key={item.title}>

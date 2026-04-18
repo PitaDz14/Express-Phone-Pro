@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -34,12 +33,15 @@ import { useFirestore, useUser, setDocumentNonBlocking, useAuth, updateDocumentN
 import { collection, getDocs, doc, serverTimestamp, writeBatch, deleteDoc } from "firebase/firestore"
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
   const { toast } = useToast()
   const db = useFirestore()
   const auth = useAuth()
-  const { user } = useUser()
+  const { user, role } = useUser()
+  const router = useRouter()
+  const isAdmin = role === "Admin"
   
   const [isExporting, setIsExporting] = React.useState(false)
   const [isImporting, setIsImporting] = React.useState(false)
@@ -49,6 +51,17 @@ export default function SettingsPage() {
   const [password, setPassword] = React.useState("")
   
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Security Redirect for Workers
+  React.useEffect(() => {
+    if (!isAdmin && role !== null) {
+      router.push("/")
+    }
+  }, [isAdmin, role, router])
+
+  if (!isAdmin) {
+    return <div className="p-20 text-center font-black">جاري التحقق من الصلاحيات...</div>
+  }
 
   const handleExport = async () => {
     setIsExporting(true)

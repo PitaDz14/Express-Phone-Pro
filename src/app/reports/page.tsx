@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -40,13 +39,18 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, query, orderBy, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function ReportsPage() {
   const { toast } = useToast()
   const db = useFirestore()
+  const { role } = useUser()
+  const router = useRouter()
+  const isAdmin = role === "Admin"
+
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
@@ -54,6 +58,17 @@ export default function ReportsPage() {
   const { data: invoices, isLoading: isInvoicesLoading } = useCollection(invoicesRef)
   const { data: products } = useCollection(productsRef)
   const { data: categories } = useCollection(categoriesRef)
+
+  // Security Redirect for Workers
+  React.useEffect(() => {
+    if (!isAdmin && role !== null) {
+      router.push("/")
+    }
+  }, [isAdmin, role, router])
+
+  if (!isAdmin) {
+    return <div className="p-20 text-center font-black">جاري التحقق من الصلاحيات...</div>
+  }
 
   const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0) || 0
   const lowStockCount = products?.filter(p => (p.quantity || 0) <= (p.minStockQuantity || 5)).length || 0

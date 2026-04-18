@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -126,7 +125,7 @@ const QuickActionButton = ({ href, icon: Icon, label, color, onClick }: any) => 
   )
 }
 
-const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userId }: { product: any, db: any, showPurchase: boolean, showRepair: boolean, userId: string }) => {
+const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userId, isAdmin }: { product: any, db: any, showPurchase: boolean, showRepair: boolean, userId: string, isAdmin: boolean }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
@@ -140,13 +139,14 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userI
   }, [product]);
 
   const handleUpdate = React.useCallback((field: string, value: number) => {
+    if (!isAdmin) return; // Prevent Workers from manual editing
     const productRef = doc(db, "products", product.id)
     updateDocumentNonBlocking(productRef, { 
       [field]: value,
       updatedAt: serverTimestamp(),
       updatedByUserId: userId 
     })
-  }, [db, product.id, userId])
+  }, [db, product.id, userId, isAdmin])
 
   return (
     <div className="p-4 rounded-2xl glass border-white/10 flex flex-col gap-4 hover:bg-white/20 transition-all animate-in fade-in zoom-in duration-300">
@@ -164,20 +164,25 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userI
                <p className="text-[9px] text-primary font-bold truncate">{product.categoryPath || product.categoryName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl shrink-0">
-            <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></button>
-            <span className="w-6 md:w-8 text-center text-xs md:text-sm font-black tabular-nums">{localQty}</span>
-            <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3 md:h-4 md:w-4"/></button>
-          </div>
+          {isAdmin ? (
+            <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-xl shrink-0">
+              <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = Math.max(0, localQty - 1); setLocalQty(v); handleUpdate('quantity', v); }}><Minus className="h-3 w-3 md:h-4 md:w-4"/></button>
+              <span className="w-6 md:w-8 text-center text-xs md:text-sm font-black tabular-nums">{localQty}</span>
+              <button className="h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-lg hover:bg-black/10 transition-colors" onClick={() => { const v = localQty + 1; setLocalQty(v); handleUpdate('quantity', v); }}><Plus className="h-3 w-3 md:h-4 md:w-4"/></button>
+            </div>
+          ) : (
+             <Badge variant="outline" className="h-8 rounded-xl font-black text-xs px-4">متوفر: {localQty}</Badge>
+          )}
        </div>
 
-       <div className={cn("grid gap-3", (showPurchase && showRepair) ? "grid-cols-2 md:grid-cols-3" : (showPurchase || showRepair) ? "grid-cols-2" : "grid-cols-1")}>
+       <div className={cn("grid gap-3", (showPurchase && showRepair && isAdmin) ? "grid-cols-2 md:grid-cols-3" : (showPurchase || showRepair) ? "grid-cols-2" : "grid-cols-1")}>
           <div className="space-y-1">
              <Label className="text-[8px] font-black uppercase text-primary px-1">سعر البيع</Label>
              <Input 
                 type="number" 
                 className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums text-primary focus:ring-1 focus:ring-primary"
                 value={localSalePrice}
+                readOnly={!isAdmin}
                 onChange={(e) => { const v = Number(e.target.value); setLocalSalePrice(v); handleUpdate('salePrice', v); }}
              />
           </div>
@@ -188,11 +193,12 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userI
                   type="number" 
                   className="h-8 md:h-9 glass border-none rounded-xl text-[10px] md:text-xs font-black tabular-nums focus:ring-1 focus:ring-primary"
                   value={localRepairPrice}
+                  readOnly={!isAdmin}
                   onChange={(e) => { const v = Number(e.target.value); setLocalRepairPrice(v); handleUpdate('repairPrice', v); }}
               />
             </div>
           )}
-          {showPurchase && (
+          {showPurchase && isAdmin && (
             <div className="space-y-1">
                <Label className="text-[8px] font-black uppercase text-orange-600 px-1">سعر الشراء</Label>
                <Input 
@@ -211,7 +217,8 @@ QuickEditItem.displayName = "QuickEditItem"
 
 export default function Dashboard() {
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, role } = useUser()
+  const isAdmin = role === "Admin"
   const { toast } = useToast()
   const router = useRouter()
   
@@ -341,6 +348,7 @@ export default function Dashboard() {
   }
 
   const handleFullAdd = async () => {
+    if (!isAdmin) return;
     if (!qaName || !qaCat || qaSale <= 0 || !user) {
       toast({ title: "خطأ", description: "يرجى ملء الاسم، التصنيف، وسعر البيع على الأقل", variant: "destructive" })
       return
@@ -405,7 +413,7 @@ export default function Dashboard() {
       setIsQuickEditOpen(true)
       toast({ title: "تم العثور على المنتج", description: product.name })
     } else {
-      toast({ title: "منتج غير معروف", description: `الكود: ${code} غير مسجل في النظام`, variant: "destructive" })
+      toast({ title: "منتج غير معروف", description: `كود ${code} غير موجود في النظام`, variant: "destructive" })
     }
   }
 
@@ -586,48 +594,50 @@ export default function Dashboard() {
         
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
           <QuickActionButton href="/invoices" icon={ShoppingBag} label="إنشاء فاتورة" color="bg-primary" />
-          <QuickActionButton onClick={() => { resetQaForm(); setIsAddProductOpen(true); }} icon={Plus} label="إضافة منتج" color="bg-accent" />
+          {isAdmin && <QuickActionButton onClick={() => { resetQaForm(); setIsAddProductOpen(true); }} icon={Plus} label="إضافة منتج" color="bg-accent" />}
           <QuickActionButton href="/customers" icon={UserPlus} label="إضافة عميل" color="bg-emerald-500" />
           <QuickActionButton icon={QrCode} label="مسح QR" color="bg-orange-500" onClick={() => setIsQRScannerOpen(true)} />
         </section>
 
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-          <StatCard title="مبيعات اليوم" value={`${stats.todaySales.toLocaleString()} دج`} icon={TrendingUp} color="bg-emerald-500" />
+          {isAdmin && <StatCard title="مبيعات اليوم" value={`${stats.todaySales.toLocaleString()} دج`} icon={TrendingUp} color="bg-emerald-500" />}
           <StatCard title="إجمالي المنتجات" value={stats.productCount} icon={Package} color="bg-primary" />
           <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" onClick={() => setIsLowStockOpen(true)} />
-          <StatCard title="إجمالي الديون" value={`${stats.totalDebt.toLocaleString()} دج`} icon={Wallet} color="bg-red-500" />
+          {isAdmin && <StatCard title="إجمالي الديون" value={`${stats.totalDebt.toLocaleString()} دج`} icon={Wallet} color="bg-red-500" />}
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
           <div className="lg:col-span-2 flex flex-col gap-6 md:gap-8">
-             <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl relative">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <Smartphone className="h-48 w-48 rotate-12" />
-                </div>
-                <CardHeader className="p-6 md:p-8 relative z-10">
-                   <div className="flex items-center gap-3 mb-2">
-                      <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                         <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
-                      </div>
-                      <CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات الحصرية</CardTitle>
-                   </div>
-                </CardHeader>
-                <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                   <div className="glass bg-white/5 p-4 rounded-2xl">
-                      <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
-                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-40">قطعة</span></p>
-                   </div>
-                   <div className="glass bg-white/5 p-4 rounded-2xl">
-                      <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع الإجمالية</span>
-                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
-                   </div>
-                   <div className="glass bg-white/5 p-4 rounded-2xl">
-                      <span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء الإجمالية</span>
-                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
-                   </div>
-                </CardContent>
-             </Card>
+             {isAdmin && (
+               <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl relative">
+                  <div className="absolute top-0 right-0 p-8 opacity-10">
+                      <Smartphone className="h-48 w-48 rotate-12" />
+                  </div>
+                  <CardHeader className="p-6 md:p-8 relative z-10">
+                     <div className="flex items-center gap-3 mb-2">
+                        <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                           <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
+                        </div>
+                        <CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات الحصرية</CardTitle>
+                     </div>
+                  </CardHeader>
+                  <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                     <div className="glass bg-white/5 p-4 rounded-2xl">
+                        <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
+                        <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-40">قطعة</span></p>
+                     </div>
+                     <div className="glass bg-white/5 p-4 rounded-2xl">
+                        <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع الإجمالية</span>
+                        <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
+                     </div>
+                     <div className="glass bg-white/5 p-4 rounded-2xl">
+                        <span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء الإجمالية</span>
+                        <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
+                     </div>
+                  </CardContent>
+               </Card>
+             )}
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <Card className="border-none glass rounded-[2rem] p-4 md:p-6">
@@ -639,12 +649,14 @@ export default function Dashboard() {
                       }
                    </p>
                 </Card>
-                <Card className="border-none bg-primary/10 rounded-[2rem] p-4 md:p-6 border border-primary/20">
-                   <h3 className="font-black text-xs md:text-sm text-primary mb-2">حالة الديون</h3>
-                   <p className="text-[10px] md:text-xs text-primary/80 font-bold leading-relaxed">
-                      إجمالي مبالغ الديون في السوق حالياً هو {stats.totalDebt.toLocaleString()} دج. تواصل مع العملاء لتسوية الحسابات.
-                   </p>
-                </Card>
+                {isAdmin && (
+                  <Card className="border-none bg-primary/10 rounded-[2rem] p-4 md:p-6 border border-primary/20">
+                    <h3 className="font-black text-xs md:text-sm text-primary mb-2">حالة الديون</h3>
+                    <p className="text-[10px] md:text-xs text-primary/80 font-bold leading-relaxed">
+                        إجمالي مبالغ الديون في السوق حالياً هو {stats.totalDebt.toLocaleString()} دج. تواصل مع العملاء لتسوية الحسابات.
+                    </p>
+                  </Card>
+                )}
              </div>
           </div>
 
@@ -785,33 +797,37 @@ export default function Dashboard() {
         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh] z-[300]">
            <DialogHeader className="p-6 md:p-8 border-b border-white/5 bg-primary/5 shrink-0">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
-                <Popover>
-                   <PopoverTrigger asChild>
-                      <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs">
-                         <Settings2 className="h-4 w-4" /> <span className="hidden sm:inline">إعدادات العرض</span>
-                      </Button>
-                   </PopoverTrigger>
-                   <PopoverContent className="glass border-none rounded-2xl w-64 p-5 z-[350]">
-                      <div className="space-y-5">
-                         <p className="text-[10px] font-black text-primary uppercase tracking-widest text-right">تخصيص أعمدة الإدارة</p>
-                         <div className="flex items-center justify-between" dir="rtl">
-                            <div className="flex flex-col">
-                               <Label className="text-xs font-black">سعر الشراء</Label>
-                               <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
-                            </div>
-                            <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
-                         </div>
-                         <div className="flex items-center justify-between" dir="rtl">
-                            <div className="flex flex-col">
-                               <Label className="text-xs font-black">سعر التصليح</Label>
-                               <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
-                            </div>
-                            <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
-                         </div>
-                      </div>
-                   </PopoverContent>
-                </Popover>
+                <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium">
+                   {isAdmin ? "الإدارة السريعة للمخزون" : "دليل الأسعار السريع"}
+                </DialogTitle>
+                {isAdmin && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs">
+                          <Settings2 className="h-4 w-4" /> <span className="hidden sm:inline">إعدادات العرض</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="glass border-none rounded-2xl w-64 p-5 z-[350]">
+                        <div className="space-y-5">
+                          <p className="text-[10px] font-black text-primary uppercase tracking-widest text-right">تخصيص أعمدة الإدارة</p>
+                          <div className="flex items-center justify-between" dir="rtl">
+                              <div className="flex flex-col">
+                                <Label className="text-xs font-black">سعر الشراء</Label>
+                                <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
+                              </div>
+                              <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
+                          </div>
+                          <div className="flex items-center justify-between" dir="rtl">
+                              <div className="flex flex-col">
+                                <Label className="text-xs font-black">سعر التصليح</Label>
+                                <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
+                              </div>
+                              <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
+                          </div>
+                        </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
            </DialogHeader>
 
@@ -823,60 +839,62 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="p-6 md:p-8 border-b border-white/5 bg-primary/5 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-1 bg-primary rounded-full" />
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً</p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الاسم</Label>
-                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 glass border-none rounded-xl font-bold text-xs" />
+              {isAdmin && (
+                <div className="p-6 md:p-8 border-b border-white/5 bg-primary/5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 bg-primary rounded-full" />
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً</p>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">التصنيف</Label>
-                      <Select value={qaCat} onValueChange={setQaCat}>
-                        <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-right text-xs">
-                          <SelectValue placeholder="اختر الفئة..." />
-                        </SelectTrigger>
-                        <SelectContent className="glass border-none rounded-xl z-[350]">
-                            {categories && renderCategoryOptions(categories)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الكمية</Label>
-                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-xs" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black text-emerald-600 uppercase mr-1">البيع</Label>
-                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
-                    </div>
-                    {showPurchaseInEdit && (
-                       <div className="space-y-1">
-                        <Label className="text-[8px] font-black text-orange-600 uppercase mr-1">الشراء</Label>
-                        <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
-                      </div>
-                    )}
-                    {showRepairInEdit && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[8px] font-black text-primary uppercase mr-1">التصليح</Label>
-                        <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-primary text-xs" />
+                        <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الاسم</Label>
+                        <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 glass border-none rounded-xl font-bold text-xs" />
                       </div>
-                    )}
-                    <div className="sm:col-span-2 lg:col-span-1 pt-4">
-                      <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-10 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-xs">
-                         {isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} إضافة
-                      </Button>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">التصنيف</Label>
+                        <Select value={qaCat} onValueChange={setQaCat}>
+                          <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-right text-xs">
+                            <SelectValue placeholder="اختر الفئة..." />
+                          </SelectTrigger>
+                          <SelectContent className="glass border-none rounded-xl z-[350]">
+                              {categories && renderCategoryOptions(categories)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الكمية</Label>
+                        <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-xs" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black text-emerald-600 uppercase mr-1">البيع</Label>
+                        <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
+                      </div>
+                      {showPurchaseInEdit && (
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black text-orange-600 uppercase mr-1">الشراء</Label>
+                          <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
+                        </div>
+                      )}
+                      {showRepairInEdit && (
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black text-primary uppercase mr-1">التصليح</Label>
+                          <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-primary text-xs" />
+                        </div>
+                      )}
+                      <div className="sm:col-span-2 lg:col-span-1 pt-4">
+                        <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-10 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-xs">
+                          {isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} إضافة
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-              </div>
+                </div>
+              )}
 
               <div className="p-4 md:p-8 space-y-4">
                 {quickEditProducts.length === 0 ? (
                   <div className="py-20 text-center opacity-30 italic font-black text-xs">لا توجد نتائج بحث</div>
                 ) : (
-                  quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)
+                  quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={isAdmin ? showPurchaseInEdit : false} showRepair={showRepairInEdit} userId={user?.uid || ""} isAdmin={isAdmin} />)
                 )}
               </div>
            </div>
@@ -962,7 +980,7 @@ export default function Dashboard() {
               </div>
               <div className="space-y-1">
                 <Label className="font-black text-[10px] text-primary">حد التنبيه</Label>
-                <Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
+                <Input type="number" value={qaMinStock} onChange={(e) => setMinStock(Number(e.target.value))} className="rounded-xl h-10 glass border-none font-bold" />
               </div>
             </div>
           </div>

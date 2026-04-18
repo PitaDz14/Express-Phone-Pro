@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -39,11 +38,14 @@ import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, d
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 export default function UsersManagementPage() {
   const { toast } = useToast()
   const db = useFirestore()
-  const { user: currentUser } = useUser()
+  const { user: currentUser, role } = useUser()
+  const router = useRouter()
+  const isAdmin = role === "Admin"
   
   const [openAdd, setOpenAdd] = React.useState(false)
   const [newUserUid, setNewUserUid] = React.useState("")
@@ -52,6 +54,17 @@ export default function UsersManagementPage() {
   
   const rolesRef = useMemoFirebase(() => collection(db, "user_roles"), [db])
   const { data: staff, isLoading } = useCollection(rolesRef)
+
+  // Security Redirect for Workers
+  React.useEffect(() => {
+    if (!isAdmin && role !== null) {
+      router.push("/")
+    }
+  }, [isAdmin, role, router])
+
+  if (!isAdmin) {
+    return <div className="p-20 text-center font-black">جاري التحقق من الصلاحيات...</div>
+  }
 
   const handleAddStaff = () => {
     if (!newUserUid || !newUserName) {
