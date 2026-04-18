@@ -16,7 +16,8 @@ import {
   Wallet,
   RefreshCw,
   Wifi,
-  WifiOff
+  WifiOff,
+  UserCog
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -39,6 +40,7 @@ const items = [
   { title: "نقطة البيع", url: "/invoices", icon: FileText },
   { title: "السجل", url: "/invoices/history", icon: History },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
+  { title: "الطاقم", url: "/users", icon: UserCog },
   { title: "النظام", url: "/settings", icon: Settings },
 ]
 
