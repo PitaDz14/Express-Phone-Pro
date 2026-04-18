@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -16,6 +17,7 @@ interface FirebaseProviderProps {
 interface UserAuthState {
   user: User | null;
   role: string | null;
+  username: string | null;
   isUserLoading: boolean;
   isRoleLoading: boolean;
   userError: Error | null;
@@ -28,6 +30,7 @@ export interface FirebaseContextState {
   auth: Auth | null;
   user: User | null;
   role: string | null;
+  username: string | null;
   isUserLoading: boolean;
   isRoleLoading: boolean;
   userError: Error | null;
@@ -52,6 +55,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: null,
     role: null,
+    username: null,
     isUserLoading: true,
     isRoleLoading: true,
     userError: null,
@@ -89,22 +93,35 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch role
+        // Fetch role and username
         const roleRef = doc(firestore, "user_roles", firebaseUser.uid);
         const unsubscribeRole = onSnapshot(roleRef, (doc) => {
-          setUserAuthState(prev => ({ 
-            ...prev, 
-            user: firebaseUser, 
-            role: doc.exists() ? doc.data().role : null,
-            isUserLoading: false, 
-            isRoleLoading: false 
-          }));
+          if (doc.exists()) {
+            const data = doc.data();
+            setUserAuthState(prev => ({ 
+              ...prev, 
+              user: firebaseUser, 
+              role: data.role || null,
+              username: data.username || null,
+              isUserLoading: false, 
+              isRoleLoading: false 
+            }));
+          } else {
+            setUserAuthState(prev => ({ 
+              ...prev, 
+              user: firebaseUser, 
+              role: null,
+              username: null,
+              isUserLoading: false, 
+              isRoleLoading: false 
+            }));
+          }
         }, (err) => {
            setUserAuthState(prev => ({ ...prev, user: firebaseUser, isUserLoading: false, isRoleLoading: false }));
         });
         return () => unsubscribeRole();
       } else {
-        setUserAuthState(prev => ({ ...prev, user: null, role: null, isUserLoading: false, isRoleLoading: false }));
+        setUserAuthState(prev => ({ ...prev, user: null, role: null, username: null, isUserLoading: false, isRoleLoading: false }));
       }
     });
     return () => unsubscribe();
@@ -119,6 +136,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth: servicesAvailable ? auth : null,
       user: userAuthState.user,
       role: userAuthState.role,
+      username: userAuthState.username,
       isUserLoading: userAuthState.isUserLoading,
       isRoleLoading: userAuthState.isRoleLoading,
       userError: userAuthState.userError,
@@ -159,8 +177,8 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
 }
 
 export const useUser = () => {
-  const { user, role, isUserLoading, isRoleLoading, userError } = useFirebase();
-  return { user, role, isUserLoading, isRoleLoading, userError };
+  const { user, role, username, isUserLoading, isRoleLoading, userError } = useFirebase();
+  return { user, role, username, isUserLoading, isRoleLoading, userError };
 };
 
 export const useSyncStatus = () => {

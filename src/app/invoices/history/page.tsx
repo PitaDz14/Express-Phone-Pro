@@ -20,7 +20,8 @@ import {
   ArrowDown,
   Smartphone,
   QrCode,
-  Maximize2
+  Maximize2,
+  UserCog
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -81,7 +82,8 @@ export default function InvoiceHistoryPage() {
     if (!invoices) return [];
     let items = [...invoices].filter(inv => 
       inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      inv.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+      inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (inv.generatedByUserName && inv.generatedByUserName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (sortConfig.key && sortConfig.direction) {
@@ -178,7 +180,8 @@ export default function InvoiceHistoryPage() {
             <div class="info">
               <div>
                 <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
-                <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}
+                <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}<br>
+                <strong>الموظف:</strong> ${invoice.generatedByUserName || "غير معرف"}
               </div>
               <div style="text-align: left;">
                 <strong>العميل:</strong> ${invoice.customerName}<br>
@@ -263,7 +266,7 @@ export default function InvoiceHistoryPage() {
             <div className="relative w-full md:w-[500px] group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input 
-                placeholder="ابحث برقم الفاتورة أو اسم العميل..." 
+                placeholder="ابحث برقم الفاتورة، العميل، أو الموظف..." 
                 className="pl-12 h-14 glass border-none shadow-sm rounded-2xl focus:ring-primary font-bold" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -284,6 +287,7 @@ export default function InvoiceHistoryPage() {
                       <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
                         <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
                       </TableHead>
+                      <TableHead className="font-black text-center">الموظف</TableHead>
                       <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('createdAt')}>
                         <div className="flex items-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
                       </TableHead>
@@ -297,14 +301,14 @@ export default function InvoiceHistoryPage() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-20">
+                        <TableCell colSpan={8} className="text-center py-20">
                           <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
                           <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
                         </TableCell>
                       </TableRow>
                     ) : sortedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
+                        <TableCell colSpan={8} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
                           لا توجد فواتير مسجلة حالياً
                         </TableCell>
                       </TableRow>
@@ -332,6 +336,15 @@ export default function InvoiceHistoryPage() {
                                  <User className="h-4 w-4 text-primary" />
                               </div>
                               <span className="font-bold">{inv.customerName}</span>
+                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                           <div className="flex flex-col items-center justify-center">
+                              <span className="text-[10px] font-black text-muted-foreground/60 uppercase">بواسطة</span>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                 <UserCog className="h-3 w-3 text-muted-foreground" />
+                                 <span className="text-[11px] font-black">{inv.generatedByUserName || "غير معرف"}</span>
+                              </div>
                            </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground font-bold text-xs tabular-nums">
@@ -413,6 +426,7 @@ export default function InvoiceHistoryPage() {
                        <div className="space-y-1">
                           <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{selectedInvoice?.id}</span></p>
                           <p>العميل: {selectedInvoice?.customerName || "عميل عام"}</p>
+                          <p>الموظف: {selectedInvoice?.generatedByUserName || "غير معرف"}</p>
                           <p>الحالة: {selectedInvoice?.status === 'Paid' ? 'مدفوعة' : 'دين متبقي'}</p>
                        </div>
 

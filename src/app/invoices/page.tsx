@@ -65,7 +65,7 @@ interface CartItem {
 export default function InvoicesPage() {
   const { toast } = useToast()
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, username } = useUser()
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('editId')
@@ -248,6 +248,7 @@ export default function InvoicesPage() {
             <div style="font-size: 10px; margin-bottom: 10px;">
               <p><strong>العميل:</strong> ${customer?.name || "عميل عام"}</p>
               <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? "لا يوجد" : customer.phone}</p>
+              <p><strong>الموظف:</strong> ${username || "غير معرف"}</p>
             </div>
 
             <table>
@@ -322,7 +323,7 @@ export default function InvoicesPage() {
           // Revert old debt
           const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
           if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
-            batch.update(doc(db, "customers", oldData.customerId), {
+            batch.update(doc(doc(db, "customers", oldData.customerId)), {
               debt: increment(-oldDebt)
             });
           }
@@ -352,6 +353,7 @@ export default function InvoicesPage() {
         discount: discount,
         status: debtAmount > 0 ? "Debt" : "Paid",
         generatedByUserId: user.uid,
+        generatedByUserName: username || "غير معرف",
         updatedAt: serverTimestamp()
       }
 
@@ -373,6 +375,7 @@ export default function InvoicesPage() {
           unitPrice: item.price,
           itemTotal: item.price * item.qty,
           generatedByUserId: user.uid,
+          generatedByUserName: username || "غير معرف",
           createdAt: serverTimestamp()
         });
 
@@ -593,6 +596,11 @@ export default function InvoicesPage() {
                   </div>
                   <Separator className="bg-white/10" />
                   <div className="pt-2">
+                    <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">الموظف الحالي</span>
+                    <p className="text-sm font-bold opacity-90">{username || "..."}</p>
+                  </div>
+                  <Separator className="bg-white/10" />
+                  <div className="pt-2">
                     <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">الإجمالي النهائي</span>
                     <p className="text-4xl font-black tabular-nums">{total.toLocaleString()} دج</p>
                   </div>
@@ -630,6 +638,7 @@ export default function InvoicesPage() {
                         <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || pendingId}</span></p>
                         <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
                         <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
+                        <p>بواسطة: {username || "غير معرف"}</p>
                      </div>
 
                      <table className="w-full text-left">

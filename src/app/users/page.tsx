@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,7 +13,9 @@ import {
   ExternalLink,
   Copy,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  User as UserIcon,
+  X
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -48,10 +51,15 @@ export default function UsersManagementPage() {
   const isAdmin = role === "Admin"
   
   const [openAdd, setOpenAdd] = React.useState(false)
+  const [openEdit, setOpenEdit] = React.useState(false)
+  
   const [newUserUid, setNewUserUid] = React.useState("")
   const [newUserRole, setNewUserRole] = React.useState("Worker")
   const [newUserName, setNewUserName] = React.useState("")
   
+  const [editingStaff, setEditingStaff] = React.useState<any>(null)
+  const [editName, setEditName] = React.useState("")
+
   const rolesRef = useMemoFirebase(() => collection(db, "user_roles"), [db])
   const { data: staff, isLoading } = useCollection(rolesRef)
 
@@ -91,6 +99,25 @@ export default function UsersManagementPage() {
     setOpenAdd(false)
     setNewUserUid("")
     setNewUserName("")
+  }
+
+  const handleUpdateName = () => {
+    if (!editName || !editingStaff) return;
+    
+    updateDocumentNonBlocking(doc(db, "user_roles", editingStaff.id), {
+      username: editName,
+      updatedAt: serverTimestamp()
+    });
+
+    toast({ title: "تم التحديث", description: "تم تغيير اسم العضو بنجاح" });
+    setOpenEdit(false);
+    setEditingStaff(null);
+  }
+
+  const openEditDialog = (member: any) => {
+    setEditingStaff(member);
+    setEditName(member.username || "");
+    setOpenEdit(true);
   }
 
   const handleDeleteRole = (staffMember: any) => {
@@ -137,7 +164,12 @@ export default function UsersManagementPage() {
                     {member.role === 'Admin' ? <ShieldCheck className="h-6 w-6" /> : <UserCog className="h-6 w-6" />}
                   </div>
                   <div>
-                    <h3 className="font-black text-lg leading-none">{member.username || "بدون اسم"}</h3>
+                    <h3 className="font-black text-lg leading-none">
+                      {member.username || "بدون اسم"}
+                      {(member.userId === currentUser?.uid || member.id === currentUser?.uid) && (
+                        <span className="text-[8px] mr-2 text-primary font-black bg-primary/10 px-2 py-0.5 rounded-full">(أنت)</span>
+                      )}
+                    </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant={member.role === 'Admin' ? 'default' : 'secondary'} className="rounded-lg text-[9px] px-2 font-black uppercase">
                         {member.role === 'Admin' ? 'مدير نظام' : 'موظف مبيعات'}
@@ -147,13 +179,24 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
+                   <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                    onClick={() => openEditDialog(member)}
+                    title="تعديل الاسم"
+                   >
+                     <Edit3 className="h-4 w-4" />
+                   </Button>
+                   
                    {(member.userId !== currentUser?.uid && member.id !== currentUser?.uid) && (
                      <Button 
                       variant="ghost" 
                       size="icon" 
                       className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white"
                       onClick={() => handleDeleteRole(member)}
+                      title="سحب الصلاحية"
                      >
                        <Trash2 className="h-4 w-4" />
                      </Button>
@@ -250,6 +293,32 @@ export default function UsersManagementPage() {
             <Button onClick={handleAddStaff} className="w-full h-14 rounded-2xl bg-primary text-white font-black shadow-xl">
               تأكيد وحفظ الصلاحيات
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+        <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[400] max-w-md w-[95%]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-gradient-premium">تعديل اسم العضو</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="font-black text-[10px] text-primary uppercase px-1">الاسم الجديد</Label>
+              <Input 
+                value={editName} 
+                onChange={(e) => setEditName(e.target.value)} 
+                className="h-12 glass border-none rounded-xl font-bold" 
+                placeholder="أدخل الاسم الجديد هنا..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setOpenEdit(false)} className="rounded-xl h-12 font-bold flex-1">إلغاء</Button>
+            <Button onClick={handleUpdateName} className="rounded-xl h-12 font-black bg-primary text-white flex-1 shadow-lg">حفظ التغييرات</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

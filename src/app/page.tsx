@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -217,7 +218,7 @@ QuickEditItem.displayName = "QuickEditItem"
 
 export default function Dashboard() {
   const db = useFirestore()
-  const { user, role } = useUser()
+  const { user, role, username } = useUser()
   const isAdmin = role === "Admin"
   const { toast } = useToast()
   const router = useRouter()
@@ -498,12 +499,13 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <div className="flex md:hidden items-center gap-2">
-             <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl glass" onClick={() => { setIsQuickEditOpen(true); setQuickEditSearch(""); }}>
-               <Edit3 className="h-4 w-4 text-primary" />
-             </Button>
-
-             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
+          <div className="flex items-center gap-2">
+             <div className="flex flex-col items-end mr-2 text-right hidden sm:flex">
+                <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">المستخدم النشط</span>
+                <span className="text-xs font-black text-primary">{username || "جاري التحميل..."}</span>
+             </div>
+             
+             <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
                <User className="h-6 w-6" />
              </div>
           </div>
@@ -583,9 +585,9 @@ export default function Dashboard() {
            <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform" onClick={() => { setIsQuickEditOpen(true); setQuickEditSearch(""); }}>
              <Edit3 className="h-5 w-5 text-primary" />
            </Button>
-
-           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
-             <User className="h-6 w-6" />
+           <div className="flex flex-col text-right">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">أهلاً بك</span>
+              <span className="text-sm font-black text-primary truncate max-w-[120px]">{username || "..."}</span>
            </div>
         </div>
       </header>
