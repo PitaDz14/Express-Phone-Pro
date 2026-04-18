@@ -25,11 +25,21 @@
     *   واجهة مستخدم متجاوبة تماماً مع الهواتف الذكية.
     *   مؤشر حالة الاتصال (Online/Offline) مع مزامنة تلقائية وآمنة.
 
-## 🛠️ كيف تستخدم النظام لأول مرة؟
+## 🛠️ المتطلبات التقنية
+*   **Framework:** Next.js 15 (App Router)
+*   **Database & Auth:** Firebase (Firestore & Auth)
+*   **UI Components:** ShadCN UI & Tailwind CSS
+*   **Icons:** Lucide React
 
-1.  **تسجيل الدخول:** استخدم بيانات المسؤول (Admin).
-2.  **تفعيل الصلاحيات:** في أول مرة، يجب إضافة حقل `role` بقيمة `Admin` في مجموعة `user_roles` داخل Firebase Console لمعرف المستخدم الخاص بك (UID).
-3.  **استيراد البيانات:** يمكنك استيراد بياناتك القديمة من ملف JSON عبر صفحة الإعدادات، ثم الضغط على "إعادة مزامنة الديون".
+## 📦 إدارة المستودع (Git & GitHub)
+في حال واجهت خطأ **403 Forbidden** عند محاولة الرفع (Push)، اتبع الآتي:
+1. أنشئ **Personal Access Token** جديد بصلاحية `repo`.
+2. نفذ الأوامر التالية في الـ Terminal:
+   ```bash
+   git remote remove origin
+   git remote add origin https://YOUR_TOKEN@github.com/PitaDz14/Express-Phone-Pro.git
+   git push -u origin main
+   ```
 
 ---
 تم التطوير بواسطة: **Khaled_Deragha** © 2026
