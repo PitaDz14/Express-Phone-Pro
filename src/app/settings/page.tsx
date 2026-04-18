@@ -85,11 +85,9 @@ export default function SettingsPage() {
     
     setIsWiping(true)
     try {
-      // 1. Re-authenticate user for security
       const credential = EmailAuthProvider.credential(user.email, password)
       await reauthenticateWithCredential(user, credential)
 
-      // 2. Perform mass deletion
       const collections = ["categories", "products", "customers", "invoices", "repairs"]
       for (const colName of collections) {
         const snapshot = await getDocs(collection(db, colName))
@@ -119,18 +117,105 @@ export default function SettingsPage() {
     const reader = new FileReader()
     reader.onload = async (e) => {
       try {
-        const legacyData = JSON.parse(e.target?.result as string)
+        const data = JSON.parse(e.target?.result as string)
         
-        // Mapping logic (simplified for brevity)
-        for (const client of legacyData.clients || []) {
-           setDocumentNonBlocking(doc(db, "customers", client.id), {
-              name: client.name, phone: client.phone, debt: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-           }, { merge: true })
+        // 1. Import Clients (Customers)
+        for (const client of data.clients || []) {
+          setDocumentNonBlocking(doc(db, "customers", client.id), {
+            name: client.name,
+            phone: client.phone || "",
+            debt: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            imported: true
+          }, { merge: true })
         }
-        // ... (rest of import logic)
-        toast({ title: "اكتمل الاستيراد", description: "تم دمج البيانات بنجاح" })
+
+        // 2. Extract and Import Categories
+        const categoriesMap = new Map()
+        const uniqueCatNames = Array.from(new Set((data.inventory || []).map((i: any) => i.category)))
+        
+        for (const catName of uniqueCatNames) {
+          const catId = `cat-${Math.random().toString(36).substring(7)}`
+          const catRef = doc(db, "categories", catId)
+          setDocumentNonBlocking(catRef, {
+            name: catName,
+            parentId: null,
+            level: 0,
+            path: catName,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true })
+          categoriesMap.set(catName, { id: catId, name: catName })
+        }
+
+        // 3. Import Inventory (Products)
+        for (const item of data.inventory || []) {
+          const catInfo = categoriesMap.get(item.category) || { id: "unknown", name: "عام" }
+          setDocumentNonBlocking(doc(db, "products", item.id), {
+            name: item.name,
+            productCode: item.qrCode || item.id,
+            imageUrl: item.imageUrl || "",
+            categoryId: catInfo.id,
+            categoryName: catInfo.name,
+            categoryPath: catInfo.name,
+            quantity: item.quantity || 0,
+            purchasePrice: item.originalPrice || 0,
+            salePrice: item.sellingPrice || 0,
+            repairPrice: 0,
+            minStockQuantity: item.lowStockThreshold || 1,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            createdByUserId: user.uid
+          }, { merge: true })
+        }
+
+        // 4. Import Bills (Invoices)
+        for (const bill of data.bills || []) {
+          const invRef = doc(db, "invoices", bill.id)
+          await setDocumentNonBlocking(invRef, {
+            customerId: bill.clientId || "walk-in",
+            customerName: bill.clientName || "عميل عام",
+            totalAmount: bill.totalAmount || 0,
+            paidAmount: bill.amountPaid || 0,
+            status: bill.paymentStatus === "paid" ? "Paid" : "Debt",
+            createdAt: bill.date ? new Date(bill.date) : serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            generatedByUserId: user.uid
+          }, { merge: true })
+
+          // Import Invoice Items
+          const itemsRef = collection(db, "invoices", bill.id, "items")
+          for (const item of bill.items || []) {
+            const itemDocRef = doc(itemsRef)
+            setDocumentNonBlocking(itemDocRef, {
+              productId: item.itemId,
+              productName: item.itemName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              itemTotal: item.totalPrice,
+              createdAt: serverTimestamp()
+            }, { merge: true })
+          }
+        }
+
+        // 5. Import Service Requests (Repairs)
+        for (const sr of data.serviceRequests || []) {
+          setDocumentNonBlocking(doc(db, "repairs", sr.id), {
+            clientName: sr.clientName,
+            phoneType: sr.phoneType || "",
+            status: sr.status || "Pending",
+            finalCost: sr.finalCost || sr.estimatedCost || 0,
+            receivedDate: sr.receivedDate ? new Date(sr.receivedDate) : serverTimestamp(),
+            problemDescription: sr.problemDescription || "",
+            imported: true
+          }, { merge: true })
+        }
+
+        toast({ title: "اكتمل الاستيراد الشامل", description: "تم دمج البيانات القديمة بنجاح في النظام الجديد" })
       } catch (err) {
-        toast({ variant: "destructive", title: "خطأ", description: "تنسيق غير مدعوم" })
+        console.error(err)
+        toast({ variant: "destructive", title: "خطأ في الاستيراد", description: "تنسيق الملف غير مدعوم أو تالف" })
       } finally {
         setIsImporting(false)
       }
@@ -237,7 +322,6 @@ export default function SettingsPage() {
          </Card>
       </div>
 
-      {/* Wipe Confirmation Dialog */}
       <Dialog open={showWipeDialog} onOpenChange={setShowWipeDialog}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl z-[400] max-w-md w-[95%]">
            <DialogHeader>
