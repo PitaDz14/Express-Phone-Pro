@@ -58,14 +58,10 @@
     @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     background: linear-gradient(-45deg, #f8fafc, #f1f5f9, #e2e8f0, #f8fafc);
     background-size: 400% 400%;
-    animation: gradient-animation 15s ease infinite;
+    animation: gradient-animation 20s ease infinite; /* Slower for performance */
     min-height: 100vh;
     min-height: 100svh;
-  }
-  .dark body {
-    background: linear-gradient(-45deg, #020617, #0f172a, #1e293b, #020617);
-    background-size: 400% 400%;
-    animation: gradient-animation 15s ease infinite;
+    text-rendering: optimizeLegibility;
   }
 }
 
@@ -77,26 +73,21 @@
 
 .glass {
   @apply bg-card/60 backdrop-blur-lg border border-white/20 dark:border-white/5 shadow-sm;
-  will-change: transform;
+  will-change: transform, opacity; /* GPU Acceleration */
 }
 
 .glass-premium {
   @apply bg-card/75 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-md;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 .card-hover {
-  @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5; /* Faster transitions */
 }
 
 .text-gradient-premium {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
   background-size: 200% auto;
-  animation: shine 5s linear infinite;
-}
-
-@keyframes shine {
-  to { background-position: 200% center; }
 }
 
 [dir="rtl"] {
@@ -116,23 +107,9 @@
   @apply bg-primary/20 rounded-full hover:bg-primary/40;
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-primary/20 rounded-full hover:bg-primary/40;
-}
-
-/* Fix for mobile tables */
+/* Optimize heavy renders */
 .table-container {
   @apply w-full overflow-x-auto;
   -webkit-overflow-scrolling: touch;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  contain: content;
 }
