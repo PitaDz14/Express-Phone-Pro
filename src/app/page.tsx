@@ -244,7 +244,7 @@ export default function Dashboard() {
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
   const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
   
-  const { data: products } = useCollection(productsRef)
+  const { data: products, isLoading: isProductsLoading } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
   const { data: categories } = useCollection(categoriesRef)
   
@@ -252,16 +252,16 @@ export default function Dashboard() {
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
   const lowStockItems = React.useMemo(() => {
-    if (!products) return [];
-    let filtered = products.filter(p => p.quantity <= (p.minStockQuantity || 1));
-    if (lowStockFilter !== "all") {
+    if (!isMounted || !products) return [];
+    let filtered = products.filter(p => Number(p.quantity) <= (Number(p.minStockQuantity) || 1));
+    if (lowStockFilter && lowStockFilter !== "all") {
       filtered = filtered.filter(p => p.categoryId === lowStockFilter);
     }
     return filtered;
-  }, [products, lowStockFilter]);
+  }, [products, lowStockFilter, isMounted]);
 
   const stats = React.useMemo(() => {
-    if (!isMounted) return {
+    if (!isMounted || !products) return {
       todaySales: 0,
       productCount: 0,
       lowStock: 0,
@@ -286,7 +286,7 @@ export default function Dashboard() {
     return {
       todaySales,
       productCount: products?.length || 0,
-      lowStock: products?.filter(p => p.quantity <= (p.minStockQuantity || 1)).length || 0,
+      lowStock: products?.filter(p => Number(p.quantity) <= (Number(p.minStockQuantity) || 1)).length || 0,
       totalDebt: customers?.reduce((acc, c) => acc + (c.debt || 0), 0) || 0,
       screensCount: screens.reduce((acc, p) => acc + (p.quantity || 0), 0),
       screensSaleVal: screens.reduce((acc, p) => acc + (p.salePrice * p.quantity), 0),
@@ -500,7 +500,7 @@ export default function Dashboard() {
                   {filteredProducts.map(p => (
                     <div key={p.id} className="p-4 md:p-5 hover:bg-primary/5 border-b last:border-0 border-white/5 flex items-center justify-between group transition-all cursor-pointer" onClick={() => { setSearchTerm(p.productCode); setQuickEditSearch(p.productCode); setIsQuickEditOpen(true); setSearchTerm(""); }}>
                        <div className="flex items-center gap-3 md:gap-4">
-                          <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+                          <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-card border border-border flex items-center justify-center hidden sm:flex items-center justify-center overflow-hidden shrink-0">
                             {p.imageUrl ? (
                                <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
                             ) : (
@@ -579,15 +579,15 @@ export default function Dashboard() {
                 <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                    <div className="glass bg-white/5 p-4 rounded-2xl">
                       <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
-                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-50">قطعة</span></p>
+                      <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount} <span className="text-sm opacity-40">قطعة</span></p>
                    </div>
                    <div className="glass bg-white/5 p-4 rounded-2xl">
-                      <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع</span>
-                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
+                      <span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع الإجمالية</span>
+                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
                    </div>
                    <div className="glass bg-white/5 p-4 rounded-2xl">
-                      <span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span>
-                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-50">دج</span></p>
+                      <span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء الإجمالية</span>
+                      <p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} <span className="text-xs opacity-40">دج</span></p>
                    </div>
                 </CardContent>
              </Card>
@@ -710,7 +710,9 @@ export default function Dashboard() {
                        </TableRow>
                     </TableHeader>
                     <TableBody>
-                       {lowStockItems.length === 0 ? (
+                       {isProductsLoading ? (
+                         <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                       ) : lowStockItems.length === 0 ? (
                          <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-30 italic font-black">لا توجد نواقص في هذا القسم</TableCell></TableRow>
                        ) : lowStockItems.map(p => (
                          <TableRow key={p.id} className="border-white/5">
