@@ -32,7 +32,7 @@ service cloud.firestore {
 
     /** @description Checks if the user has a specific role assigned. */
     function hasRole(role) {
-      return isSignedIn() && getRole() == role;
+      return isSignedIn() && exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) && getRole() == role;
     }
 
     /** @description Verifies if the user is an administrator. */
@@ -68,7 +68,7 @@ service cloud.firestore {
     match /user_roles/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow create: if (isOwner(userId) && request.resource.data.userId == userId) || isAdmin();
       allow update, delete: if isAdmin() && resource != null;
     }
 
