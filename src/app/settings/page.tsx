@@ -63,6 +63,7 @@ export default function SettingsPage() {
     return <div className="p-20 text-center font-black">جاري التحقق من الصلاحيات...</div>
   }
 
+  // Optimized Export with Parallel Processing
   const handleExport = async () => {
     setIsExporting(true)
     try {
@@ -73,11 +74,14 @@ export default function SettingsPage() {
         const snapshot = await getDocs(collection(db, colName))
         fullBackup[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
         
+        // Deep Export for Invoices (Items sub-collection)
         if (colName === "invoices") {
-           for (const inv of fullBackup[colName]) {
-              const itemsSnap = await getDocs(collection(db, "invoices", inv.id, "items"))
-              inv.items = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-           }
+           const invoices = fullBackup[colName];
+           // Use Promise.all to fetch sub-collections in parallel for speed
+           await Promise.all(invoices.map(async (inv: any) => {
+             const itemsSnap = await getDocs(collection(db, "invoices", inv.id, "items"));
+             inv.items = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+           }));
         }
       }
 
@@ -87,7 +91,7 @@ export default function SettingsPage() {
       a.href = url
       a.download = `ExpressPhonePro_Backup_${new Date().toISOString().split('T')[0]}.json`
       a.click()
-      toast({ title: "تم التصدير", description: "تم حفظ النسخة الاحتياطية بنجاح" })
+      toast({ title: "تم التصدير بنجاح", description: "تم معالجة كافة البيانات وحفظها محلياً" })
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "فشل التصدير", description: "حدث خطأ أثناء جمع البيانات" })
@@ -159,7 +163,8 @@ export default function SettingsPage() {
     }
   }
 
-  const handleImportLegacy = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Robust Smart Import for BOTH legacy and System formats
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
 
@@ -169,119 +174,135 @@ export default function SettingsPage() {
       try {
         const data = JSON.parse(e.target?.result as string)
         const customerDebtAcc: Record<string, number> = {}
-        
-        // 1. Import Clients (Customers)
-        for (const client of data.clients || []) {
-          setDocumentNonBlocking(doc(db, "customers", client.id), {
-            name: client.name,
-            phone: client.phone || "",
-            debt: 0, // Initialized to 0, will be updated after bills loop
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            imported: true
-          }, { merge: true })
-        }
 
-        // 2. Extract and Import Categories
-        const categoriesMap = new Map()
-        const uniqueCatNames = Array.from(new Set((data.inventory || []).map((i: any) => i.category)))
-        
-        for (const catName of uniqueCatNames) {
-          const catId = `cat-${Math.random().toString(36).substring(7)}`
-          const catRef = doc(db, "categories", catId)
-          setDocumentNonBlocking(catRef, {
-            name: catName,
-            parentId: null,
-            level: 0,
-            path: catName,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          }, { merge: true })
-          categoriesMap.set(catName, { id: catId, name: catName })
-        }
+        // FORMAT DETECTION: System Backup vs Legacy
+        const isSystemBackup = data.products || data.customers || data.categories;
 
-        // 3. Import Inventory (Products)
-        for (const item of data.inventory || []) {
-          const catInfo = categoriesMap.get(item.category) || { id: "unknown", name: "عام" }
-          setDocumentNonBlocking(doc(db, "products", item.id), {
-            name: item.name,
-            productCode: item.qrCode || item.id,
-            imageUrl: item.imageUrl || "",
-            categoryId: catInfo.id,
-            categoryName: catInfo.name,
-            categoryPath: catInfo.name,
-            quantity: item.quantity || 0,
-            purchasePrice: item.originalPrice || 0,
-            salePrice: item.sellingPrice || 0,
-            repairPrice: 0,
-            minStockQuantity: item.lowStockThreshold || 1,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            createdByUserId: user.uid
-          }, { merge: true })
-        }
-
-        // 4. Import Bills (Invoices) and Calculate Debt
-        for (const bill of data.bills || []) {
-          const invRef = doc(db, "invoices", bill.id)
-          const totalAmount = bill.totalAmount || 0
-          const paidAmount = bill.amountPaid || 0
-          const debt = totalAmount - paidAmount
+        if (isSystemBackup) {
+          // --- 1. System Backup Import Logic ---
           
-          if (debt > 0 && bill.clientId && bill.clientId !== 'walk-in') {
-            customerDebtAcc[bill.clientId] = (customerDebtAcc[bill.clientId] || 0) + debt
+          // Import Categories
+          for (const cat of data.categories || []) {
+            setDocumentNonBlocking(doc(db, "categories", cat.id), { ...cat, updatedAt: serverTimestamp() }, { merge: true })
           }
 
-          setDocumentNonBlocking(invRef, {
-            customerId: bill.clientId || "walk-in",
-            customerName: bill.clientName || "عميل عام",
-            totalAmount: totalAmount,
-            paidAmount: paidAmount,
-            status: bill.paymentStatus === "paid" ? "Paid" : "Debt",
-            createdAt: bill.date ? new Date(bill.date) : serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            generatedByUserId: user.uid
-          }, { merge: true })
+          // Import Products
+          for (const prod of data.products || []) {
+            setDocumentNonBlocking(doc(db, "products", prod.id), { ...prod, updatedAt: serverTimestamp() }, { merge: true })
+          }
 
-          // Import Invoice Items
-          const itemsRef = collection(db, "invoices", bill.id, "items")
-          for (const item of bill.items || []) {
-            const itemDocRef = doc(itemsRef)
-            setDocumentNonBlocking(itemDocRef, {
-              productId: item.itemId,
-              productName: item.itemName,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              itemTotal: item.totalPrice,
+          // Import Customers
+          for (const cust of data.customers || []) {
+            setDocumentNonBlocking(doc(db, "customers", cust.id), { ...cust, updatedAt: serverTimestamp() }, { merge: true })
+          }
+
+          // Import Invoices and their Items
+          for (const inv of data.invoices || []) {
+            const { items, ...invData } = inv;
+            setDocumentNonBlocking(doc(db, "invoices", inv.id), { ...invData, updatedAt: serverTimestamp() }, { merge: true })
+            
+            // Sub-collection items
+            if (items && Array.isArray(items)) {
+              for (const item of items) {
+                setDocumentNonBlocking(doc(db, "invoices", inv.id, "items", item.id), { ...item, createdAt: serverTimestamp() }, { merge: true })
+              }
+            }
+          }
+
+          // Import Staff Roles
+          for (const role of data.user_roles || []) {
+             setDocumentNonBlocking(doc(db, "user_roles", role.id), { ...role, updatedAt: serverTimestamp() }, { merge: true })
+          }
+
+        } else {
+          // --- 2. Legacy Format Import Logic (Fallback) ---
+          
+          // Import Clients (Customers)
+          for (const client of data.clients || []) {
+            setDocumentNonBlocking(doc(db, "customers", client.id), {
+              name: client.name,
+              phone: client.phone || "",
+              debt: 0,
               createdAt: serverTimestamp(),
-              generatedByUserId: user.uid,
-              invoiceId: bill.id
+              updatedAt: serverTimestamp(),
+              imported: true
             }, { merge: true })
           }
+
+          // Extract Categories from legacy inventory
+          const categoriesMap = new Map()
+          const uniqueCatNames = Array.from(new Set((data.inventory || []).map((i: any) => i.category)))
+          for (const catName of uniqueCatNames) {
+            const catId = `cat-${Math.random().toString(36).substring(7)}`
+            const catRef = doc(db, "categories", catId)
+            setDocumentNonBlocking(catRef, {
+              name: catName, parentId: null, level: 0, path: catName, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+            }, { merge: true })
+            categoriesMap.set(catName, { id: catId, name: catName })
+          }
+
+          // Import Legacy Inventory
+          for (const item of data.inventory || []) {
+            const catInfo = categoriesMap.get(item.category) || { id: "unknown", name: "عام" }
+            setDocumentNonBlocking(doc(db, "products", item.id), {
+              name: item.name,
+              productCode: item.qrCode || item.id,
+              imageUrl: item.imageUrl || "",
+              categoryId: catInfo.id,
+              categoryName: catInfo.name,
+              categoryPath: catInfo.name,
+              quantity: item.quantity || 0,
+              purchasePrice: item.originalPrice || 0,
+              salePrice: item.sellingPrice || 0,
+              repairPrice: 0,
+              minStockQuantity: item.lowStockThreshold || 1,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              createdByUserId: user.uid
+            }, { merge: true })
+          }
+
+          // Import Legacy Bills
+          for (const bill of data.bills || []) {
+            const invRef = doc(db, "invoices", bill.id)
+            const totalAmount = bill.totalAmount || 0
+            const paidAmount = bill.amountPaid || 0
+            const debt = totalAmount - paidAmount
+            if (debt > 0 && bill.clientId && bill.clientId !== 'walk-in') {
+              customerDebtAcc[bill.clientId] = (customerDebtAcc[bill.clientId] || 0) + debt
+            }
+
+            setDocumentNonBlocking(invRef, {
+              customerId: bill.clientId || "walk-in",
+              customerName: bill.clientName || "عميل عام",
+              totalAmount: totalAmount,
+              paidAmount: paidAmount,
+              status: bill.paymentStatus === "paid" ? "Paid" : "Debt",
+              createdAt: bill.date ? new Date(bill.date) : serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              generatedByUserId: user.uid
+            }, { merge: true })
+
+            // Items
+            if (bill.items) {
+              for (const item of bill.items) {
+                const itemDocRef = doc(collection(db, "invoices", bill.id, "items"))
+                setDocumentNonBlocking(itemDocRef, {
+                  productId: item.itemId, productName: item.itemName, quantity: item.quantity,
+                  unitPrice: item.unitPrice, itemTotal: item.totalPrice, createdAt: serverTimestamp(),
+                  generatedByUserId: user.uid, invoiceId: bill.id
+                }, { merge: true })
+              }
+            }
+          }
+
+          // Update Debts
+          for (const [cid, totalDebt] of Object.entries(customerDebtAcc)) {
+             updateDocumentNonBlocking(doc(db, "customers", cid), { debt: totalDebt, updatedAt: serverTimestamp() })
+          }
         }
 
-        // 5. Update Customer Debt Fields
-        for (const [cid, totalDebt] of Object.entries(customerDebtAcc)) {
-           updateDocumentNonBlocking(doc(db, "customers", cid), {
-             debt: totalDebt,
-             updatedAt: serverTimestamp()
-           })
-        }
-
-        // 6. Import Service Requests (Repairs)
-        for (const sr of data.serviceRequests || []) {
-          setDocumentNonBlocking(doc(db, "repairs", sr.id), {
-            clientName: sr.clientName,
-            phoneType: sr.phoneType || "",
-            status: sr.status || "Pending",
-            finalCost: sr.finalCost || sr.estimatedCost || 0,
-            receivedDate: sr.receivedDate ? new Date(sr.receivedDate) : serverTimestamp(),
-            problemDescription: sr.problemDescription || "",
-            imported: true
-          }, { merge: true })
-        }
-
-        toast({ title: "اكتمل الاستيراد الشامل", description: "تم دمج البيانات القديمة وحساب الديون بنجاح" })
+        toast({ title: "اكتمل الاستيراد", description: "تمت معالجة الملف وتحديث قاعدة البيانات بنجاح" })
       } catch (err) {
         console.error(err)
         toast({ variant: "destructive", title: "خطأ في الاستيراد", description: "تنسيق الملف غير مدعوم أو تالف" })
@@ -319,7 +340,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
                <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-                  يُنصح بتصدير نسخة احتياطية بشكل أسبوعي لضمان سلامة بياناتك.
+                  يُنصح بتصدير نسخة احتياطية بشكل أسبوعي لضمان سلامة بياناتك. النسخة المصدّرة أصبحت الآن أسرع في المعالجة.
                </p>
                <Button 
                 onClick={handleExport} 
@@ -327,7 +348,7 @@ export default function SettingsPage() {
                 className="w-full h-12 md:h-14 rounded-2xl bg-primary text-white font-black shadow-xl gap-3 text-sm"
                >
                   {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                  بدء التصدير الشامل
+                  بدء التصدير السريع
                </Button>
             </CardContent>
          </Card>
@@ -348,10 +369,10 @@ export default function SettingsPage() {
                <div className="p-3 md:p-4 bg-orange-500/5 border border-orange-500/10 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-600 shrink-0 mt-0.5" />
                   <p className="text-[9px] md:text-[10px] text-orange-800 font-bold leading-relaxed">
-                     سيقوم النظام بمطابقة بياناتك السابقة وحساب ديون الزبائن بناءً على الفواتير المرفقة.
+                     تم إصلاح مشكلة ظهور البيانات؛ البرنامج يدعم الآن استيراد الملفات المصدرة من هذا النظام مباشرة.
                   </p>
                </div>
-               <input type="file" ref={fileInputRef} onChange={handleImportLegacy} accept=".json" className="hidden" />
+               <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
                <Button 
                 onClick={() => fileInputRef.current?.click()} 
                 disabled={isImporting}
@@ -359,7 +380,7 @@ export default function SettingsPage() {
                 className="w-full h-12 md:h-14 rounded-2xl glass border-white/20 font-black gap-3 text-accent text-sm"
                >
                   {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  رفع واستيراد البيانات
+                  رفع واستعادة البيانات
                </Button>
             </CardContent>
          </Card>
@@ -417,8 +438,8 @@ export default function SettingsPage() {
       <Dialog open={showWipeDialog} onOpenChange={setShowWipeDialog}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl z-[400] max-w-md w-[95%]">
            <DialogHeader>
-              <DialogTitle className="text-xl font-black text-red-600 flex items-center gap-2">
-                 <AlertTriangle className="h-6 w-6" /> تأكيد مسح البيانات
+              <DialogTitle className="text-xl font-black text-gradient-premium flex items-center gap-2">
+                 <AlertTriangle className="h-6 w-6 text-red-600" /> تأكيد مسح البيانات
               </DialogTitle>
               <DialogDescription className="font-bold text-xs text-muted-foreground mt-2">
                  هذا الإجراء سيقوم بحذف كافة المنتجات، الفواتير، والعملاء بشكل نهائي ولا يمكن التراجع عنه.
