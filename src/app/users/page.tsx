@@ -81,13 +81,13 @@ export default function UsersManagementPage() {
   }
 
   const handleDeleteRole = (staffMember: any) => {
-    if (staffMember.userId === currentUser?.uid) {
+    if (staffMember.userId === currentUser?.uid || staffMember.id === currentUser?.uid) {
       toast({ title: "تنبيه", description: "لا يمكنك حذف صلاحياتك الخاصة", variant: "destructive" })
       return
     }
 
-    if (confirm(`هل أنت متأكد من سحب صلاحيات ${staffMember.username}؟ لن يتمكن من دخول النظام.`)) {
-      deleteDocumentNonBlocking(doc(db, "user_roles", staffMember.userId))
+    if (confirm(`هل أنت متأكد من سحب صلاحيات ${staffMember.username || 'هذا المستخدم'}؟ لن يتمكن من دخول النظام.`)) {
+      deleteDocumentNonBlocking(doc(db, "user_roles", staffMember.id))
       toast({ title: "تم الحذف", description: "تمت إزالة صلاحيات المستخدم بنجاح" })
     }
   }
@@ -124,18 +124,18 @@ export default function UsersManagementPage() {
                     {member.role === 'Admin' ? <ShieldCheck className="h-6 w-6" /> : <UserCog className="h-6 w-6" />}
                   </div>
                   <div>
-                    <h3 className="font-black text-lg leading-none">{member.username}</h3>
+                    <h3 className="font-black text-lg leading-none">{member.username || "بدون اسم"}</h3>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant={member.role === 'Admin' ? 'default' : 'secondary'} className="rounded-lg text-[9px] px-2 font-black uppercase">
                         {member.role === 'Admin' ? 'مدير نظام' : 'موظف مبيعات'}
                       </Badge>
-                      <span className="text-[10px] text-muted-foreground font-mono">UID: {member.userId.slice(0, 12)}...</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">UID: {(member.userId || member.id || "").slice(0, 12)}...</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                   {member.userId !== currentUser?.uid && (
+                   {(member.userId !== currentUser?.uid && member.id !== currentUser?.uid) && (
                      <Button 
                       variant="ghost" 
                       size="icon" 
