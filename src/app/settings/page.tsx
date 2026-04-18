@@ -14,7 +14,9 @@ import {
   CheckCircle2,
   Trash2,
   Lock,
-  X
+  X,
+  RefreshCw,
+  Calculator
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,7 +30,7 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog"
-import { useFirestore, useUser, setDocumentNonBlocking, useAuth } from "@/firebase"
+import { useFirestore, useUser, setDocumentNonBlocking, useAuth, updateDocumentNonBlocking } from "@/firebase"
 import { collection, getDocs, doc, serverTimestamp, writeBatch, deleteDoc } from "firebase/firestore"
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
@@ -42,6 +44,7 @@ export default function SettingsPage() {
   const [isExporting, setIsExporting] = React.useState(false)
   const [isImporting, setIsImporting] = React.useState(false)
   const [isWiping, setIsWiping] = React.useState(false)
+  const [isResyncing, setIsResyncing] = React.useState(false)
   const [showWipeDialog, setShowWipeDialog] = React.useState(false)
   const [password, setPassword] = React.useState("")
   
@@ -109,6 +112,40 @@ export default function SettingsPage() {
     }
   }
 
+  const handleResyncDebts = async () => {
+    setIsResyncing(true)
+    try {
+      const invoicesSnap = await getDocs(collection(db, "invoices"))
+      const customersSnap = await getDocs(collection(db, "customers"))
+      
+      const debtMap: Record<string, number> = {}
+      
+      invoicesSnap.docs.forEach(d => {
+        const inv = d.data()
+        if (inv.customerId && inv.customerId !== 'walk-in') {
+          const unpaid = (inv.totalAmount || 0) - (inv.paidAmount || 0)
+          if (unpaid > 0) {
+            debtMap[inv.customerId] = (debtMap[inv.customerId] || 0) + unpaid
+          }
+        }
+      })
+      
+      const batch = writeBatch(db)
+      customersSnap.docs.forEach(d => {
+        const currentDebt = debtMap[d.id] || 0
+        batch.update(d.ref, { debt: currentDebt, updatedAt: serverTimestamp() })
+      })
+      
+      await batch.commit()
+      toast({ title: "اكتملت المزامنة", description: "تمت إعادة حساب مديونيات كافة الزبائن بناءً على سجل الفواتير" })
+    } catch (err) {
+      console.error(err)
+      toast({ variant: "destructive", title: "خطأ", description: "فشلت عملية إعادة المزامنة" })
+    } finally {
+      setIsResyncing(false)
+    }
+  }
+
   const handleImportLegacy = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
@@ -118,13 +155,14 @@ export default function SettingsPage() {
     reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target?.result as string)
+        const customerDebtAcc: Record<string, number> = {}
         
         // 1. Import Clients (Customers)
         for (const client of data.clients || []) {
           setDocumentNonBlocking(doc(db, "customers", client.id), {
             name: client.name,
             phone: client.phone || "",
-            debt: 0,
+            debt: 0, // Initialized to 0, will be updated after bills loop
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             imported: true
@@ -170,14 +208,22 @@ export default function SettingsPage() {
           }, { merge: true })
         }
 
-        // 4. Import Bills (Invoices)
+        // 4. Import Bills (Invoices) and Calculate Debt
         for (const bill of data.bills || []) {
           const invRef = doc(db, "invoices", bill.id)
+          const totalAmount = bill.totalAmount || 0
+          const paidAmount = bill.amountPaid || 0
+          const debt = totalAmount - paidAmount
+          
+          if (debt > 0 && bill.clientId && bill.clientId !== 'walk-in') {
+            customerDebtAcc[bill.clientId] = (customerDebtAcc[bill.clientId] || 0) + debt
+          }
+
           setDocumentNonBlocking(invRef, {
             customerId: bill.clientId || "walk-in",
             customerName: bill.clientName || "عميل عام",
-            totalAmount: bill.totalAmount || 0,
-            paidAmount: bill.amountPaid || 0,
+            totalAmount: totalAmount,
+            paidAmount: paidAmount,
             status: bill.paymentStatus === "paid" ? "Paid" : "Debt",
             createdAt: bill.date ? new Date(bill.date) : serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -201,7 +247,15 @@ export default function SettingsPage() {
           }
         }
 
-        // 5. Import Service Requests (Repairs)
+        // 5. Update Customer Debt Fields
+        for (const [cid, totalDebt] of Object.entries(customerDebtAcc)) {
+           updateDocumentNonBlocking(doc(db, "customers", cid), {
+             debt: totalDebt,
+             updatedAt: serverTimestamp()
+           })
+        }
+
+        // 6. Import Service Requests (Repairs)
         for (const sr of data.serviceRequests || []) {
           setDocumentNonBlocking(doc(db, "repairs", sr.id), {
             clientName: sr.clientName,
@@ -214,7 +268,7 @@ export default function SettingsPage() {
           }, { merge: true })
         }
 
-        toast({ title: "اكتمل الاستيراد الشامل", description: "تم دمج البيانات القديمة بنجاح في النظام الجديد" })
+        toast({ title: "اكتمل الاستيراد الشامل", description: "تم دمج البيانات القديمة وحساب الديون بنجاح" })
       } catch (err) {
         console.error(err)
         toast({ variant: "destructive", title: "خطأ في الاستيراد", description: "تنسيق الملف غير مدعوم أو تالف" })
@@ -281,7 +335,7 @@ export default function SettingsPage() {
                <div className="p-3 md:p-4 bg-orange-500/5 border border-orange-500/10 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-600 shrink-0 mt-0.5" />
                   <p className="text-[9px] md:text-[10px] text-orange-800 font-bold leading-relaxed">
-                     سيقوم النظام بمطابقة بياناتك السابقة. تأكد من أن الملف بصيغة .json الصحيحة.
+                     سيقوم النظام بمطابقة بياناتك السابقة وحساب ديون الزبائن بناءً على الفواتير المرفقة.
                   </p>
                </div>
                <input type="file" ref={fileInputRef} onChange={handleImportLegacy} accept=".json" className="hidden" />
@@ -297,29 +351,52 @@ export default function SettingsPage() {
             </CardContent>
          </Card>
 
-         <Card className="md:col-span-2 border-none bg-gradient-to-br from-[#3960AC] to-[#2a4580] text-white rounded-[2.5rem] md:rounded-[3rem] p-2 md:p-4">
-            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-               <div className="space-y-3 md:space-y-4 text-center md:text-right">
-                  <div className="flex items-center justify-center md:justify-start gap-3">
-                     <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 text-emerald-400" />
-                     <h2 className="text-xl md:text-2xl font-black">حماية البيانات والخصوصية</h2>
+         <Card className="border-none glass-premium rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 bg-emerald-500/5 border-b border-white/10">
+               <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                     <Calculator className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
-                  <p className="text-xs md:text-sm text-white/70 max-w-2xl leading-relaxed font-medium">
-                     نظام Express Phone Pro مبني على سحابة Google Firebase المشفرة. بياناتك لا تغادر متصفحك إلا إلى خوادم آمنة جداً.
+                  <div>
+                     <CardTitle className="text-lg md:text-xl font-black">أدوات الصيانة</CardTitle>
+                     <CardDescription className="text-[9px] md:text-[10px] font-bold">إصلاح وتدقيق الحسابات</CardDescription>
+                  </div>
+               </div>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
+               <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                  استخدم هذه الأداة إذا لاحظت أن ديون الزبائن لا تتطابق مع سجل فواتيرهم (مفيد بعد الاستيراد اليدوي).
+               </p>
+               <Button 
+                onClick={handleResyncDebts} 
+                disabled={isResyncing}
+                variant="outline"
+                className="w-full h-12 md:h-14 rounded-2xl glass border-white/20 font-black gap-3 text-emerald-600 text-sm"
+               >
+                  {isResyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  إعادة مزامنة ديون الزبائن
+               </Button>
+            </CardContent>
+         </Card>
+
+         <Card className="border-none bg-gradient-to-br from-[#3960AC] to-[#2a4580] text-white rounded-[2.5rem] md:rounded-[3rem] p-2 md:p-4 md:col-span-1">
+            <CardContent className="p-6 md:p-8 flex flex-col items-center justify-center gap-6">
+               <div className="space-y-3 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                     <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 text-emerald-400" />
+                     <h2 className="text-xl md:text-2xl font-black">أمان البيانات</h2>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed font-medium">
+                     نظام Express Phone Pro مبني على سحابة Google Firebase المشفرة. بياناتك آمنة ومحمية.
                   </p>
                </div>
-               <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full md:w-auto">
-                  <Button variant="ghost" className="h-12 md:h-14 px-8 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/10 text-xs md:text-sm">
-                     شروط الاستخدام
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    className="h-12 md:h-14 px-8 rounded-2xl font-black shadow-2xl text-xs md:text-sm"
-                    onClick={() => setShowWipeDialog(true)}
-                  >
-                     مسح شامل للنظام
-                  </Button>
-               </div>
+               <Button 
+                 variant="destructive" 
+                 className="w-full h-12 md:h-14 rounded-2xl font-black shadow-2xl text-xs md:text-sm"
+                 onClick={() => setShowWipeDialog(true)}
+               >
+                  مسح شامل للنظام
+               </Button>
             </CardContent>
          </Card>
       </div>
