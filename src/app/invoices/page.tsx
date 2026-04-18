@@ -326,7 +326,7 @@ export default function InvoicesPage() {
           // Revert old debt
           const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
           if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
-            batch.update(doc(doc(db, "customers", oldData.customerId)), {
+            batch.update(doc(db, "customers", oldData.customerId), {
               debt: increment(-oldDebt)
             });
           }
@@ -390,7 +390,7 @@ export default function InvoicesPage() {
       });
 
       if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
-        batch.update(doc(doc(db, "customers", selectedCustomer.id)), {
+        batch.update(doc(db, "customers", selectedCustomer.id), {
           debt: increment(debtAmount),
           updatedAt: serverTimestamp()
         });
