@@ -111,7 +111,7 @@ export default function InvoicesPage() {
           const invDoc = await getDoc(doc(db, "invoices", editId))
           if (invDoc.exists()) {
             const data = invDoc.data()
-            setSelectedCustomer({ id: data.customerId, name: data.customerName, debt: 0 }) 
+            setSelectedCustomer({ id: data.customerId, name: data.customerName, phone: data.customerPhone || "", debt: 0 }) 
             setDiscount(data.discount || 0)
             setPaidAmount(data.paidAmount)
             
@@ -293,8 +293,8 @@ export default function InvoicesPage() {
 
   const handleProcessInvoice = async () => {
     if (cart.length === 0 || !user) return
-    if (debtAmount > 0 && !selectedCustomer) {
-      toast({ title: "تنبيه", description: "يجب تحديد عميل لتسجيل الدين باسمه", variant: "destructive" })
+    if (debtAmount > 0 && (!selectedCustomer || selectedCustomer.id === 'walk-in')) {
+      toast({ title: "تنبيه", description: "يجب تحديد عميل مسجل لتسجيل الدين باسمه", variant: "destructive" })
       return
     }
 
@@ -318,6 +318,10 @@ export default function InvoicesPage() {
     const batch = writeBatch(db);
 
     try {
+      const currentInvoiceId = editId || pendingId;
+      const targetDocRef = doc(db, "invoices", currentInvoiceId);
+
+      // Handle Revert logic for Editing
       if (editId) {
         const oldInvSnap = await getDoc(doc(db, "invoices", editId));
         if (oldInvSnap.exists()) {
@@ -331,7 +335,7 @@ export default function InvoicesPage() {
             });
           }
 
-          // Revert old items and delete them
+          // Revert old items
           const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
           for (const d of oldItemsSnap.docs) {
             const item = d.data();
@@ -344,9 +348,6 @@ export default function InvoicesPage() {
           }
         }
       }
-
-      const currentInvoiceId = editId || pendingId;
-      const targetDocRef = doc(db, "invoices", currentInvoiceId);
 
       const invoiceData: any = {
         customerId: selectedCustomer?.id || "walk-in",
@@ -396,11 +397,16 @@ export default function InvoicesPage() {
         });
       }
 
-      await batch.commit();
+      // OFFLINE-READY COMMIT: Don't await server confirmation for UI transition
+      batch.commit().catch(e => {
+        console.error("Batch Sync Error:", e);
+        toast({ title: "خطأ في المزامنة", description: "تم الحفظ محلياً وسيتزامن عند توفر الإنترنت", variant: "destructive" });
+      });
 
-      toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: `رقم العملية: ${targetDocRef.id.slice(0, 8)}` })
+      toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: "تمت العملية بنجاح (وضع أوفلاين نشط)" })
       handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
 
+      // Immediate UI reset
       setCart([])
       setOriginalCart([])
       setSelectedCustomer(null)
@@ -411,7 +417,7 @@ export default function InvoicesPage() {
       if (editId) router.push('/invoices/history')
     } catch (error) {
       console.error("Save Error:", error);
-      toast({ title: "خطأ", description: "حدث خطأ أثناء معالجة البيانات، يرجى المحاولة لاحقاً", variant: "destructive" })
+      toast({ title: "خطأ", description: "فشل تنفيذ العملية، يرجى المحاولة لاحقاً", variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }

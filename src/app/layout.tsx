@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from "@/firebase/client-provider"
 import { AuthGate } from "@/components/auth-gate"
 import { NavigationDock } from "@/components/layout/navigation-dock"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AutoBackup } from "@/components/auto-backup"
 
 export const metadata: Metadata = {
   title: 'Express Phone Pro | نظام الإدارة المتكامل',
@@ -53,6 +54,7 @@ export default function RootLayout({
             <AuthGate>
               {children}
               <NavigationDock />
+              <AutoBackup />
             </AuthGate>
           </ThemeProvider>
         </FirebaseClientProvider>

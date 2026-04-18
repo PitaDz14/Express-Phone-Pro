@@ -8,6 +8,7 @@ import {
   getFirestore,
   initializeFirestore, 
   enableMultiTabIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED
 } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -48,12 +49,13 @@ export function initializeFirebase() {
 export function getSdks(firebaseApp: FirebaseApp) {
   let firestore;
   try {
-    // Attempt to retrieve the existing firestore instance to avoid "already initialized" errors
+    // Attempt to retrieve the existing firestore instance
     firestore = getFirestore(firebaseApp);
   } catch (e) {
-    // If not initialized yet, initialize with specific settings for stable connectivity
+    // If not initialized yet, initialize with specific settings for stable connectivity and robust offline
     firestore = initializeFirestore(firebaseApp, {
       experimentalForceLongPolling: true,
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED
     });
   }
 
