@@ -31,7 +31,10 @@ import {
   Layers,
   ChevronLeft,
   FileDown,
-  Download
+  Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -226,6 +229,7 @@ export default function Dashboard() {
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   const [isLowStockOpen, setIsLowStockOpen] = React.useState(false)
   const [lowStockFilter, setLowStockFilter] = React.useState("all")
+  const [lowStockSortConfig, setLowStockSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'quantity', direction: 'asc' })
 
   // Full Add Product States
   const [qaName, setQaName] = React.useState("")
@@ -257,8 +261,27 @@ export default function Dashboard() {
     if (lowStockFilter && lowStockFilter !== "all") {
       filtered = filtered.filter(p => p.categoryId === lowStockFilter);
     }
+    
+    // Sort logic
+    if (lowStockSortConfig.key) {
+      filtered.sort((a, b) => {
+        let valA = a[lowStockSortConfig.key];
+        let valB = b[lowStockSortConfig.key];
+        
+        if (typeof valA === 'number' && typeof valB === 'number') {
+           return lowStockSortConfig.direction === 'asc' ? valA - valB : valB - valA;
+        }
+        
+        valA = String(valA || "").toLowerCase();
+        valB = String(valB || "").toLowerCase();
+        if (valA < valB) return lowStockSortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return lowStockSortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
     return filtered;
-  }, [products, lowStockFilter, isMounted]);
+  }, [products, lowStockFilter, lowStockSortConfig, isMounted]);
 
   const stats = React.useMemo(() => {
     if (!isMounted || !products) return {
@@ -429,6 +452,20 @@ export default function Dashboard() {
           </React.Fragment>
         )
       })
+  }
+
+  const handleLowStockSort = (key: string) => {
+    setLowStockSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const LowStockSortIcon = ({ column }: { column: string }) => {
+    if (lowStockSortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (lowStockSortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (lowStockSortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
   }
 
   if (!isMounted) return null;
@@ -629,7 +666,7 @@ export default function Dashboard() {
                 ) : recentInvoices?.map((inv, idx) => (
                   <div key={inv.id} className="p-4 md:p-6 flex items-center justify-between hover:bg-white/30 transition-all">
                     <div className="flex items-center gap-3 md:gap-4">
-                      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary overflow-hidden">
+                      <div className="h-8 h-8 md:h-10 md:w-10 rounded-xl bg-card border border-white/10 flex items-center justify-center text-primary overflow-hidden">
                         <ShoppingBag className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
                       <div className="flex flex-col overflow-hidden">
@@ -703,9 +740,15 @@ export default function Dashboard() {
                  <Table>
                     <TableHeader>
                        <TableRow className="border-white/10">
-                          <TableHead className="font-black text-foreground text-right">المنتج</TableHead>
-                          <TableHead className="font-black text-foreground text-center">التصنيف</TableHead>
-                          <TableHead className="font-black text-foreground text-center">المتوفر</TableHead>
+                          <TableHead className="font-black text-foreground text-right cursor-pointer group" onClick={() => handleLowStockSort('name')}>
+                             <div className="flex items-center gap-2">المنتج <LowStockSortIcon column="name" /></div>
+                          </TableHead>
+                          <TableHead className="font-black text-foreground text-center cursor-pointer group" onClick={() => handleLowStockSort('categoryName')}>
+                             <div className="flex items-center justify-center gap-2">التصنيف <LowStockSortIcon column="categoryName" /></div>
+                          </TableHead>
+                          <TableHead className="font-black text-foreground text-center cursor-pointer group" onClick={() => handleLowStockSort('quantity')}>
+                             <div className="flex items-center justify-center gap-2">المتوفر <LowStockSortIcon column="quantity" /></div>
+                          </TableHead>
                           <TableHead className="font-black text-foreground text-left">الحالة</TableHead>
                        </TableRow>
                     </TableHeader>
