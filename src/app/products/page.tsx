@@ -21,12 +21,15 @@ import {
   Link as LinkIcon,
   Upload,
   Maximize2,
-  Layers
+  Layers,
+  Filter,
+  Check
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -49,6 +52,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
@@ -134,6 +142,7 @@ export default function ProductsPage() {
   const [printingProduct, setPrintingProduct] = React.useState<any>(null)
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'name', direction: 'asc' })
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([])
 
   const [productName, setProductName] = React.useState("")
   const [productCode, setProductCode] = React.useState("")
@@ -172,11 +181,15 @@ export default function ProductsPage() {
   const sortedProducts = React.useMemo(() => {
     if (!products) return [];
     const term = searchTerm.toLowerCase()
-    let items = products.filter(p => 
-      p.name.toLowerCase().includes(term) || 
-      (p.productCode && p.productCode.toLowerCase().includes(term)) ||
-      (p.categoryPath && p.categoryPath.toLowerCase().includes(term))
-    );
+    let items = products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(term) || 
+        (p.productCode && p.productCode.toLowerCase().includes(term)) ||
+        (p.categoryPath && p.categoryPath.toLowerCase().includes(term));
+      
+      const matchesCategory = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(p.categoryId);
+      
+      return matchesSearch && matchesCategory;
+    });
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
@@ -188,7 +201,7 @@ export default function ProductsPage() {
       });
     }
     return items;
-  }, [products, searchTerm, sortConfig]);
+  }, [products, searchTerm, sortConfig, selectedCategoryIds]);
 
   const getFullCategoryPath = (catId: string, allCats: any[]): string => {
     const cat = allCats.find(c => c.id === catId);
@@ -329,6 +342,12 @@ export default function ProductsPage() {
       })
   }
 
+  const toggleCategorySelection = (catId: string) => {
+    setSelectedCategoryIds(prev => 
+      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+    )
+  }
+
   const SortIcon = ({ column }: { column: string }) => {
     if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
     if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
@@ -355,8 +374,8 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 group">
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="relative flex-1 group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="بحث عن منتج..." 
@@ -365,6 +384,50 @@ export default function ProductsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-12 md:h-14 px-6 rounded-2xl glass border-white/20 gap-2 font-black relative">
+              <Filter className="h-5 w-5" /> 
+              <span>تصفية التصنيفات</span>
+              {selectedCategoryIds.length > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center bg-primary text-white">
+                  {selectedCategoryIds.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 glass border-none rounded-[1.5rem] shadow-2xl p-4 z-[250]" dir="rtl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="font-black text-xs text-primary uppercase">اختر التصنيفات</p>
+                {selectedCategoryIds.length > 0 && (
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] font-bold text-destructive" onClick={() => setSelectedCategoryIds([])}>
+                    مسح الكل
+                  </Button>
+                )}
+              </div>
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {categories?.map((cat: any) => (
+                  <div key={cat.id} className="flex items-center space-x-3 space-x-reverse group cursor-pointer" onClick={() => toggleCategorySelection(cat.id)}>
+                    <Checkbox 
+                      checked={selectedCategoryIds.includes(cat.id)}
+                      onCheckedChange={() => toggleCategorySelection(cat.id)}
+                      className="rounded-md h-5 w-5"
+                    />
+                    <Label className="text-sm font-bold cursor-pointer group-hover:text-primary transition-colors">
+                      {cat.name}
+                      <span className="text-[10px] text-muted-foreground block font-medium">{cat.path}</span>
+                    </Label>
+                  </div>
+                ))}
+                {(!categories || categories.length === 0) && (
+                  <p className="text-center py-4 text-xs font-bold opacity-30">لا توجد تصنيفات</p>
+                )}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <Card className="border-none glass rounded-[2rem] overflow-hidden shadow-xl">
@@ -392,7 +455,11 @@ export default function ProductsPage() {
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : sortedProducts.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 opacity-30 italic font-black">لا توجد منتجات مسجلة</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-20 opacity-30 italic font-black">
+                    {selectedCategoryIds.length > 0 ? "لا توجد منتجات تطابق هذه الفلاتر" : "لا توجد منتجات مسجلة"}
+                  </TableCell>
+                </TableRow>
               ) : sortedProducts.map((p) => (
                 <ProductRow 
                   key={p.id} p={p} 

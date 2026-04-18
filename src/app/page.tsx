@@ -29,7 +29,9 @@ import {
   Settings,
   Upload,
   Layers,
-  ChevronLeft
+  ChevronLeft,
+  FileDown,
+  Download
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -57,6 +59,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -67,8 +77,14 @@ import { useRouter } from "next/navigation"
 
 // --- Components ---
 
-const StatCard = ({ title, value, icon: Icon, color, subValue }: any) => (
-  <Card className="border-none glass rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02] group">
+const StatCard = ({ title, value, icon: Icon, color, subValue, onClick }: any) => (
+  <Card 
+    className={cn(
+      "border-none glass rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02] group",
+      onClick && "cursor-pointer active:scale-95"
+    )}
+    onClick={onClick}
+  >
     <CardContent className="p-6 flex items-center gap-4">
       <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-12", color)}>
         <Icon className="h-6 w-6" />
@@ -208,6 +224,8 @@ export default function Dashboard() {
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
+  const [isLowStockOpen, setIsLowStockOpen] = React.useState(false)
+  const [lowStockFilter, setLowStockFilter] = React.useState("all")
 
   // Full Add Product States
   const [qaName, setQaName] = React.useState("")
@@ -232,6 +250,15 @@ export default function Dashboard() {
   
   const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
+
+  const lowStockItems = React.useMemo(() => {
+    if (!products) return [];
+    let filtered = products.filter(p => p.quantity <= (p.minStockQuantity || 1));
+    if (lowStockFilter !== "all") {
+      filtered = filtered.filter(p => p.categoryId === lowStockFilter);
+    }
+    return filtered;
+  }, [products, lowStockFilter]);
 
   const stats = React.useMemo(() => {
     if (!isMounted) return {
@@ -321,7 +348,6 @@ export default function Dashboard() {
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
       resetQaForm()
-      // Note: we don't necessarily close it in quick edit if adding multiple
     } catch (e) {
       console.error(e)
     } finally {
@@ -360,6 +386,35 @@ export default function Dashboard() {
     }
   }
 
+  const exportLowStock = (format: 'csv' | 'txt') => {
+    if (lowStockItems.length === 0) return;
+    
+    let content = "";
+    const date = new Date().toLocaleDateString('ar-DZ');
+
+    if (format === 'csv') {
+      const headers = ["المنتج", "التصنيف", "الكمية الحالية", "الحد الأدنى"];
+      content = headers.join(",") + "\n";
+      content += lowStockItems.map(p => 
+        `"${p.name}","${p.categoryPath || p.categoryName}","${p.quantity}","${p.minStockQuantity}"`
+      ).join("\n");
+    } else {
+      content = `قائمة نواقص المخزن - ${date}\n`;
+      content += `====================================\n\n`;
+      content += lowStockItems.map(p => 
+        `- ${p.name} (${p.categoryName})\n  الكمية: ${p.quantity} (الحد: ${p.minStockQuantity})`
+      ).join("\n\n");
+    }
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `نواقص_المخزن_${date}.${format === 'csv' ? 'csv' : 'txt'}`;
+    link.click();
+    toast({ title: "تم التصدير", description: "تم تحميل القائمة بنجاح" });
+  };
+
   const renderCategoryOptions = (cats: any[], parentId: string | null = null, depth = 0, currentPath = "") => {
     return cats
       .filter(c => c.parentId === parentId)
@@ -389,7 +444,7 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row h-auto md:h-20 shrink-0 items-center justify-between p-4 md:px-10 glass sticky top-0 z-50 gap-4">
         <div className="flex w-full md:w-auto items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0 text-primary">
+            <div className="h-10 h-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-white flex items-center justify-center shadow-lg rotate-3 border border-primary/10 transition-transform group-hover:rotate-0 text-primary">
                <Smartphone className="h-6 w-6" />
             </div>
             <div className="flex flex-col">
@@ -502,7 +557,7 @@ export default function Dashboard() {
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           <StatCard title="مبيعات اليوم" value={`${stats.todaySales.toLocaleString()} دج`} icon={TrendingUp} color="bg-emerald-500" />
           <StatCard title="إجمالي المنتجات" value={stats.productCount} icon={Package} color="bg-primary" />
-          <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" />
+          <StatCard title="مخزون منخفض" value={stats.lowStock} icon={AlertTriangle} color="bg-orange-500" onClick={() => setIsLowStockOpen(true)} />
           <StatCard title="إجمالي الديون" value={`${stats.totalDebt.toLocaleString()} دج`} icon={Wallet} color="bg-red-500" />
         </section>
 
@@ -514,7 +569,7 @@ export default function Dashboard() {
                     <Smartphone className="h-48 w-48 rotate-12" />
                 </div>
                 <CardHeader className="p-6 md:p-8 relative z-10">
-                   <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-3 mb-2">
                       <div className="h-7 w-7 md:h-8 md:w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
                          <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
                       </div>
@@ -597,7 +652,90 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Quick Edit Dialog Improvements */}
+      {/* Low Stock Dialog */}
+      <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh] z-[300]">
+           <DialogHeader className="p-6 md:p-8 border-b border-white/5 bg-orange-500/5 shrink-0">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-lg">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div className="flex flex-col">
+                    <DialogTitle className="text-lg md:text-xl font-black">نواقص المخزن</DialogTitle>
+                    <p className="text-[10px] font-bold text-muted-foreground">قائمة السلع المطلوب توريدها عاجلاً</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                   <Button onClick={() => exportLowStock('csv')} size="sm" variant="outline" className="rounded-xl gap-2 font-bold h-10">
+                     <FileDown className="h-4 w-4" /> <span className="hidden sm:inline">Excel</span>
+                   </Button>
+                   <Button onClick={() => exportLowStock('txt')} size="sm" variant="outline" className="rounded-xl gap-2 font-bold h-10">
+                     <Download className="h-4 w-4" /> <span className="hidden sm:inline">نص (TXT)</span>
+                   </Button>
+                </div>
+              </div>
+           </DialogHeader>
+
+           <div className="p-4 md:p-6 bg-white/5 border-b border-white/5 flex items-center gap-4">
+              <div className="flex-1">
+                 <Label className="text-[10px] font-black text-primary uppercase mr-1">تصفية حسب التصنيف</Label>
+                 <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
+                    <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right">
+                       <SelectValue placeholder="الكل" />
+                    </SelectTrigger>
+                    <SelectContent className="glass border-none rounded-xl z-[350]">
+                       <SelectItem value="all">كل الأقسام</SelectItem>
+                       {categories?.map((cat: any) => (
+                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                       ))}
+                    </SelectContent>
+                 </Select>
+              </div>
+              <div className="flex flex-col items-end">
+                 <span className="text-[10px] font-black text-muted-foreground uppercase">إجمالي العناصر</span>
+                 <span className="text-xl font-black tabular-nums">{lowStockItems.length}</span>
+              </div>
+           </div>
+
+           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+              <div className="table-container">
+                 <Table>
+                    <TableHeader>
+                       <TableRow className="border-white/10">
+                          <TableHead className="font-black text-foreground text-right">المنتج</TableHead>
+                          <TableHead className="font-black text-foreground text-center">التصنيف</TableHead>
+                          <TableHead className="font-black text-foreground text-center">المتوفر</TableHead>
+                          <TableHead className="font-black text-foreground text-left">الحالة</TableHead>
+                       </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                       {lowStockItems.length === 0 ? (
+                         <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-30 italic font-black">لا توجد نواقص في هذا القسم</TableCell></TableRow>
+                       ) : lowStockItems.map(p => (
+                         <TableRow key={p.id} className="border-white/5">
+                            <TableCell className="font-bold text-xs">{p.name}</TableCell>
+                            <TableCell className="text-center text-[10px] text-muted-foreground font-bold">{p.categoryName}</TableCell>
+                            <TableCell className="text-center font-black tabular-nums text-red-600">{p.quantity}</TableCell>
+                            <TableCell className="text-left">
+                               <Badge variant={p.quantity === 0 ? "destructive" : "warning"} className="rounded-lg text-[9px]">
+                                  {p.quantity === 0 ? "نافد" : "منخفض"}
+                               </Badge>
+                            </TableCell>
+                         </TableRow>
+                       ))}
+                    </TableBody>
+                 </Table>
+              </div>
+           </div>
+           
+           <div className="p-4 md:p-6 bg-black/5 text-center shrink-0">
+              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق القائمة</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Edit Dialog */}
       <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh] z-[300]">
            <DialogHeader className="p-6 md:p-8 border-b border-white/5 bg-primary/5 shrink-0">
@@ -617,14 +755,14 @@ export default function Dashboard() {
                                <Label className="text-xs font-black">سعر الشراء</Label>
                                <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
                             </div>
-                            <Switch checked={showPurchaseInEdit} onCheckedChange={showPurchaseInEdit => setShowPurchaseInEdit(showPurchaseInEdit)} />
+                            <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
                          </div>
                          <div className="flex items-center justify-between" dir="rtl">
                             <div className="flex flex-col">
                                <Label className="text-xs font-black">سعر التصليح</Label>
                                <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
                             </div>
-                            <Switch checked={showRepairInEdit} onCheckedChange={showRepairInEdit => setShowRepairInEdit(showRepairInEdit)} />
+                            <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
                          </div>
                       </div>
                    </PopoverContent>
@@ -633,7 +771,6 @@ export default function Dashboard() {
            </DialogHeader>
 
            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-              {/* Search at TOP of dialog (Critical for mobile) */}
               <div className="p-4 md:p-6 bg-white/5 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -641,7 +778,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Add Product Section (Refined Grid) */}
               <div className="p-6 md:p-8 border-b border-white/5 bg-primary/5 space-y-4">
                   <div className="flex items-center gap-2">
                     <div className="h-5 w-1 bg-primary rounded-full" />
@@ -691,7 +827,6 @@ export default function Dashboard() {
                   </div>
               </div>
 
-              {/* Items List */}
               <div className="p-4 md:p-8 space-y-4">
                 {quickEditProducts.length === 0 ? (
                   <div className="py-20 text-center opacity-30 italic font-black text-xs">لا توجد نتائج بحث</div>
@@ -707,7 +842,7 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Dedicated Add Product Dialog (Full Version) */}
+      {/* Dedicated Add Product Dialog */}
       <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] md:rounded-[2.5rem] shadow-2xl max-w-2xl z-[310] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
