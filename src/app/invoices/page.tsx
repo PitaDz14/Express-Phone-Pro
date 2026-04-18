@@ -20,7 +20,9 @@ import {
   Info,
   Camera,
   ArrowRight,
-  History
+  History,
+  ShieldCheck,
+  UserCog
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -65,7 +67,8 @@ interface CartItem {
 export default function InvoicesPage() {
   const { toast } = useToast()
   const db = useFirestore()
-  const { user, username } = useUser()
+  const { user, username, role } = useUser()
+  const isAdmin = role === "Admin"
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('editId')
@@ -387,7 +390,7 @@ export default function InvoicesPage() {
       });
 
       if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
-        batch.update(doc(db, "customers", selectedCustomer.id), {
+        batch.update(doc(doc(db, "customers", selectedCustomer.id)), {
           debt: increment(debtAmount),
           updatedAt: serverTimestamp()
         });
@@ -423,25 +426,43 @@ export default function InvoicesPage() {
         <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
         
         <header className="flex h-20 shrink-0 items-center justify-between border-b px-4 md:px-8 glass sticky top-0 z-50">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-0 rotate-3 overflow-hidden">
-               <Smartphone className="h-5 w-5" />
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-0 rotate-3 overflow-hidden">
+                 <Smartphone className="h-5 w-5" />
+              </div>
+              <div className="flex flex-col hidden sm:flex">
+                <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
+                  {editId ? "تعديل فاتورة" : "نقطة بيع EXPRESS"}
+                </h1>
+                <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
+              </div>
+            </Link>
+
+            <div className="h-8 w-px bg-border mx-1 md:mx-2" />
+
+            <div className="flex items-center gap-2">
+               <div className={cn(
+                 "h-8 w-8 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-white shadow-lg border border-white/20",
+                 isAdmin ? "bg-gradient-to-br from-primary to-[#2a4580]" : "bg-gradient-to-br from-emerald-500 to-teal-700"
+               )}>
+                 {isAdmin ? <ShieldCheck className="h-4 w-4 md:h-5 md:w-5" /> : <UserCog className="h-4 w-4 md:h-5 md:w-5" />}
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-[7px] font-black text-muted-foreground uppercase leading-none">بواسطة</span>
+                  <span className="text-[10px] md:text-xs font-black truncate max-w-[70px] md:max-w-[120px]">{username || "..."}</span>
+               </div>
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
-                {editId ? `تعديل فاتورة #${editId.slice(0,8)}` : "نقطة بيع EXPRESS"}
-              </h1>
-              <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
-            </div>
-          </Link>
+          </div>
+
           <div className="flex gap-2">
             {editId && (
-              <Button asChild variant="ghost" className="h-10 px-4 rounded-xl font-black text-xs gap-2">
-                 <Link href="/invoices/history"><History className="h-4 w-4" /> إلغاء التعديل</Link>
+              <Button asChild variant="ghost" className="h-9 md:h-10 px-2 md:px-4 rounded-xl font-black text-[10px] md:text-xs gap-1 md:gap-2">
+                 <Link href="/invoices/history"><History className="h-3.5 w-3.5" /> إلغاء</Link>
               </Button>
             )}
-            <Button asChild variant="outline" className="h-10 px-4 rounded-xl glass border-white/20 gap-2 font-black text-xs">
-               <Link href="/debts"><Wallet className="h-4 w-4" /> <span className="hidden sm:inline">إدارة الديون</span></Link>
+            <Button asChild variant="outline" className="h-9 md:h-10 px-2 md:px-4 rounded-xl glass border-white/20 gap-1 md:gap-2 font-black text-[10px] md:text-xs">
+               <Link href="/debts"><Wallet className="h-3.5 w-3.5" /> <span className="hidden sm:inline">إدارة الديون</span></Link>
             </Button>
           </div>
         </header>

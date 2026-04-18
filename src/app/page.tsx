@@ -34,7 +34,9 @@ import {
   Download,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  ShieldCheck,
+  UserCog
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -500,13 +502,21 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-2">
-             <div className="flex flex-col items-end mr-2 text-right hidden sm:flex">
-                <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">المستخدم النشط</span>
-                <span className="text-xs font-black text-primary">{username || "جاري التحميل..."}</span>
+             <div className="flex flex-col items-end mr-1 text-right">
+                <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none">الحساب الحالي</span>
+                <span className={cn(
+                  "text-[10px] md:text-xs font-black truncate max-w-[80px] md:max-w-[150px]",
+                  isAdmin ? "text-primary" : "text-emerald-600"
+                )}>
+                  {username || "جاري التحميل..."}
+                </span>
              </div>
              
-             <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
-               <User className="h-6 w-6" />
+             <div className={cn(
+               "h-9 w-9 md:h-11 md:w-11 rounded-xl flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20 transition-all",
+               isAdmin ? "bg-gradient-to-br from-primary to-[#2a4580]" : "bg-gradient-to-br from-emerald-500 to-teal-700"
+             )}>
+               {isAdmin ? <ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /> : <UserCog className="h-5 w-5 md:h-6 md:w-6" />}
              </div>
           </div>
         </div>
