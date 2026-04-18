@@ -1,4 +1,3 @@
-
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -8,7 +7,9 @@ import {
   getFirestore,
   initializeFirestore, 
   enableMultiTabIndexedDbPersistence,
-  CACHE_SIZE_UNLIMITED
+  CACHE_SIZE_UNLIMITED,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -28,7 +29,7 @@ export function initializeFirebase() {
     // Initial setup for the first time the app is created
     const sdks = getSdks(firebaseApp);
     
-    // Enable Offline Persistence for Offline-First capability
+    // Enable Multi-Tab IndexedDB Persistence for robust Offline-First capability
     if (typeof window !== "undefined") {
       enableMultiTabIndexedDbPersistence(sdks.firestore).catch((err) => {
         if (err.code === 'failed-precondition') {
@@ -55,7 +56,11 @@ export function getSdks(firebaseApp: FirebaseApp) {
     // If not initialized yet, initialize with specific settings for stable connectivity and robust offline
     firestore = initializeFirestore(firebaseApp, {
       experimentalForceLongPolling: true,
-      cacheSizeBytes: CACHE_SIZE_UNLIMITED
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+      // Optimized for robust local storage
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     });
   }
 

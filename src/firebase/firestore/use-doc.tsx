@@ -26,7 +26,7 @@ export interface UseDocResult<T> {
 
 /**
  * React hook to subscribe to a single Firestore document in real-time.
- * Handles nullable references.
+ * Enhanced for Offline-First capability.
  */
 export function useDoc<T = any>(
   memoizedDocRef: DocumentReference<DocumentData> | null | undefined,
@@ -34,7 +34,6 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Initialize loading as true if we have a ref, to prevent UI flicker
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedDocRef);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
@@ -51,9 +50,11 @@ export function useDoc<T = any>(
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,
+      { includeMetadataChanges: true },
       (snapshot: DocumentSnapshot<DocumentData>) => {
         if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
+          // CRITICAL: serverTimestamps: 'estimate' ensures local documents have a date even when offline.
+          setData({ ...(snapshot.data({ serverTimestamps: 'estimate' }) as T), id: snapshot.id });
         } else {
           setData(null);
         }

@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -66,6 +65,7 @@ export default function InvoiceHistoryPage() {
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'createdAt', direction: 'desc' })
   const [zoomQR, setZoomQR] = React.useState<{ code: string, id: string } | null>(null)
 
+  // Use a query that includes offline documents immediately
   const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices")), [db])
   const { data: invoices, isLoading } = useCollection(invoicesRef)
 
@@ -88,9 +88,16 @@ export default function InvoiceHistoryPage() {
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
         
+        // Robust sorting for dates (including Firestore Timestamps and estimated ones)
+        if (sortConfig.key === 'createdAt') {
+           const timeA = aValue?.toDate ? aValue.toDate().getTime() : (aValue instanceof Date ? aValue.getTime() : 0);
+           const timeB = bValue?.toDate ? bValue.toDate().getTime() : (bValue instanceof Date ? bValue.getTime() : 0);
+           return sortConfig.direction === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -152,7 +159,8 @@ export default function InvoiceHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       const hasDiscount = (invoice.discount || 0) > 0;
-      
+      const invoiceDate = invoice.createdAt?.toDate ? invoice.createdAt.toDate() : (invoice.createdAt instanceof Date ? invoice.createdAt : new Date());
+
       printWindow.document.write(`
         <html dir="rtl">
           <head>
@@ -180,7 +188,7 @@ export default function InvoiceHistoryPage() {
             <div class="info">
               <div>
                 <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
-                <strong>التاريخ:</strong> ${invoice.createdAt?.toDate ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}<br>
+                <strong>التاريخ:</strong> ${format(invoiceDate, "yyyy/MM/dd", { locale: ar })}<br>
                 <strong>الموظف:</strong> ${invoice.generatedByUserName || "غير معرف"}
               </div>
               <div style="text-align: left;">
@@ -299,7 +307,7 @@ export default function InvoiceHistoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoading ? (
+                    {isLoading && sortedInvoices.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-20">
                           <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
@@ -348,7 +356,9 @@ export default function InvoiceHistoryPage() {
                            </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground font-bold text-xs tabular-nums">
-                          {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: ar }) : "---"}
+                          {inv.createdAt?.toDate 
+                            ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: ar }) 
+                            : (inv.createdAt instanceof Date ? format(inv.createdAt, "dd MMMM yyyy - HH:mm", { locale: ar }) : "---")}
                         </TableCell>
                         <TableCell className="text-left font-black tabular-nums text-lg text-primary">
                           {inv.totalAmount.toLocaleString()} دج
@@ -419,7 +429,9 @@ export default function InvoiceHistoryPage() {
                           <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
                           <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
                           <p className="text-[10px] tabular-nums">
-                            {selectedInvoice?.createdAt?.toDate ? format(selectedInvoice.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ar }) : "---"}
+                            {selectedInvoice?.createdAt?.toDate 
+                              ? format(selectedInvoice.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ar }) 
+                              : (selectedInvoice?.createdAt instanceof Date ? format(selectedInvoice.createdAt, "yyyy/MM/dd HH:mm", { locale: ar }) : "---")}
                           </p>
                        </div>
 

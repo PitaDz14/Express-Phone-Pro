@@ -37,6 +37,7 @@ export interface InternalQuery extends Query<DocumentData> {
 
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
+ * Enhanced for Offline-First capability.
  */
 export function useCollection<T = any>(
     memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
@@ -45,7 +46,6 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Initialize loading as true if we have a target, to prevent UI flicker
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
@@ -60,12 +60,15 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
+    // CRITICAL: includeMetadataChanges allows tracking local writes before they sync to server.
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
+      { includeMetadataChanges: true },
       (snapshot: QuerySnapshot<DocumentData>) => {
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+          // CRITICAL: serverTimestamps: 'estimate' ensures local documents have a date even when offline.
+          results.push({ ...(doc.data({ serverTimestamps: 'estimate' }) as T), id: doc.id });
         }
         setData(results);
         setError(null);
