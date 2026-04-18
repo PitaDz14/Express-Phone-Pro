@@ -5,16 +5,16 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
+  getFirestore,
   initializeFirestore, 
   enableMultiTabIndexedDbPersistence,
-  terminate,
-  clearIndexedDbPersistence
 } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
+  let firebaseApp: FirebaseApp;
+  
   if (!getApps().length) {
-    let firebaseApp;
     try {
       firebaseApp = initializeApp();
     } catch (e) {
@@ -23,7 +23,8 @@ export function initializeFirebase() {
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
-
+    
+    // Initial setup for the first time the app is created
     const sdks = getSdks(firebaseApp);
     
     // Enable Offline Persistence for Offline-First capability
@@ -36,20 +37,30 @@ export function initializeFirebase() {
         }
       });
     }
-
+    
     return sdks;
   }
 
-  return getSdks(getApp());
+  firebaseApp = getApp();
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  let firestore;
+  try {
+    // Attempt to retrieve the existing firestore instance to avoid "already initialized" errors
+    firestore = getFirestore(firebaseApp);
+  } catch (e) {
+    // If not initialized yet, initialize with specific settings for stable connectivity
+    firestore = initializeFirestore(firebaseApp, {
+      experimentalForceLongPolling: true,
+    });
+  }
+
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: initializeFirestore(firebaseApp, {
-      experimentalForceLongPolling: true,
-    })
+    firestore: firestore
   };
 }
 
