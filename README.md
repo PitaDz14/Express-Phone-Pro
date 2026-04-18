@@ -31,13 +31,26 @@
 *   **UI Components:** ShadCN UI & Tailwind CSS
 *   **Icons:** Lucide React
 
-## 📦 إدارة المستودع (Git & GitHub)
-في حال واجهت خطأ **403 Forbidden** عند محاولة الرفع (Push)، اتبع الآتي:
-1. أنشئ **Personal Access Token** جديد بصلاحية `repo`.
-2. نفذ الأوامر التالية في الـ Terminal:
+## 📦 حل مشكلة الرفع (403 Forbidden)
+إذا واجهت خطأ `403` عند محاولة الـ `push` رغم استخدام الـ Token، اتبع ما يلي:
+
+1. **إعدادات GitHub:**
+   - انتقل إلى **Settings** > **Developer settings** > **Personal access tokens**.
+   - إذا كنت تستخدم **Fine-grained tokens**:
+     - تأكد من اختيار المستودع `Express-Phone-Pro` تحت قائمة **Repository access**.
+     - في قائمة **Permissions**، ابحث عن **Contents** واختر **Read and Write**.
+   - إذا كنت تستخدم **Tokens (classic)**:
+     - تأكد من تفعيل صلاحية `repo` بالكامل.
+
+2. **أوامر الـ Terminal:**
    ```bash
+   # حذف التعريف القديم
    git remote remove origin
-   git remote add origin https://YOUR_TOKEN@github.com/PitaDz14/Express-Phone-Pro.git
+   
+   # إضافة الرابط الجديد بالـ Token الصحيح
+   git remote add origin https://TOKEN_HERE@github.com/PitaDz14/Express-Phone-Pro.git
+   
+   # الرفع مع تعيين الفرع الرئيسي
    git push -u origin main
    ```
 
