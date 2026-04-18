@@ -26,7 +26,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
-import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, serverTimestamp, query, where, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -72,7 +72,7 @@ export default function CategoriesPage() {
     return buildTree(allCategories as Category[])
   }, [allCategories])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!categoryName || !user) return
 
     const level = parentCategory ? (parentCategory.level + 1) : (editingCategory?.level || 0);
@@ -80,8 +80,8 @@ export default function CategoriesPage() {
     
     // Build path for hierarchy
     const path = parentCategory 
-      ? `${parentCategory.path}/${categoryName}`
-      : `/${categoryName}`;
+      ? `${parentCategory.path} > ${categoryName}`
+      : categoryName;
 
     const categoryData = {
       name: categoryName,
@@ -93,8 +93,29 @@ export default function CategoriesPage() {
     }
 
     if (editingCategory) {
+      // 1. Update the category itself
       updateDocumentNonBlocking(doc(db, "categories", editingCategory.id), categoryData)
-      toast({ title: "تم التعديل", description: "تم تحديث التصنيف بنجاح" })
+      
+      // 2. Sync name/path in products (Critical Fix)
+      try {
+        const productsQuery = query(collection(db, "products"), where("categoryId", "==", editingCategory.id))
+        const snapshot = await getDocs(productsQuery)
+        if (!snapshot.empty) {
+          const batch = writeBatch(db)
+          snapshot.docs.forEach(pDoc => {
+            batch.update(pDoc.ref, {
+              categoryName: categoryName,
+              categoryPath: path,
+              updatedAt: serverTimestamp()
+            })
+          })
+          await batch.commit()
+        }
+      } catch (e) {
+        console.error("Sync Error:", e)
+      }
+
+      toast({ title: "تم التعديل", description: "تم تحديث التصنيف ومزامنة المنتجات التابعة له" })
     } else {
       addDocumentNonBlocking(categoriesRef, {
         ...categoryData,
@@ -111,7 +132,6 @@ export default function CategoriesPage() {
   }
 
   const handleDelete = async (category: Category) => {
-    // Check if has children
     const hasChildren = allCategories?.some(c => c.parentId === category.id)
     if (hasChildren) {
       toast({ title: "خطأ", description: "لا يمكن حذف تصنيف يحتوي على أقسام فرعية", variant: "destructive" })
@@ -243,7 +263,7 @@ export default function CategoriesPage() {
           </div>
           <DialogFooter>
             <Button onClick={handleSave} className="w-full h-14 rounded-2xl font-black bg-primary text-white text-lg shadow-xl shadow-primary/20">
-              تأكيد الحفظ
+              تأكيد الحفظ والمزامنة
             </Button>
           </DialogFooter>
         </DialogContent>

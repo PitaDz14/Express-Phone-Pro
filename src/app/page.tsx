@@ -280,7 +280,7 @@ export default function Dashboard() {
     const term = quickEditSearch.toLowerCase()
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
-    ).slice(0, 8)
+    ).slice(0, 15)
   }, [quickEditSearch, products])
 
   const getFullCategoryPath = (catId: string, allCats: any[]): string => {
@@ -321,7 +321,7 @@ export default function Dashboard() {
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
       resetQaForm()
-      setIsAddProductOpen(false)
+      // Note: we don't necessarily close it in quick edit if adding multiple
     } catch (e) {
       console.error(e)
     } finally {
@@ -399,47 +399,9 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex md:hidden items-center gap-2">
-             <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl glass">
-                  <Edit3 className="h-4 w-4 text-primary" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[95vh]">
-                 <DialogHeader className="p-4 border-b border-white/5 bg-primary/5 shrink-0">
-                    <div className="flex items-center justify-between">
-                       <DialogTitle className="text-lg font-black text-gradient-premium">الإدارة السريعة</DialogTitle>
-                       <Popover>
-                          <PopoverTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><Settings className="h-4 w-4" /></Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="glass border-none rounded-2xl w-56 p-4">
-                             <div className="space-y-4">
-                                <p className="text-[10px] font-black text-primary uppercase">خيارات العرض</p>
-                                <div className="flex items-center justify-between">
-                                   <Label className="text-xs font-bold">سعر الشراء</Label>
-                                   <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
-                                </div>
-                                <div className="flex items-center justify-between">
-                                   <Label className="text-xs font-bold">سعر التصليح</Label>
-                                   <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
-                                </div>
-                             </div>
-                          </PopoverContent>
-                       </Popover>
-                    </div>
-                 </DialogHeader>
-                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="بحث سريع..." className="pl-10 h-10 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
-                    </div>
-                    <div className="space-y-3">
-                      {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)}
-                    </div>
-                 </div>
-              </DialogContent>
-             </Dialog>
+             <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl glass" onClick={() => { setIsQuickEditOpen(true); setQuickEditSearch(""); }}>
+               <Edit3 className="h-4 w-4 text-primary" />
+             </Button>
 
              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
                <User className="h-6 w-6" />
@@ -518,109 +480,9 @@ export default function Dashboard() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-           <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform">
-                <Edit3 className="h-5 w-5 text-primary" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent dir="rtl" className="max-w-4xl glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
-               <DialogHeader className="p-8 border-b border-white/5 bg-primary/5 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <DialogTitle className="text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
-                    <Popover>
-                       <PopoverTrigger asChild>
-                          <Button variant="ghost" className="rounded-xl gap-2 font-bold text-xs">
-                             <Settings2 className="h-4 w-4" /> إعدادات العرض
-                          </Button>
-                       </PopoverTrigger>
-                       <PopoverContent className="glass border-none rounded-2xl w-64 p-5 z-[350]">
-                          <div className="space-y-5">
-                             <p className="text-[10px] font-black text-primary uppercase tracking-widest text-right">تخصيص أعمدة الإدارة</p>
-                             <div className="flex items-center justify-between" dir="rtl">
-                                <div className="flex flex-col">
-                                   <Label className="text-xs font-black">سعر الشراء</Label>
-                                   <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
-                                </div>
-                                <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
-                             </div>
-                             <div className="flex items-center justify-between" dir="rtl">
-                                <div className="flex flex-col">
-                                   <Label className="text-xs font-black">سعر التصليح</Label>
-                                   <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
-                                </div>
-                                <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
-                             </div>
-                          </div>
-                       </PopoverContent>
-                    </Popover>
-                  </div>
-               </DialogHeader>
-               
-               <div className="p-8 border-b border-white/5 bg-primary/5 space-y-4 max-h-[40vh] overflow-y-auto shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-1 bg-primary rounded-full" />
-                    <p className="text-[11px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً للمخزن</p>
-                  </div>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">اسم المنتج</Label>
-                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold text-xs" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">التصنيف</Label>
-                      <Select value={qaCat} onValueChange={setQaCat}>
-                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-right text-xs">
-                          <SelectValue placeholder="اختر الفئة..." />
-                        </SelectTrigger>
-                        <SelectContent className="glass border-none rounded-xl z-[350]">
-                            {categories && renderCategoryOptions(categories)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">رابط الصورة</Label>
-                      <div className="relative">
-                        <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                        <Input placeholder="http://..." value={qaImageUrl} onChange={e => setQaImageUrl(e.target.value)} className="h-11 pl-7 glass border-none rounded-xl font-bold text-[10px]" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-muted-foreground uppercase">الكمية</Label>
-                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-xs" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-orange-600 uppercase">سعر الشراء</Label>
-                      <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-emerald-600 uppercase">سعر البيع</Label>
-                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black mr-2 text-primary uppercase">سعر التصليح</Label>
-                      <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-bold text-primary text-xs" />
-                    </div>
-                    <div className="col-span-1 pt-4">
-                      <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-11 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-sm">
-                         {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                         حفظ
-                      </Button>
-                    </div>
-                  </div>
-               </div>
-
-               <div className="p-8 flex-1 overflow-hidden flex flex-col gap-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
-                  </div>
-                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                    {quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)}
-                  </div>
-               </div>
-            </DialogContent>
-           </Dialog>
+           <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass hover:scale-105 transition-transform" onClick={() => { setIsQuickEditOpen(true); setQuickEditSearch(""); }}>
+             <Edit3 className="h-5 w-5 text-primary" />
+           </Button>
 
            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/20">
              <User className="h-6 w-6" />
@@ -735,11 +597,121 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Dedicated Add Product Dialog */}
+      {/* Quick Edit Dialog Improvements */}
+      <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh] z-[300]">
+           <DialogHeader className="p-6 md:p-8 border-b border-white/5 bg-primary/5 shrink-0">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium">الإدارة السريعة للمخزون</DialogTitle>
+                <Popover>
+                   <PopoverTrigger asChild>
+                      <Button variant="ghost" className="rounded-xl gap-2 font-bold text-[10px] md:text-xs">
+                         <Settings2 className="h-4 w-4" /> <span className="hidden sm:inline">إعدادات العرض</span>
+                      </Button>
+                   </PopoverTrigger>
+                   <PopoverContent className="glass border-none rounded-2xl w-64 p-5 z-[350]">
+                      <div className="space-y-5">
+                         <p className="text-[10px] font-black text-primary uppercase tracking-widest text-right">تخصيص أعمدة الإدارة</p>
+                         <div className="flex items-center justify-between" dir="rtl">
+                            <div className="flex flex-col">
+                               <Label className="text-xs font-black">سعر الشراء</Label>
+                               <span className="text-[9px] text-muted-foreground">عرض حقل التكلفة</span>
+                            </div>
+                            <Switch checked={showPurchaseInEdit} onCheckedChange={showPurchaseInEdit => setShowPurchaseInEdit(showPurchaseInEdit)} />
+                         </div>
+                         <div className="flex items-center justify-between" dir="rtl">
+                            <div className="flex flex-col">
+                               <Label className="text-xs font-black">سعر التصليح</Label>
+                               <span className="text-[9px] text-muted-foreground">عرض حقل الصيانة</span>
+                            </div>
+                            <Switch checked={showRepairInEdit} onCheckedChange={showRepairInEdit => setShowRepairInEdit(showRepairInEdit)} />
+                         </div>
+                      </div>
+                   </PopoverContent>
+                </Popover>
+              </div>
+           </DialogHeader>
+
+           <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+              {/* Search at TOP of dialog (Critical for mobile) */}
+              <div className="p-4 md:p-6 bg-white/5 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="بحث سريع في القائمة..." className="pl-10 h-11 md:h-12 glass border-none rounded-xl font-bold text-xs" value={quickEditSearch} onChange={(e) => setQuickEditSearch(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Add Product Section (Refined Grid) */}
+              <div className="p-6 md:p-8 border-b border-white/5 bg-primary/5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 bg-primary rounded-full" />
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">إضافة منتج جديد فورياً</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الاسم</Label>
+                      <Input placeholder="اسم المنتج" value={qaName} onChange={e => setQaName(e.target.value)} className="h-10 glass border-none rounded-xl font-bold text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">التصنيف</Label>
+                      <Select value={qaCat} onValueChange={setQaCat}>
+                        <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-right text-xs">
+                          <SelectValue placeholder="اختر الفئة..." />
+                        </SelectTrigger>
+                        <SelectContent className="glass border-none rounded-xl z-[350]">
+                            {categories && renderCategoryOptions(categories)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black text-muted-foreground uppercase mr-1">الكمية</Label>
+                      <Input type="number" placeholder="0" value={qaQty} onChange={e => setQaQty(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black text-emerald-600 uppercase mr-1">البيع</Label>
+                      <Input type="number" placeholder="0" value={qaSale} onChange={e => setQaSale(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-emerald-600 text-xs" />
+                    </div>
+                    {showPurchaseInEdit && (
+                       <div className="space-y-1">
+                        <Label className="text-[8px] font-black text-orange-600 uppercase mr-1">الشراء</Label>
+                        <Input type="number" placeholder="0" value={qaPurchase} onChange={e => setQaPurchase(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-orange-600 text-xs" />
+                      </div>
+                    )}
+                    {showRepairInEdit && (
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black text-primary uppercase mr-1">التصليح</Label>
+                        <Input type="number" placeholder="0" value={qaRepair} onChange={e => setQaRepair(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-bold text-primary text-xs" />
+                      </div>
+                    )}
+                    <div className="sm:col-span-2 lg:col-span-1 pt-4">
+                      <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-10 rounded-xl bg-primary text-white font-black shadow-lg gap-2 text-xs">
+                         {isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} إضافة
+                      </Button>
+                    </div>
+                  </div>
+              </div>
+
+              {/* Items List */}
+              <div className="p-4 md:p-8 space-y-4">
+                {quickEditProducts.length === 0 ? (
+                  <div className="py-20 text-center opacity-30 italic font-black text-xs">لا توجد نتائج بحث</div>
+                ) : (
+                  quickEditProducts.map(p => <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} />)
+                )}
+              </div>
+           </div>
+
+           <div className="p-4 md:p-6 bg-black/5 text-center shrink-0 border-t border-white/5">
+              <Button onClick={() => setIsQuickEditOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق النافذة</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dedicated Add Product Dialog (Full Version) */}
       <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] md:rounded-[2.5rem] shadow-2xl max-w-2xl z-[310] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">إضافة منتج جديد</DialogTitle>
+            <DialogTitle className="text-2xl md:text-3xl font-black text-gradient-premium">إضافة منتج جديد للمخزن</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 md:gap-6 py-4">
             <div className="flex items-center gap-6 p-4 glass rounded-2xl border-primary/10">
