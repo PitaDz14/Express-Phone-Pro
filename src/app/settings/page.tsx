@@ -173,7 +173,7 @@ export default function SettingsPage() {
         // 4. Import Bills (Invoices)
         for (const bill of data.bills || []) {
           const invRef = doc(db, "invoices", bill.id)
-          await setDocumentNonBlocking(invRef, {
+          setDocumentNonBlocking(invRef, {
             customerId: bill.clientId || "walk-in",
             customerName: bill.clientName || "عميل عام",
             totalAmount: bill.totalAmount || 0,
@@ -194,7 +194,9 @@ export default function SettingsPage() {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               itemTotal: item.totalPrice,
-              createdAt: serverTimestamp()
+              createdAt: serverTimestamp(),
+              generatedByUserId: user.uid,
+              invoiceId: bill.id
             }, { merge: true })
           }
         }
