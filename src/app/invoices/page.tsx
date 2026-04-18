@@ -71,6 +71,7 @@ export default function InvoicesPage() {
   const editId = searchParams.get('editId')
 
   const [cart, setCart] = React.useState<CartItem[]>([])
+  const [originalCart, setOriginalCart] = React.useState<CartItem[]>([]) // Track original state for stock correction
   const [searchTerm, setSearchTerm] = React.useState("")
   const [customerSearch, setCustomerSearch] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
@@ -124,6 +125,7 @@ export default function InvoicesPage() {
               }
             })
             setCart(items)
+            setOriginalCart(items)
           }
         } catch (e) {
           toast({ variant: "destructive", title: "خطأ", description: "فشل تحميل الفاتورة للتعديل" })
@@ -147,16 +149,19 @@ export default function InvoicesPage() {
   ).slice(0, 5) || []
 
   const addToCart = (product: any) => {
-    if (product.quantity <= 0) {
-      toast({ title: "خطأ", description: "هذا المنتج غير متوفر في المخزون", variant: "destructive" })
+    const existing = cart.find(item => item.productId === product.id)
+    const currentQtyInCart = existing ? existing.qty : 0
+    
+    // In edit mode, available stock = db_qty + original_inv_qty
+    const originalQtyInInv = originalCart.find(i => i.productId === product.id)?.qty || 0
+    const availableStock = product.quantity + originalQtyInInv
+
+    if (currentQtyInCart + 1 > availableStock) {
+      toast({ title: "خطأ في المخزون", description: `هذا المنتج لا يتوفر منه سوى ${availableStock} قطع`, variant: "destructive" })
       return
     }
-    const existing = cart.find(item => item.productId === product.id)
+
     if (existing) {
-      if (existing.qty >= product.quantity) {
-        toast({ title: "تنبيه", description: "وصلت للكمية المتاحة في المخزون" })
-        return
-      }
       setCart(cart.map(item => item.productId === product.id ? { ...item, qty: item.qty + 1 } : item))
     } else {
       setCart([...cart, { 
@@ -183,7 +188,21 @@ export default function InvoicesPage() {
   }
 
   const updateQty = (productId: string, delta: number) => {
-    setCart(cart.map(item => item.productId === productId ? { ...item, qty: Math.max(1, item.qty + delta) } : item))
+    setCart(cart.map(item => {
+      if (item.productId === productId) {
+        const product = products?.find(p => p.id === productId)
+        const originalQtyInInv = originalCart.find(i => i.productId === productId)?.qty || 0
+        const availableStock = (product?.quantity || 0) + originalQtyInInv
+        const newQty = item.qty + delta
+
+        if (delta > 0 && newQty > availableStock) {
+          toast({ title: "تنبيه", description: "الكمية المطلوبة تتجاوز المتاح في المخزون", variant: "destructive" })
+          return item
+        }
+        return { ...item, qty: Math.max(1, newQty) }
+      }
+      return item
+    }))
   }
 
   const updatePrice = (productId: string, newPrice: number) => {
@@ -275,6 +294,22 @@ export default function InvoicesPage() {
       return
     }
 
+    // FINAL STOCK VALIDATION
+    for (const item of cart) {
+      const product = products?.find(p => p.id === item.productId)
+      const originalQtyInInv = originalCart.find(i => i.productId === item.productId)?.qty || 0
+      const availableStock = (product?.quantity || 0) + originalQtyInInv
+      
+      if (item.qty > availableStock) {
+        toast({ 
+          title: "خطأ في المخزون", 
+          description: `المنتج "${item.name}" لا يتوفر منه سوى ${availableStock} قطع. يرجى تعديل الكمية.`, 
+          variant: "destructive" 
+        })
+        return
+      }
+    }
+
     setIsProcessing(true)
     const batch = writeBatch(db);
 
@@ -361,11 +396,12 @@ export default function InvoicesPage() {
       handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
 
       setCart([])
+      setOriginalCart([])
       setSelectedCustomer(null)
       setDiscount(0)
       setPaidAmount("")
       setShowPreview(false)
-      setPendingId("") // Reset pre-generated ID
+      setPendingId("") 
       if (editId) router.push('/invoices/history')
     } catch (error) {
       console.error("Save Error:", error);
