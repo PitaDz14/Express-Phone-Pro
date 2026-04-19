@@ -458,7 +458,7 @@ export default function Dashboard() {
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
     ).slice(0, 5)
-  }, [searchTerm, products, showRepairInSearch]) // Added showRepairInSearch as dependency for reactive results
+  }, [searchTerm, products, showRepairInSearch])
 
   const quickEditProducts = React.useMemo(() => {
     if (!products) return []
@@ -574,17 +574,6 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-2">
-             {isAdmin && (
-               <Button 
-                variant="outline" 
-                size="icon" 
-                className="h-9 w-9 md:hidden rounded-xl glass border-primary/10 bg-white/20" 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickEditSearch(""); setIsQuickEditOpen(true); }}
-               >
-                 <Edit3 className="h-4 w-4 text-primary" />
-               </Button>
-             )}
-             
              <div className="flex flex-col items-end mr-1 text-right">
                 <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none">الحساب الحالي</span>
                 <span className={cn(
@@ -617,7 +606,7 @@ export default function Dashboard() {
                <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10 hidden md:flex" 
+                className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10 flex" 
                 onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}
                 title="تعديل سريع"
                >
@@ -715,15 +704,6 @@ export default function Dashboard() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-           {isAdmin && (
-             <Button 
-               variant="outline" 
-               className="h-11 px-4 rounded-2xl glass border-primary/20 gap-2 font-black" 
-               onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}
-             >
-               <Edit3 className="h-4 w-4 text-primary" /> التعديل السريع
-             </Button>
-           )}
            <div className="flex flex-col text-right">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">أهلاً بك</span>
               <span className="text-sm font-black text-primary truncate max-w-[120px]">{username || "..."}</span>
