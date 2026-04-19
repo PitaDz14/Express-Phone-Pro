@@ -25,7 +25,14 @@ import {
   Layers,
   ShieldCheck,
   UserCog,
-  X
+  X,
+  FileText,
+  Download,
+  Printer,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -52,6 +59,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -250,6 +263,7 @@ export default function Dashboard() {
   const lowStockItems = React.useMemo(() => {
     if (!isMounted || !products) return [];
     let filtered = products.filter(p => Number(p.quantity) <= (Number(p.minStockQuantity) || 1));
+    
     if (lowStockFilter && lowStockFilter !== "all") {
       filtered = filtered.filter(p => p.categoryId === lowStockFilter);
     }
@@ -273,6 +287,119 @@ export default function Dashboard() {
     
     return filtered;
   }, [products, lowStockFilter, lowStockSortConfig, isMounted]);
+
+  const handleExportLowStock = (format: 'excel' | 'txt' | 'print') => {
+    if (lowStockItems.length === 0) return;
+
+    if (format === 'excel') {
+      // Excel/CSV Export
+      const headers = ["اسم المنتج", "الكود", "التصنيف", "المتوفر", "الحد الأدنى", "سعر البيع"];
+      const rows = lowStockItems.map(p => [
+        p.name,
+        p.productCode,
+        p.categoryPath || p.categoryName,
+        p.quantity,
+        p.minStockQuantity || 1,
+        p.salePrice
+      ]);
+
+      const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `نواقص_المخزون_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      toast({ title: "تم التصدير", description: "تم تحميل ملف Excel بنجاح" });
+    } else if (format === 'txt') {
+      // TXT Export
+      let content = `قائمة نواقص المخزون - EXPRESS PHONE PRO\n`;
+      content += `التاريخ: ${new Date().toLocaleDateString('ar-DZ')}\n`;
+      content += `-------------------------------------------\n\n`;
+      lowStockItems.forEach((p, i) => {
+        content += `${i + 1}. ${p.name}\n   الكود: ${p.productCode}\n   المتوفر: ${p.quantity} (الحد الأدنى: ${p.minStockQuantity || 1})\n   التصنيف: ${p.categoryPath || p.categoryName}\n\n`;
+      });
+
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `قائمة_النواقص_${new Date().toISOString().split('T')[0]}.txt`;
+      link.click();
+      toast({ title: "تم التصدير", description: "تم تحميل ملف القائمة النصية" });
+    } else if (format === 'print') {
+      // Print/Invoice style Report
+      const printContent = `
+        <html dir="rtl">
+          <head>
+            <title>قائمة نواقص المخزون</title>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+              body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
+              .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+              .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
+              .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; font-weight: 700; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+              th, td { border: 1px solid #000; padding: 8px; text-align: right; }
+              th { background-color: #f0f0f0; }
+              .footer { text-align: center; font-size: 10px; margin-top: 30px; opacity: 0.5; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>EXPRESS PHONE PRO</h1>
+              <p style="font-weight: 800;">تقرير نواقص المخزون وحاجيات التوريد</p>
+            </div>
+            <div class="info">
+              <div>التاريخ: ${new Date().toLocaleDateString('ar-DZ')}</div>
+              <div>عدد المنتجات الناقصة: ${lowStockItems.length}</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40%">المنتج</th>
+                  <th style="text-align: center">الكود</th>
+                  <th style="text-align: center">المتوفر</th>
+                  <th style="text-align: center">الحد الأدنى</th>
+                  <th style="text-align: center">سعر البيع</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${lowStockItems.map(p => `
+                  <tr>
+                    <td><strong>${p.name}</strong><br><small>${p.categoryPath || p.categoryName}</small></td>
+                    <td style="text-align: center">${p.productCode}</td>
+                    <td style="text-align: center; color: red; font-weight: 800">${p.quantity}</td>
+                    <td style="text-align: center">${p.minStockQuantity || 1}</td>
+                    <td style="text-align: center">${p.salePrice.toLocaleString()} دج</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">توليد تلقائي بواسطة نظام إكسبريس فون - تم التطوير بواسطة Khaled_Deragha</div>
+          </body>
+        </html>
+      `;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      const iframeDoc = iframe.contentWindow?.document;
+      if (iframeDoc) {
+        iframeDoc.open();
+        iframeDoc.write(printContent);
+        iframeDoc.close();
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 1000);
+        }, 500);
+      }
+    }
+  }
 
   const stats = React.useMemo(() => {
     if (!isMounted || !products) return {
@@ -402,6 +529,13 @@ export default function Dashboard() {
     } else {
       toast({ title: "منتج غير معروف", description: `كود ${code} غير موجود في النظام`, variant: "destructive" })
     }
+  }
+
+  const handleLowStockSort = (key: string) => {
+    setLowStockSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
   }
 
   if (!isMounted) return null;
@@ -658,50 +792,115 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Low Stock Dialog */}
+      {/* Low Stock Dialog - Enhanced with Sorting & Export */}
       <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
-        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[85vh] flex flex-col">
+        <DialogContent dir="rtl" className="max-w-5xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[90vh] flex flex-col">
            <DialogHeader className="p-6 md:p-8 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600">
+                   <div className="h-12 w-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 shadow-inner">
                       <AlertTriangle className="h-7 w-7" />
                    </div>
                    <div>
-                      <DialogTitle className="text-xl md:text-2xl font-black text-orange-700">تنبيهات نواقص المخزون</DialogTitle>
-                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-1">يجب توريد هذه القطع لتجنب توقف المبيعات</p>
+                      <DialogTitle className="text-xl md:text-2xl font-black text-orange-700">قائمة النواقص الاحترافية</DialogTitle>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-1">تحديد حاجيات التوريد والمشتريات</p>
                    </div>
                 </div>
-                <Badge variant="destructive" className="h-10 px-6 rounded-xl font-black text-md">
-                   {lowStockItems.length} منتجات
-                </Badge>
+                <div className="flex items-center gap-2">
+                   <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                         <Button className="h-10 px-6 rounded-xl bg-orange-600 text-white font-black gap-2 shadow-lg shadow-orange-500/20">
+                            <Download className="h-4 w-4" /> تصدير القائمة <ChevronDown className="h-3 w-3" />
+                         </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="glass border-none rounded-xl z-[350]">
+                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('print')}>
+                            <Printer className="h-4 w-4" /> طباعة كشف توريد
+                         </DropdownMenuItem>
+                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('excel')}>
+                            <FileText className="h-4 w-4" /> تصدير ملف Excel
+                         </DropdownMenuItem>
+                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('txt')}>
+                            <X className="h-4 w-4 rotate-45" /> تصدير قائمة نصية TXT
+                         </DropdownMenuItem>
+                      </DropdownMenuContent>
+                   </DropdownMenu>
+                </div>
               </div>
            </DialogHeader>
 
-           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {lowStockItems.map((p) => (
-                   <div key={p.id} className="p-4 rounded-2xl glass border-orange-500/10 flex items-center justify-between group hover:bg-orange-500/5 transition-all">
-                      <div className="flex items-center gap-3">
-                         <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
-                            {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="h-6 w-6 text-muted-foreground/20" />}
-                         </div>
-                         <div className="flex flex-col">
-                            <span className="font-black text-sm text-foreground">{p.name}</span>
-                            <span className="text-[9px] text-muted-foreground font-bold">{p.categoryPath}</span>
-                         </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                         <span className="text-lg font-black text-red-600 tabular-nums">{p.quantity}</span>
-                         <span className="text-[8px] font-black text-muted-foreground uppercase">الحد الأدنى: {p.minStockQuantity}</span>
-                      </div>
-                   </div>
-                 ))}
+           <div className="p-4 md:px-8 bg-card/40 border-b border-white/5 flex flex-col md:flex-row gap-3 shrink-0">
+              <div className="flex-1 flex flex-col md:flex-row items-center gap-2">
+                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">فلترة:</Label>
+                 <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
+                    <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs md:w-56">
+                       <SelectValue placeholder="حسب التصنيف" />
+                    </SelectTrigger>
+                    <SelectContent className="glass border-none rounded-xl z-[350]">
+                       <SelectItem value="all">كافة التصنيفات</SelectItem>
+                       {categories?.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                    </SelectContent>
+                 </Select>
+                 
+                 <div className="h-6 w-px bg-border mx-2 hidden md:block" />
+                 
+                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">ترتيب:</Label>
+                 <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={cn("h-9 rounded-xl gap-2 font-bold text-xs", lowStockSortConfig.key === 'name' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                      onClick={() => handleLowStockSort('name')}
+                    >
+                       الاسم {lowStockSortConfig.key === 'name' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={cn("h-9 rounded-xl gap-2 font-bold text-xs", lowStockSortConfig.key === 'quantity' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                      onClick={() => handleLowStockSort('quantity')}
+                    >
+                       الكمية {lowStockSortConfig.key === 'quantity' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                    </Button>
+                 </div>
               </div>
+              <Badge variant="destructive" className="h-10 px-4 rounded-xl font-black text-xs self-center">
+                 {lowStockItems.length} منتجات ناقصة
+              </Badge>
+           </div>
+
+           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar">
+              {lowStockItems.length === 0 ? (
+                <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة لهذا الفرز</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {lowStockItems.map((p) => (
+                     <div key={p.id} className="p-4 rounded-2xl glass border-orange-500/10 flex items-center justify-between group hover:bg-orange-500/5 transition-all shadow-sm">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           <div className="h-14 w-14 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="h-6 w-6 text-muted-foreground/10" />}
+                           </div>
+                           <div className="flex flex-col overflow-hidden">
+                              <span className="font-black text-xs text-foreground truncate">{p.name}</span>
+                              <span className="text-[8px] text-muted-foreground font-black tabular-nums mt-0.5">#{p.productCode}</span>
+                              <span className="text-[9px] text-primary font-bold mt-1 bg-primary/5 px-2 py-0.5 rounded-lg w-fit">{p.categoryName}</span>
+                           </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0 pl-2">
+                           <div className="flex items-center gap-1">
+                              <span className="text-xl font-black text-red-600 tabular-nums">{p.quantity}</span>
+                              <span className="text-[10px] text-muted-foreground font-bold">متوفر</span>
+                           </div>
+                           <span className="text-[8px] font-black text-muted-foreground uppercase mt-1">الحد الأدنى: {p.minStockQuantity || 1}</span>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              )}
            </div>
 
            <div className="p-6 bg-black/5 flex justify-center shrink-0">
-              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق التنبيهات</Button>
+              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق نافذة النواقص</Button>
            </div>
         </DialogContent>
       </Dialog>
