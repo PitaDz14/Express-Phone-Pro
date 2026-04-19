@@ -20,7 +20,8 @@ import {
   Upload,
   Maximize2,
   Layers,
-  Filter
+  Filter,
+  X
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -262,6 +263,52 @@ export default function ProductsPage() {
     if(confirm("هل أنت متأكد من حذف المنتج؟")) deleteDocumentNonBlocking(doc(db, "products", p.id))
   }, [isAdmin])
 
+  const handlePrintLabels = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@700;800&display=swap');
+            body { margin: 0; padding: 0; font-family: 'Almarai', sans-serif; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, ${labelWidth}mm); gap: 2mm; padding: 2mm; }
+            .label { 
+              width: ${labelWidth}mm; 
+              height: ${labelHeight}mm; 
+              border: 0.1mm solid #eee; 
+              display: flex; 
+              flex-direction: column; 
+              align-items: center; 
+              justify-content: center; 
+              overflow: hidden;
+              text-align: center;
+              padding: 1mm;
+              box-sizing: border-box;
+            }
+            .name { font-size: 8pt; font-weight: 800; margin-bottom: 1mm; white-space: nowrap; overflow: hidden; width: 100%; }
+            .qr { width: 15mm; height: 15mm; }
+            .price { font-size: 10pt; font-weight: 800; margin-top: 1mm; color: #000; }
+            @media print { .label { border: none; } }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="grid">
+            ${Array(copies).fill(0).map(() => `
+              <div class="label">
+                <div class="name">${printName}</div>
+                <img class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${printingProduct.productCode}" />
+                ${showPrice ? `<div class="price">${printPrice.toLocaleString()} دج</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   const SortIcon = ({ column }: { column: string }) => {
     if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
     if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
@@ -314,7 +361,6 @@ export default function ProductsPage() {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 glass border-none rounded-[1.5rem] shadow-2xl p-4 z-[250]" dir="rtl">
-             {/* Content logic remains the same but UI is snappier due to CSS optimizations */}
              <div className="space-y-4">
                 <p className="font-black text-xs text-primary uppercase">اختر التصنيفات</p>
                 <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
@@ -371,8 +417,125 @@ export default function ProductsPage() {
           </Table>
         </div>
       </Card>
-      
-      {/* Zoom and Edit dialogs remain same but with optimized UI triggers */}
+
+      {/* Edit/Add Product Dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[300] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-gradient-premium">{editingProduct ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="font-black text-[10px] text-primary uppercase">اسم المنتج</Label>
+                  <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-black text-[10px] text-primary uppercase">كود المنتج / الباركود</Label>
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="h-12 glass border-none rounded-xl font-mono" />
+                </div>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="font-black text-[10px] text-primary uppercase">التصنيف</Label>
+                  <Select value={categoryId} onValueChange={setCategoryId}>
+                    <SelectTrigger className="h-12 glass border-none rounded-xl font-bold"><SelectValue placeholder="اختر التصنيف..." /></SelectTrigger>
+                    <SelectContent className="glass border-none rounded-xl z-[400]">
+                      {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-primary uppercase">رابط الصورة</Label>
+                   <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" />
+                </div>
+             </div>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-black text-[10px] text-primary uppercase">الكمية</Label>
+                  <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-orange-600 uppercase">سعر الشراء</Label>
+                   <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-orange-600" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-emerald-600 uppercase">سعر البيع</Label>
+                   <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-emerald-600" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-muted-foreground uppercase">سعر التصليح</Label>
+                   <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                </div>
+             </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSaveProduct} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl shadow-primary/20">حفظ التغييرات</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Label Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-md w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[300]">
+           <DialogHeader>
+              <DialogTitle className="text-2xl font-black">طباعة ملصقات QR</DialogTitle>
+           </DialogHeader>
+           <div className="py-6 space-y-6">
+              <div className="space-y-2">
+                 <Label className="font-black text-xs text-primary uppercase">اسم المنتج على الملصق</Label>
+                 <Input value={printName} onChange={(e) => setPrintName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <Label className="font-black text-xs text-primary uppercase">عدد النسخ</Label>
+                    <Input type="number" value={copies} onChange={(e) => setCopies(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                 </div>
+                 <div className="space-y-4 pt-8">
+                    <div className="flex items-center gap-2">
+                       <Switch checked={showPrice} onCheckedChange={setShowPrice} />
+                       <Label className="font-black text-xs">إظهار السعر</Label>
+                    </div>
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <Label className="font-black text-xs text-primary uppercase">أبعاد الملصق (ملم)</Label>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2"><span className="text-[10px] font-bold">عرض:</span><Input type="number" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center" /></div>
+                    <div className="flex items-center gap-2"><span className="text-[10px] font-bold">طول:</span><Input type="number" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center" /></div>
+                 </div>
+              </div>
+           </div>
+           <DialogFooter>
+              <Button onClick={handlePrintLabels} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl gap-2"><Printer className="h-5 w-5" /> بدء الطباعة</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Zoom Dialog */}
+      <Dialog open={!!zoomQR} onOpenChange={() => setZoomQR(null)}>
+        <DialogContent dir="rtl" className="max-w-sm glass border-none rounded-[3rem] shadow-2xl p-10 z-[400] text-center">
+           <DialogHeader><DialogTitle className="text-xl font-black mb-6">{zoomQR?.name}</DialogTitle></DialogHeader>
+           <div className="bg-white p-6 rounded-3xl shadow-inner mx-auto max-w-fit">
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${zoomQR?.code}`} className="h-48 w-48" />
+           </div>
+           <p className="mt-6 font-mono font-black text-primary tracking-widest">{zoomQR?.code}</p>
+           <Button onClick={() => setZoomQR(null)} variant="ghost" className="mt-6 rounded-xl font-bold">إغلاق</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[400]">
+           <div className="relative group">
+              <img src={zoomImage?.url} className="w-full h-auto max-h-[80vh] object-contain" />
+              <button onClick={() => setZoomImage(null)} className="absolute top-4 left-4 h-10 w-10 rounded-full bg-black/40 text-white flex items-center justify-center backdrop-blur-md"><X className="h-5 w-5" /></button>
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent text-white">
+                 <p className="font-black text-lg">{zoomImage?.name}</p>
+              </div>
+           </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

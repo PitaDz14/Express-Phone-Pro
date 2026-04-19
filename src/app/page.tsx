@@ -31,7 +31,8 @@ import {
   ArrowUp,
   ArrowDown,
   ShieldCheck,
-  UserCog
+  UserCog,
+  X
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -339,7 +340,7 @@ export default function Dashboard() {
     const term = quickEditSearch.toLowerCase()
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
-    ).slice(0, 10) // Limited to 10 for performance
+    ).slice(0, 10) 
   }, [quickEditSearch, products])
 
   const getFullCategoryPath = (catId: string, allCats: any[]): string => {
@@ -381,6 +382,7 @@ export default function Dashboard() {
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
       resetQaForm()
+      setIsAddProductOpen(false)
     } catch (e) {
       console.error(e)
     } finally {
@@ -642,8 +644,180 @@ export default function Dashboard() {
           </Card>
         </div>
       </main>
-      
-      {/* Dialogs remain for functionality, but content inside is memoized where possible */}
+
+      {/* Low Stock Dialog */}
+      <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[85vh] flex flex-col">
+           <DialogHeader className="p-6 md:p-8 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                   <div className="h-12 w-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600">
+                      <AlertTriangle className="h-7 w-7" />
+                   </div>
+                   <div>
+                      <DialogTitle className="text-xl md:text-2xl font-black text-orange-700">تنبيهات نواقص المخزون</DialogTitle>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-1">يجب توريد هذه القطع لتجنب توقف المبيعات</p>
+                   </div>
+                </div>
+                <Badge variant="destructive" className="h-10 px-6 rounded-xl font-black text-md">
+                   {lowStockItems.length} منتجات
+                </Badge>
+              </div>
+           </DialogHeader>
+
+           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {lowStockItems.map((p) => (
+                   <div key={p.id} className="p-4 rounded-2xl glass border-orange-500/10 flex items-center justify-between group hover:bg-orange-500/5 transition-all">
+                      <div className="flex items-center gap-3">
+                         <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+                            {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="h-6 w-6 text-muted-foreground/20" />}
+                         </div>
+                         <div className="flex flex-col">
+                            <span className="font-black text-sm text-foreground">{p.name}</span>
+                            <span className="text-[9px] text-muted-foreground font-bold">{p.categoryPath}</span>
+                         </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                         <span className="text-lg font-black text-red-600 tabular-nums">{p.quantity}</span>
+                         <span className="text-[8px] font-black text-muted-foreground uppercase">الحد الأدنى: {p.minStockQuantity}</span>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+           </div>
+
+           <div className="p-6 bg-black/5 flex justify-center shrink-0">
+              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق التنبيهات</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Product Dialog */}
+      <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[310] max-h-[90vh] overflow-y-auto custom-scrollbar">
+           <DialogHeader>
+              <DialogTitle className="text-2xl font-black text-gradient-premium">إضافة منتج جديد للمخزون</DialogTitle>
+           </DialogHeader>
+           
+           <div className="py-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-primary uppercase px-1">اسم المنتج</Label>
+                    <Input value={qaName} onChange={(e) => setQaName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="مثال: شاشة iPhone 13 Original" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-primary uppercase px-1">كود المنتج (اختياري)</Label>
+                    <Input value={qaCode} onChange={(e) => setQaCode(e.target.value)} className="h-12 glass border-none rounded-xl font-mono" placeholder="سيتولد تلقائياً إذا تركت فارغاً" />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-primary uppercase px-1">التصنيف</Label>
+                    <Select value={qaCat} onValueChange={setQaCat}>
+                       <SelectTrigger className="h-12 glass border-none rounded-xl font-bold"><SelectValue placeholder="اختر التصنيف..." /></SelectTrigger>
+                       <SelectContent className="glass border-none rounded-xl z-[400]">
+                          {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                       </SelectContent>
+                    </Select>
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-primary uppercase px-1">صورة المنتج</Label>
+                    <div className="flex gap-2">
+                       <Input value={qaImageUrl} onChange={(e) => setQaImageUrl(e.target.value)} className="h-12 glass border-none rounded-xl font-bold text-xs" placeholder="رابط الصورة أو ارفع ملفاً" />
+                       <label className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary cursor-pointer hover:bg-primary hover:text-white transition-colors">
+                          <Upload className="h-5 w-5" /><input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                       </label>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-primary uppercase px-1">الكمية</Label>
+                    <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-orange-600 uppercase px-1">سعر الشراء</Label>
+                    <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-orange-600" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-emerald-600 uppercase px-1">سعر البيع</Label>
+                    <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-emerald-600" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-muted-foreground uppercase px-1">سعر التصليح</Label>
+                    <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                 </div>
+              </div>
+           </div>
+
+           <DialogFooter>
+              <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl hover:scale-[1.02] transition-transform">
+                 {isAdding ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />} تأكيد الإضافة والمزامنة
+              </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Edit Dialog */}
+      <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[320] flex flex-col h-[80vh]">
+           <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-white/10 shrink-0">
+              <DialogTitle className="text-xl font-black text-primary flex items-center gap-3">
+                 <Edit3 className="h-6 w-6" /> التعديل السريع للمخزون
+              </DialogTitle>
+           </DialogHeader>
+
+           <div className="p-4 md:p-6 bg-card/40 border-b border-white/5 shrink-0">
+              <div className="relative group">
+                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                 <Input 
+                   placeholder="ابحث عن المنتج لتعديله..." 
+                   className="pl-12 h-12 glass border-none rounded-2xl font-bold" 
+                   value={quickEditSearch}
+                   onChange={(e) => setQuickEditSearch(e.target.value)}
+                 />
+              </div>
+           </div>
+
+           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
+              <div className="flex items-center justify-end gap-4 mb-4">
+                 <div className="flex items-center gap-2">
+                    <Label className="text-[10px] font-black">إظهار الشراء</Label>
+                    <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <Label className="text-[10px] font-black">إظهار التصليح</Label>
+                    <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
+                 </div>
+              </div>
+
+              {quickEditProducts.length === 0 ? (
+                <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة</div>
+              ) : (
+                <div className="space-y-4">
+                   {quickEditProducts.map(p => (
+                     <QuickEditItem 
+                       key={p.id} 
+                       product={p} 
+                       db={db} 
+                       showPurchase={showPurchaseInEdit} 
+                       showRepair={showRepairInEdit} 
+                       userId={user?.uid || ""} 
+                       isAdmin={isAdmin}
+                     />
+                   ))}
+                </div>
+              )}
+           </div>
+
+           <div className="p-6 bg-black/5 text-center shrink-0">
+              <Button onClick={() => setIsQuickEditOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق النافذة</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
