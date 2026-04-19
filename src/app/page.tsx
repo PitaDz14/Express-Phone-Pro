@@ -20,16 +20,9 @@ import {
   Camera,
   Smartphone,
   Image as ImageIcon,
-  Link as LinkIcon,
   Settings2,
   Upload,
   Layers,
-  ChevronLeft,
-  FileDown,
-  Download,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   ShieldCheck,
   UserCog,
   X
@@ -59,14 +52,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -442,6 +427,17 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-2">
+             {isAdmin && (
+               <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-9 w-9 md:hidden rounded-xl glass border-primary/10 bg-white/20" 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickEditSearch(""); setIsQuickEditOpen(true); }}
+               >
+                 <Edit3 className="h-4 w-4 text-primary" />
+               </Button>
+             )}
+             
              <div className="flex flex-col items-end mr-1 text-right">
                 <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none">الحساب الحالي</span>
                 <span className={cn(
@@ -470,6 +466,17 @@ export default function Dashboard() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+             {isAdmin && (
+               <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10 hidden md:flex" 
+                onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}
+                title="تعديل سريع"
+               >
+                 <Edit3 className="h-4 w-4" />
+               </Button>
+             )}
              <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground">
@@ -527,9 +534,15 @@ export default function Dashboard() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-           <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl glass" onClick={() => { setIsQuickEditOpen(true); setQuickEditSearch(""); }}>
-             <Edit3 className="h-5 w-5 text-primary" />
-           </Button>
+           {isAdmin && (
+             <Button 
+               variant="outline" 
+               className="h-11 px-4 rounded-2xl glass border-primary/20 gap-2 font-black" 
+               onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}
+             >
+               <Edit3 className="h-4 w-4 text-primary" /> التعديل السريع
+             </Button>
+           )}
            <div className="flex flex-col text-right">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">أهلاً بك</span>
               <span className="text-sm font-black text-primary truncate max-w-[120px]">{username || "..."}</span>
@@ -778,6 +791,7 @@ export default function Dashboard() {
                    className="pl-12 h-12 glass border-none rounded-2xl font-bold" 
                    value={quickEditSearch}
                    onChange={(e) => setQuickEditSearch(e.target.value)}
+                   autoFocus
                  />
               </div>
            </div>
