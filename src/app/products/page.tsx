@@ -264,10 +264,7 @@ export default function ProductsPage() {
   }, [isAdmin])
 
   const handlePrintLabels = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
+    const printContent = `
       <html dir="rtl">
         <head>
           <style>
@@ -293,7 +290,7 @@ export default function ProductsPage() {
             @media print { .label { border: none; } }
           </style>
         </head>
-        <body onload="window.print(); window.close();">
+        <body>
           <div class="grid">
             ${Array(copies).fill(0).map(() => `
               <div class="label">
@@ -305,8 +302,30 @@ export default function ProductsPage() {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    // Professional Mobile-Safe Printing via hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(printContent);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 500);
+    }
   }
 
   const SortIcon = ({ column }: { column: string }) => {

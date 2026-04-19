@@ -213,12 +213,8 @@ export default function InvoicesPage() {
   }
 
   const handlePrintInvoice = (invId: string, invoiceData: any, cartItems: CartItem[], customer: any) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
     const hasDiscount = (invoiceData.discount || 0) > 0;
-
-    printWindow.document.write(`
+    const printContent = `
       <html dir="rtl">
         <head>
           <title>فاتورة - ${invId}</title>
@@ -239,7 +235,7 @@ export default function InvoicesPage() {
             .qr-img { width: 100px; height: 100px; }
           </style>
         </head>
-        <body onload="window.print(); window.close();">
+        <body>
           <div class="invoice-box">
             <div class="header">
               <h1>EXPRESS PHONE</h1>
@@ -274,10 +270,10 @@ export default function InvoicesPage() {
             </table>
 
             <div class="summary">
-              <div class="summary-row"><span>المجموع:</span> <span>${(subtotal).toLocaleString()} دج</span></div>
-              ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${(invoiceData.discount || 0).toLocaleString()} دج</span></div>` : ''}
-              <div class="summary-row"><span>المدفوع:</span> <span>${invoiceData.paidAmount.toLocaleString()} دج</span></div>
-              <div class="summary-row total"><span>الإجمالي النهائي:</span> <span>${invoiceData.totalAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row"><span>المجموع:</span> <span dir="ltr">${(subtotal).toLocaleString()} دج</span></div>
+              ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span dir="ltr">-${(invoiceData.discount || 0).toLocaleString()} دج</span></div>` : ''}
+              <div class="summary-row"><span>المدفوع:</span> <span dir="ltr">${invoiceData.paidAmount.toLocaleString()} دج</span></div>
+              <div class="summary-row total"><span>الإجمالي النهائي:</span> <span dir="ltr">${invoiceData.totalAmount.toLocaleString()} دج</span></div>
             </div>
 
             <div class="qr-footer">
@@ -287,8 +283,33 @@ export default function InvoicesPage() {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    // Professional Mobile-First Printing using hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.id = 'print-iframe';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(printContent);
+      iframeDoc.close();
+
+      // Wait for resources to load then print
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        // Cleanup after print dialog closes
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 500);
+    }
   }
 
   const handleProcessInvoice = async () => {

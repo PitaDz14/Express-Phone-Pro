@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -148,88 +149,109 @@ export default function InvoiceHistoryPage() {
       const snapshot = await getDocs(itemsRef)
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       setInvoiceItems(items)
+      return items;
     } catch (error) {
       console.error("Error fetching invoice items:", error)
+      return [];
     } finally {
       setIsLoadingItems(false)
     }
   }
 
   const handlePrintInvoice = (invoice: any, items: any[]) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const hasDiscount = (invoice.discount || 0) > 0;
-      const invoiceDate = invoice.createdAt?.toDate ? invoice.createdAt.toDate() : (invoice.createdAt instanceof Date ? invoice.createdAt : new Date());
+    const hasDiscount = (invoice.discount || 0) > 0;
+    const invoiceDate = invoice.createdAt?.toDate ? invoice.createdAt.toDate() : (invoice.createdAt instanceof Date ? invoice.createdAt : new Date());
 
-      printWindow.document.write(`
-        <html dir="rtl">
-          <head>
-            <title>فاتورة - ${invoice.id}</title>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-              body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
-              .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-              .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
-              .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-              th, td { border-bottom: 1px solid #000; padding: 8px; text-align: right; }
-              th { background-color: #f0f0f0; }
-              .summary { border-top: 2px solid #000; padding-top: 10px; font-size: 14px; }
-              .summary-row { display: flex; justify-content: space-between; font-weight: 700; }
-              .total { font-size: 18px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
-              .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
-            </style>
-          </head>
-          <body onload="window.print(); window.close();">
-            <div class="header">
-              <h1>EXPRESS PHONE</h1>
-              <p style="font-weight: 800;">فاتورة مبيعات</p>
+    const printContent = `
+      <html dir="rtl">
+        <head>
+          <title>فاتورة - ${invoice.id}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+            body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
+            .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            th, td { border-bottom: 1px solid #000; padding: 8px; text-align: right; }
+            th { background-color: #f0f0f0; }
+            .summary { border-top: 2px solid #000; padding-top: 10px; font-size: 14px; }
+            .summary-row { display: flex; justify-content: space-between; font-weight: 700; }
+            .total { font-size: 18px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
+            .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>EXPRESS PHONE</h1>
+            <p style="font-weight: 800;">فاتورة مبيعات</p>
+          </div>
+          <div class="info">
+            <div>
+              <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
+              <strong>التاريخ:</strong> ${format(invoiceDate, "yyyy/MM/dd", { locale: ar })}<br>
+              <strong>الموظف:</strong> ${invoice.generatedByUserName || "غير معرف"}
             </div>
-            <div class="info">
-              <div>
-                <strong>رقم الفاتورة:</strong> ${invoice.id}<br>
-                <strong>التاريخ:</strong> ${format(invoiceDate, "yyyy/MM/dd", { locale: ar })}<br>
-                <strong>الموظف:</strong> ${invoice.generatedByUserName || "غير معرف"}
-              </div>
-              <div style="text-align: left;">
-                <strong>العميل:</strong> ${invoice.customerName}<br>
-                <strong>الحالة:</strong> ${invoice.status === 'Paid' ? 'مدفوعة' : 'دين'}
-              </div>
+            <div style="text-align: left;">
+              <strong>العميل:</strong> ${invoice.customerName}<br>
+              <strong>الحالة:</strong> ${invoice.status === 'Paid' ? 'مدفوعة' : 'دين'}
             </div>
-            <table>
-              <thead>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th style="text-align: center">كمية</th>
+                <th style="text-align: left">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => `
                 <tr>
-                  <th>المنتج</th>
-                  <th style="text-align: center">كمية</th>
-                  <th style="text-align: left">الإجمالي</th>
+                  <td>${item.productName}</td>
+                  <td style="text-align: center">${item.quantity}</td>
+                  <td style="text-align: left">${item.itemTotal.toLocaleString()} دج</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${items.map(item => `
-                  <tr>
-                    <td>${item.productName}</td>
-                    <td style="text-align: center">${item.quantity}</td>
-                    <td style="text-align: left">${item.itemTotal.toLocaleString()} دج</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            
-            <div class="summary">
-               <div class="summary-row"><span>المجموع:</span> <span>${(invoice.totalAmount + (invoice.discount || 0)).toLocaleString()} دج</span></div>
-               ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${invoice.discount.toLocaleString()} دج</span></div>` : ''}
-               <div class="summary-row"><span>المدفوع:</span> <span>${invoice.paidAmount.toLocaleString()} دج</span></div>
-               <div class="summary-row total">الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج</div>
-            </div>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+             <div class="summary-row"><span>المجموع:</span> <span>${(invoice.totalAmount + (invoice.discount || 0)).toLocaleString()} دج</span></div>
+             ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span>-${invoice.discount.toLocaleString()} دج</span></div>` : ''}
+             <div class="summary-row"><span>المدفوع:</span> <span>${invoice.paidAmount.toLocaleString()} دج</span></div>
+             <div class="summary-row total">الإجمالي النهائي: ${invoice.totalAmount.toLocaleString()} دج</div>
+          </div>
 
-            <div class="qr-footer">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invoice.id}" width="120" />
-              <p style="font-weight: 800; margin-top: 10px;">شكراً لتعاملكم معنا</p>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+          <div class="qr-footer">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invoice.id}" width="120" />
+            <p style="font-weight: 800; margin-top: 10px;">شكراً لتعاملكم معنا</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Professional printing via hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(printContent);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 500);
     }
   }
 
@@ -381,7 +403,7 @@ export default function InvoiceHistoryPage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-9 w-9 rounded-xl bg-white/50 hover:bg-accent hover:text-white"
-                              onClick={() => handleViewDetails(inv).then(() => handlePrintInvoice(inv, invoiceItems))}
+                              onClick={() => handleViewDetails(inv).then((items) => handlePrintInvoice(inv, items))}
                               title="طباعة"
                              >
                                <Printer className="h-4 w-4" />
