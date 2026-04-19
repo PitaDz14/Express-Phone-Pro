@@ -33,7 +33,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Wrench
+  Wrench,
+  CheckCircle2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -457,7 +458,7 @@ export default function Dashboard() {
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
     ).slice(0, 5)
-  }, [searchTerm, products])
+  }, [searchTerm, products, showRepairInSearch]) // Added showRepairInSearch as dependency for reactive results
 
   const quickEditProducts = React.useMemo(() => {
     if (!products) return []
@@ -629,31 +630,42 @@ export default function Dashboard() {
                     <Settings2 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="glass border-none rounded-[2rem] w-64 p-0 z-[100] shadow-2xl overflow-hidden" align="end">
-                   <div className="p-4 bg-primary/10 border-b border-white/10 flex items-center justify-between">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">إعدادات العرض</p>
+                <PopoverContent className="glass border-none rounded-[2.5rem] w-72 p-0 z-[100] shadow-2xl overflow-hidden" align="end">
+                   <div className="p-4 bg-gradient-to-r from-primary/20 to-accent/20 border-b border-white/10 flex items-center justify-between">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Smart Control Center</p>
                       <Settings2 className="h-3 w-3 text-primary opacity-50" />
                    </div>
-                   <div className="p-5 space-y-5" dir="rtl">
-                      <div className="flex items-center justify-between group">
-                         <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
-                              showRepairInSearch ? "bg-primary text-white" : "bg-black/5 text-muted-foreground"
-                            )}>
-                               <Wrench className="h-4 w-4" />
-                            </div>
-                            <Label className="text-xs font-black cursor-pointer">سعر التصليح</Label>
-                         </div>
-                         <Switch 
-                           checked={showRepairInSearch} 
-                           onCheckedChange={setShowRepairInSearch}
-                           className="data-[state=checked]:bg-primary"
-                         />
+                   <div className="p-6 space-y-6" dir="rtl">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-white/10 group transition-all hover:bg-white/40">
+                           <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-300",
+                                showRepairInSearch ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-black/5 text-muted-foreground"
+                              )}>
+                                 <Wrench className="h-4 w-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <Label className="text-xs font-black cursor-pointer leading-none mb-1">سعر التصليح</Label>
+                                <span className="text-[8px] text-muted-foreground font-bold">إظهار الخدمة في البحث</span>
+                              </div>
+                           </div>
+                           <Switch 
+                             checked={showRepairInSearch} 
+                             onCheckedChange={setShowRepairInSearch}
+                             className="data-[state=checked]:bg-primary"
+                           />
+                        </div>
                       </div>
-                      <p className="text-[8px] font-bold text-muted-foreground leading-tight italic">
-                        عند التفعيل، سيظهر سعر خدمة التصليح بجانب سعر البيع في نتائج البحث.
-                      </p>
+                      <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                        <div className="flex items-center gap-2 mb-1">
+                           <Zap className="h-3 w-3 text-primary" />
+                           <p className="text-[9px] font-black text-primary uppercase">نصيحة ذكية</p>
+                        </div>
+                        <p className="text-[8px] font-bold text-muted-foreground leading-relaxed italic">
+                          تفعيل هذا الخيار يساعد الموظف على تقديم تقدير فوري للزبون أثناء عملية الفحص السريع.
+                        </p>
+                      </div>
                    </div>
                 </PopoverContent>
              </Popover>
@@ -683,11 +695,11 @@ export default function Dashboard() {
                        <div className="flex items-center gap-4">
                           <div className="flex flex-col items-end">
                             <span className="text-sm md:text-lg font-black text-primary tabular-nums leading-tight">
-                              {p.salePrice.toLocaleString()} <span className="text-[10px] md:text-xs opacity-60 font-bold">دج</span>
+                              {Number(p.salePrice).toLocaleString()} <span className="text-[10px] md:text-xs opacity-60 font-bold">دج</span>
                             </span>
-                            {showRepairInSearch && p.repairPrice > 0 && (
-                              <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5">
-                                <Wrench className="h-2 w-2" /> {p.repairPrice.toLocaleString()} دج
+                            {showRepairInSearch && p.repairPrice != null && (
+                              <span className="text-[10px] font-bold text-orange-600 flex items-center gap-1 mt-1 bg-orange-500/5 px-2 py-0.5 rounded-lg border border-orange-500/10">
+                                <Wrench className="h-2.5 w-2.5" /> {Number(p.repairPrice).toLocaleString()} دج
                               </span>
                             )}
                             <span className="text-[10px] text-emerald-600 font-black mt-1 bg-emerald-500/5 px-2 py-0.5 rounded-lg">متوفر: {p.quantity}</span>
