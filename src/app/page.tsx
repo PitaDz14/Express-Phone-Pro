@@ -288,16 +288,18 @@ export default function Dashboard() {
     return filtered;
   }, [products, lowStockFilter, lowStockSortConfig, isMounted]);
 
-  const handleExportLowStock = (format: 'excel' | 'txt' | 'print') => {
-    if (lowStockItems.length === 0) return;
+  const handleExportLowStock = React.useCallback((format: 'excel' | 'txt' | 'print') => {
+    if (!lowStockItems || lowStockItems.length === 0) {
+      toast({ title: "تنبيه", description: "لا توجد منتجات لتصديرها حالياً", variant: "destructive" });
+      return;
+    }
 
     if (format === 'excel') {
-      // Excel/CSV Export
       const headers = ["اسم المنتج", "الكود", "التصنيف", "المتوفر", "الحد الأدنى", "سعر البيع"];
       const rows = lowStockItems.map(p => [
-        p.name,
-        p.productCode,
-        p.categoryPath || p.categoryName,
+        `"${p.name}"`,
+        `"${p.productCode}"`,
+        `"${p.categoryPath || p.categoryName}"`,
         p.quantity,
         p.minStockQuantity || 1,
         p.salePrice
@@ -306,12 +308,15 @@ export default function Dashboard() {
       const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `نواقص_المخزون_${new Date().toISOString().split('T')[0]}.csv`;
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `نواقص_المخزون_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       toast({ title: "تم التصدير", description: "تم تحميل ملف Excel بنجاح" });
     } else if (format === 'txt') {
-      // TXT Export
       let content = `قائمة نواقص المخزون - EXPRESS PHONE PRO\n`;
       content += `التاريخ: ${new Date().toLocaleDateString('ar-DZ')}\n`;
       content += `-------------------------------------------\n\n`;
@@ -321,19 +326,22 @@ export default function Dashboard() {
 
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `قائمة_النواقص_${new Date().toISOString().split('T')[0]}.txt`;
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `قائمة_النواقص_${new Date().toISOString().split('T')[0]}.txt`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       toast({ title: "تم التصدير", description: "تم تحميل ملف القائمة النصية" });
     } else if (format === 'print') {
-      // Print/Invoice style Report
       const printContent = `
         <html dir="rtl">
           <head>
             <title>قائمة نواقص المخزون</title>
             <style>
               @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-              body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
+              body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; margin: 0; }
               .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
               .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
               .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; font-weight: 700; }
@@ -341,6 +349,7 @@ export default function Dashboard() {
               th, td { border: 1px solid #000; padding: 8px; text-align: right; }
               th { background-color: #f0f0f0; }
               .footer { text-align: center; font-size: 10px; margin-top: 30px; opacity: 0.5; }
+              @media print { .no-print { display: none; } }
             </style>
           </head>
           <body>
@@ -395,11 +404,13 @@ export default function Dashboard() {
         setTimeout(() => {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
-          setTimeout(() => document.body.removeChild(iframe), 1000);
-        }, 500);
+          setTimeout(() => {
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+          }, 1000);
+        }, 600);
       }
     }
-  }
+  }, [lowStockItems, toast]);
 
   const stats = React.useMemo(() => {
     if (!isMounted || !products) return {
@@ -814,13 +825,13 @@ export default function Dashboard() {
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="glass border-none rounded-xl z-[350]">
-                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('print')}>
+                         <DropdownMenuItem className="font-bold flex items-center gap-2 cursor-pointer" onSelect={() => handleExportLowStock('print')}>
                             <Printer className="h-4 w-4" /> طباعة كشف توريد
                          </DropdownMenuItem>
-                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('excel')}>
+                         <DropdownMenuItem className="font-bold flex items-center gap-2 cursor-pointer" onSelect={() => handleExportLowStock('excel')}>
                             <FileText className="h-4 w-4" /> تصدير ملف Excel
                          </DropdownMenuItem>
-                         <DropdownMenuItem className="font-bold flex items-center gap-2" onClick={() => handleExportLowStock('txt')}>
+                         <DropdownMenuItem className="font-bold flex items-center gap-2 cursor-pointer" onSelect={() => handleExportLowStock('txt')}>
                             <X className="h-4 w-4 rotate-45" /> تصدير قائمة نصية TXT
                          </DropdownMenuItem>
                       </DropdownMenuContent>
