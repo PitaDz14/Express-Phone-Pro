@@ -672,14 +672,14 @@ export default function InvoicesPage() {
                 <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
              </DialogHeader>
 
-             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-black/5 custom-scrollbar">
+             <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                 <div className="flex flex-col items-center min-h-full py-4">
                   {/* Simulated Paper */}
-                  <div className="bg-white text-black w-full max-w-[350px] shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 select-none">
+                  <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                      <div className="text-center space-y-1 border-b-2 border-black pb-4">
-                        <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
-                        <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
-                        <p className="text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
+                        <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
+                        <p className="text-[9px] sm:text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
+                        <p className="text-[9px] sm:text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
                      </div>
 
                      <div className="space-y-1">
@@ -700,7 +700,7 @@ export default function InvoicesPage() {
                         <tbody className="divide-y divide-black/10">
                           {cart.map((item) => (
                             <tr key={item.productId}>
-                               <td className="py-2 text-right font-bold">{item.name}</td>
+                               <td className="py-2 text-right font-bold break-words">{item.name}</td>
                                <td className="py-2 text-center tabular-nums">{item.qty}</td>
                                <td className="py-2 text-left tabular-nums">{(item.price * item.qty).toLocaleString()}</td>
                             </tr>
@@ -711,16 +711,16 @@ export default function InvoicesPage() {
                      <div className="space-y-1 border-t border-black pt-4">
                         <div className="flex justify-between"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
                         {discount > 0 && <div className="flex justify-between"><span>الخصم:</span> <span className="tabular-nums">-${discount.toLocaleString()} دج</span></div>}
-                        <div className="flex justify-between font-black text-base border-t-2 border-double border-black pt-2">
+                        <div className="flex justify-between font-black text-sm sm:text-base border-t-2 border-double border-black pt-2">
                            <span>الإجمالي النهائي:</span> <span className="tabular-nums">{total.toLocaleString()} دج</span>
                         </div>
-                        <div className="flex justify-between text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
+                        <div className="flex justify-between text-[10px] sm:text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
                         {debtAmount > 0 && <div className="flex justify-between text-red-600 font-bold"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>}
                      </div>
 
                      <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
-                        <img className="w-24 h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || pendingId}`} alt="QR" />
-                        <p className="mt-4 font-black text-sm">شكراً لزيارتكم</p>
+                        <img className="w-20 h-20 sm:w-24 sm:h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || pendingId}`} alt="QR" />
+                        <p className="mt-4 font-black text-xs sm:text-sm">شكراً لزيارتكم</p>
                      </div>
                   </div>
                 </div>

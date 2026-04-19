@@ -443,14 +443,14 @@ export default function InvoiceHistoryPage() {
                   <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة الأصلية</DialogTitle>
                </DialogHeader>
 
-               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-black/5 custom-scrollbar">
+               <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                   <div className="flex flex-col items-center min-h-full py-4">
                     {/* Simulated Paper */}
-                    <div className="bg-white text-black w-full max-w-[350px] shadow-2xl p-6 md:p-8 rounded-sm space-y-6 text-[12px] border border-black/10 select-none">
+                    <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                        <div className="text-center space-y-1 border-b-2 border-black pb-4">
-                          <h2 className="text-2xl font-black leading-none">EXPRESS PHONE</h2>
-                          <p className="text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
-                          <p className="text-[10px] tabular-nums">
+                          <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
+                          <p className="text-[9px] sm:text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
+                          <p className="text-[9px] sm:text-[10px] tabular-nums">
                             {selectedInvoice?.createdAt?.toDate 
                               ? format(selectedInvoice.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ar }) 
                               : (selectedInvoice?.createdAt instanceof Date ? format(selectedInvoice.createdAt, "yyyy/MM/dd HH:mm", { locale: ar }) : "---")}
@@ -477,7 +477,7 @@ export default function InvoiceHistoryPage() {
                               <tr><td colSpan={3} className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
                             ) : invoiceItems.map((item) => (
                               <tr key={item.id}>
-                                 <td className="py-2 text-right font-bold">{item.productName}</td>
+                                 <td className="py-2 text-right font-bold break-words">{item.productName}</td>
                                  <td className="py-2 text-center tabular-nums">{item.quantity}</td>
                                  <td className="py-2 text-left tabular-nums">{item.itemTotal?.toLocaleString()}</td>
                               </tr>
@@ -496,10 +496,10 @@ export default function InvoiceHistoryPage() {
                               <span className="tabular-nums">-{selectedInvoice.discount.toLocaleString()} دج</span>
                             </div>
                           )}
-                          <div className="flex justify-between font-black text-base border-t-2 border-double border-black pt-2">
+                          <div className="flex justify-between font-black text-sm sm:text-base border-t-2 border-double border-black pt-2">
                              <span>الإجمالي النهائي:</span> <span className="tabular-nums">{selectedInvoice?.totalAmount.toLocaleString()} دج</span>
                           </div>
-                          <div className="flex justify-between text-[11px]">
+                          <div className="flex justify-between text-[10px] sm:text-[11px]">
                             <span>المدفوع:</span> 
                             <span className="tabular-nums">{selectedInvoice?.paidAmount?.toLocaleString()} دج</span>
                           </div>
@@ -513,11 +513,11 @@ export default function InvoiceHistoryPage() {
 
                        <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
                           <img 
-                            className="w-24 h-24" 
+                            className="w-20 h-20 sm:w-24 sm:h-24" 
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${selectedInvoice?.id}`} 
                             alt="QR" 
                           />
-                          <p className="mt-4 font-black text-sm">شكراً لتعاملكم معنا</p>
+                          <p className="mt-4 font-black text-xs sm:text-sm">شكراً لتعاملكم معنا</p>
                        </div>
                     </div>
                   </div>
