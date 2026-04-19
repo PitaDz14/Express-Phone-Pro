@@ -32,7 +32,8 @@ import {
   ChevronDown,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Wrench
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -624,17 +625,35 @@ export default function Dashboard() {
              )}
              <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/20">
                     <Settings2 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="glass border-none rounded-2xl w-56 p-4 z-[100]">
-                   <div className="space-y-4">
-                      <p className="text-[10px] font-black text-primary uppercase text-right">إعدادات البحث</p>
-                      <div className="flex items-center justify-between" dir="rtl">
-                         <Label className="text-xs font-bold">إظهار سعر التصليح</Label>
-                         <Switch checked={showRepairInSearch} onCheckedChange={setShowRepairInSearch} />
+                <PopoverContent className="glass border-none rounded-[2rem] w-64 p-0 z-[100] shadow-2xl overflow-hidden" align="end">
+                   <div className="p-4 bg-primary/10 border-b border-white/10 flex items-center justify-between">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">إعدادات العرض</p>
+                      <Settings2 className="h-3 w-3 text-primary opacity-50" />
+                   </div>
+                   <div className="p-5 space-y-5" dir="rtl">
+                      <div className="flex items-center justify-between group">
+                         <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
+                              showRepairInSearch ? "bg-primary text-white" : "bg-black/5 text-muted-foreground"
+                            )}>
+                               <Wrench className="h-4 w-4" />
+                            </div>
+                            <Label className="text-xs font-black cursor-pointer">سعر التصليح</Label>
+                         </div>
+                         <Switch 
+                           checked={showRepairInSearch} 
+                           onCheckedChange={setShowRepairInSearch}
+                           className="data-[state=checked]:bg-primary"
+                         />
                       </div>
+                      <p className="text-[8px] font-bold text-muted-foreground leading-tight italic">
+                        عند التفعيل، سيظهر سعر خدمة التصليح بجانب سعر البيع في نتائج البحث.
+                      </p>
                    </div>
                 </PopoverContent>
              </Popover>
@@ -663,10 +682,15 @@ export default function Dashboard() {
                        </div>
                        <div className="flex items-center gap-4">
                           <div className="flex flex-col items-end">
-                            <span className="text-sm md:text-lg font-black text-primary tabular-nums">
+                            <span className="text-sm md:text-lg font-black text-primary tabular-nums leading-tight">
                               {p.salePrice.toLocaleString()} <span className="text-[10px] md:text-xs opacity-60 font-bold">دج</span>
                             </span>
-                            <span className="text-[10px] text-emerald-600 font-black">متوفر: {p.quantity}</span>
+                            {showRepairInSearch && p.repairPrice > 0 && (
+                              <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Wrench className="h-2 w-2" /> {p.repairPrice.toLocaleString()} دج
+                              </span>
+                            )}
+                            <span className="text-[10px] text-emerald-600 font-black mt-1 bg-emerald-500/5 px-2 py-0.5 rounded-lg">متوفر: {p.quantity}</span>
                           </div>
                        </div>
                     </div>
