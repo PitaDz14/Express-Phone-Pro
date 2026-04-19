@@ -304,7 +304,6 @@ export default function ProductsPage() {
       </html>
     `;
 
-    // Professional Mobile-Safe Printing via hidden iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -323,7 +322,11 @@ export default function ProductsPage() {
       setTimeout(() => {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 1000);
       }, 500);
     }
   }
@@ -536,7 +539,7 @@ export default function ProductsPage() {
         <DialogContent dir="rtl" className="max-w-sm glass border-none rounded-[3rem] shadow-2xl p-10 z-[400] text-center">
            <DialogHeader><DialogTitle className="text-xl font-black mb-6">{zoomQR?.name}</DialogTitle></DialogHeader>
            <div className="bg-white p-6 rounded-3xl shadow-inner mx-auto max-w-fit">
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${zoomQR?.code}`} className="h-48 w-48" />
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${zoomQR?.code}`} className="h-48 w-48" alt="QR" />
            </div>
            <p className="mt-6 font-mono font-black text-primary tracking-widest">{zoomQR?.code}</p>
            <Button onClick={() => setZoomQR(null)} variant="ghost" className="mt-6 rounded-xl font-bold">إغلاق</Button>
@@ -546,8 +549,11 @@ export default function ProductsPage() {
       {/* Image Zoom Dialog */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent dir="rtl" className="max-w-2xl glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[400]">
+           <DialogHeader className="sr-only">
+              <DialogTitle>{zoomImage?.name || "معاينة الصورة"}</DialogTitle>
+           </DialogHeader>
            <div className="relative group">
-              <img src={zoomImage?.url} className="w-full h-auto max-h-[80vh] object-contain" />
+              <img src={zoomImage?.url} className="w-full h-auto max-h-[80vh] object-contain" alt="Zoomed" />
               <button onClick={() => setZoomImage(null)} className="absolute top-4 left-4 h-10 w-10 rounded-full bg-black/40 text-white flex items-center justify-center backdrop-blur-md"><X className="h-5 w-5" /></button>
               <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent text-white">
                  <p className="font-black text-lg">{zoomImage?.name}</p>
