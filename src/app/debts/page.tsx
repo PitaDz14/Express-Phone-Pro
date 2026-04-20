@@ -16,7 +16,10 @@ import {
   History,
   User,
   ShoppingBag,
-  FileText
+  FileText,
+  Plus,
+  Coins,
+  CheckCircle2
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,9 +38,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, query, where, doc, increment, getDocs } from "firebase/firestore"
+import { collection, query, where, doc, increment, getDocs, writeBatch, serverTimestamp } from "firebase/firestore"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -51,6 +57,11 @@ export default function DebtsPage() {
   const [customerInvoices, setCustomerInvoices] = React.useState<any[]>([])
   const [isLoadingInvoices, setIsLoadingInvoices] = React.useState(false)
   const [sortConfig, setSortConfig] = React.useState({ key: 'debt', direction: 'desc' })
+
+  // Bulk Payment States
+  const [isBulkOpen, setIsBulkOpen] = React.useState(false)
+  const [bulkAmount, setBulkAmount] = React.useState<number | "">("")
+  const [isProcessingBulk, setIsProcessingBulk] = React.useState(false)
 
   // States for Invoice Preview
   const [selectedInvoiceForItems, setSelectedInvoiceForItems] = React.useState<any>(null)
@@ -91,11 +102,85 @@ export default function DebtsPage() {
       const items = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter((inv: any) => inv.totalAmount > inv.paidAmount)
+      
+      // Sort in UI: Newest First
+      items.sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || 0
+        const tB = b.createdAt?.seconds || 0
+        return tB - tA
+      })
+      
       setCustomerInvoices(items)
     } catch (error) {
       console.error(error)
     } finally {
       setIsLoadingInvoices(false)
+    }
+  }
+
+  const handleProcessBulkPayment = async () => {
+    if (!selectedCustomer || !bulkAmount || Number(bulkAmount) <= 0) return
+    
+    setIsProcessingBulk(true)
+    const amountToApply = Number(bulkAmount)
+    const batch = writeBatch(db)
+    
+    try {
+      // 1. Fetch ALL unpaid invoices for this customer ordered by date desc (Newest first)
+      const q = query(
+        collection(db, "invoices"), 
+        where("customerId", "==", selectedCustomer.id),
+        where("status", "==", "Debt")
+      )
+      const snapshot = await getDocs(q)
+      
+      const debtInvoices = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .sort((a, b) => {
+          const tA = a.createdAt?.seconds || 0
+          const tB = b.createdAt?.seconds || 0
+          return tB - tA // NEWEST FIRST
+        })
+
+      let remaining = amountToApply
+      
+      for (const inv of debtInvoices) {
+        if (remaining <= 0) break
+        
+        const invUnpaid = inv.totalAmount - inv.paidAmount
+        const paymentForThisInv = Math.min(remaining, invUnpaid)
+        
+        const newPaidAmount = inv.paidAmount + paymentForThisInv
+        batch.update(doc(db, "invoices", inv.id), {
+          paidAmount: newPaidAmount,
+          status: newPaidAmount >= inv.totalAmount ? "Paid" : "Debt",
+          updatedAt: serverTimestamp()
+        })
+        
+        remaining -= paymentForThisInv
+      }
+
+      // 2. Update customer's overall debt
+      batch.update(doc(db, "customers", selectedCustomer.id), {
+        debt: increment(-amountToApply),
+        updatedAt: serverTimestamp()
+      })
+
+      await batch.commit()
+      
+      toast({ 
+        title: "تم السداد الذكي", 
+        description: `تم توزيع مبلغ ${amountToApply.toLocaleString()} دج على أحدث الفواتير بنجاح.` 
+      })
+      
+      setIsBulkOpen(false)
+      setBulkAmount("")
+      setSelectedCustomer(null) // Close main dialog to refresh data
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "خطأ", description: "فشلت عملية معالجة الدفعة" })
+    } finally {
+      setIsProcessingBulk(false)
     }
   }
 
@@ -278,9 +363,14 @@ export default function DebtsPage() {
                     <p className="text-[10px] font-bold text-muted-foreground">قائمة المستحقات المتبقية</p>
                   </div>
                </div>
-               <Badge variant="destructive" className="px-4 py-2 rounded-xl font-black text-xs md:text-sm shadow-lg shadow-destructive/10">
-                 إجمالي المتبقي: {selectedCustomer?.debt.toLocaleString()} دج
-               </Badge>
+               <div className="flex items-center gap-2">
+                  <Badge variant="destructive" className="px-4 py-2 rounded-xl font-black text-xs md:text-sm shadow-lg shadow-destructive/10">
+                    إجمالي المتبقي: {selectedCustomer?.debt.toLocaleString()} دج
+                  </Badge>
+                  <Button onClick={() => setIsBulkOpen(true)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white font-black gap-2 shadow-lg shadow-emerald-500/20">
+                     <Coins className="h-4 w-4" /> تسجيل دفعة شاملة
+                  </Button>
+               </div>
             </div>
           </DialogHeader>
           
@@ -291,6 +381,10 @@ export default function DebtsPage() {
               <div className="py-20 text-center opacity-30 italic font-black text-foreground">لا توجد فواتير مديونية</div>
             ) : (
               <div className="space-y-4">
+                <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">تنبيه ذكي</p>
+                   <p className="text-xs font-bold text-muted-foreground leading-relaxed italic">يتم ترتيب الفواتير من الأحدث إلى الأقدم. عند استخدام السداد الشامل، سيقوم النظام تلقائياً بتوزيع المبلغ بدءاً من أحدث فاتورة.</p>
+                </div>
                 {customerInvoices.map((inv) => (
                   <div key={inv.id} className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] glass border-white/10 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-white/40 transition-all gap-4 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-8 flex-1">
@@ -335,7 +429,7 @@ export default function DebtsPage() {
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600"
                         onClick={() => handleUpdatePayment(inv)}
-                        title="تحديث الدفع"
+                        title="تحديث الدفع لهذه الفاتورة فقط"
                        >
                          <Edit3 className="h-4 w-4" />
                        </Button>
@@ -357,6 +451,64 @@ export default function DebtsPage() {
              <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setSelectedCustomer(null)}>إغلاق السجل</Button>
           </div>
         </DialogContent>
+      </Dialog>
+
+      {/* Bulk Payment Entry Dialog */}
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
+         <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl z-[300] max-w-md w-[95%]">
+            <DialogHeader>
+               <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
+                  <Coins className="h-6 w-6 text-emerald-500" /> تسجيل دفعة مالية
+               </DialogTitle>
+               <DialogDescription className="font-bold text-xs mt-2">
+                  سيقوم النظام بتوزيع المبلغ تلقائياً على فواتير {selectedCustomer?.name} بدءاً من أحدث فاتورة.
+               </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-6 space-y-6">
+               <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex justify-between items-center">
+                  <span className="text-xs font-black text-emerald-600">إجمالي ديون العميل:</span>
+                  <span className="text-lg font-black text-red-600 tabular-nums">{selectedCustomer?.debt.toLocaleString()} دج</span>
+               </div>
+
+               <div className="space-y-2">
+                  <Label className="font-black text-[10px] text-primary uppercase px-1">المبلغ المدفوع حالياً</Label>
+                  <Input 
+                    type="number" 
+                    value={bulkAmount} 
+                    onChange={(e) => setBulkAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="h-14 glass border-none rounded-2xl font-black text-2xl text-emerald-600 text-center focus:ring-emerald-500" 
+                    placeholder="0.00"
+                    autoFocus
+                  />
+               </div>
+
+               {bulkAmount !== "" && Number(bulkAmount) > 0 && (
+                  <div className="p-4 rounded-2xl bg-black/5 space-y-2">
+                     <div className="flex justify-between text-[10px] font-bold">
+                        <span>المبلغ للتوزيع:</span>
+                        <span className="tabular-nums">{Number(bulkAmount).toLocaleString()} دج</span>
+                     </div>
+                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
+                        <span>الرصيد المتبقي للعميل بعد السداد:</span>
+                        <span className="tabular-nums">{Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()} دج</span>
+                     </div>
+                  </div>
+               )}
+            </div>
+
+            <DialogFooter className="gap-2">
+               <Button variant="outline" className="rounded-xl h-12 font-bold flex-1" onClick={() => setIsBulkOpen(false)}>إلغاء</Button>
+               <Button 
+                onClick={handleProcessBulkPayment} 
+                disabled={isProcessingBulk || !bulkAmount || Number(bulkAmount) <= 0}
+                className="rounded-xl h-12 font-black bg-emerald-600 text-white flex-1 shadow-lg shadow-emerald-500/20"
+               >
+                  {isProcessingBulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  تأكيد التوزيع والتسديد
+               </Button>
+            </DialogFooter>
+         </DialogContent>
       </Dialog>
 
       {/* Invoice Items Details Dialog */}
