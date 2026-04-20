@@ -69,7 +69,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
-import Link from "next/navigation"
+import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
@@ -662,7 +662,6 @@ export default function Dashboard() {
                            <Switch 
                              checked={showRepairInSearch} 
                              onCheckedChange={(v) => handleToggleSetting('showRepairInSearch', v, setShowRepairInSearch)}
-                             className="data-[state=checked]:bg-primary"
                            />
                         </div>
                       </div>
