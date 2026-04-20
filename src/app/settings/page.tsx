@@ -20,7 +20,8 @@ import {
   HardDrive,
   FileJson,
   Activity,
-  ArrowRight
+  ArrowRight,
+  Badge as BadgeIcon
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -71,7 +72,7 @@ export default function SettingsPage() {
     }
   }, [isAdmin, role, router])
 
-  // Logic for Smart Device Sync
+  // SETUP DEVICE SYNC
   const handleSetupDeviceSync = async () => {
     try {
       // @ts-ignore
@@ -84,9 +85,13 @@ export default function SettingsPage() {
       });
       setFileHandle(handle);
       setIsSyncActive(true);
-      toast({ title: "تم تفعيل المزامنة", description: "تم ربط ملف التخزين المحلي بنجاح، سيبدأ النظام بالتحديث التلقائي." });
       
-      // Perform initial sync
+      // Start the Background Worker Timer if not already
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'START_BACKUP' });
+      }
+
+      toast({ title: "تم تفعيل المزامنة", description: "تم ربط ملف التخزين المحلي بنجاح، سيتم التحديث في الخلفية." });
       performSyncToFile(handle);
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -95,7 +100,8 @@ export default function SettingsPage() {
     }
   }
 
-  const performSyncToFile = async (handle: any) => {
+  // PERFORM ACTUAL SYNC
+  const performSyncToFile = React.useCallback(async (handle: any) => {
     if (!handle) return;
     try {
       const collections = ["categories", "products", "customers", "invoices", "user_roles"];
@@ -112,6 +118,15 @@ export default function SettingsPage() {
         }
       }
 
+      // Verify permission (re-request if tab was refreshed)
+      // @ts-ignore
+      if (await handle.queryPermission({ mode: 'readwrite' }) !== 'granted') {
+        // @ts-ignore
+        if (await handle.requestPermission({ mode: 'readwrite' }) !== 'granted') {
+           throw new Error("Permission denied for file handle");
+        }
+      }
+
       // @ts-ignore
       const writable = await handle.createWritable();
       await writable.write(JSON.stringify(backup, null, 2));
@@ -119,21 +134,31 @@ export default function SettingsPage() {
       
       const time = new Date().toLocaleTimeString('ar-DZ');
       setLastSyncTime(time);
-      console.log(`[Device Sync] Last update at ${time}`);
+      localStorage.setItem('last_device_sync_time', time);
     } catch (err) {
-      console.error("Sync Error:", err);
+      console.error("[Device Sync Error]", err);
       setIsSyncActive(false);
     }
-  }
+  }, [db]);
 
-  // Effect to run sync periodically if active
+  // LISTEN TO BACKGROUND WORKER PINGS
   React.useEffect(() => {
-    let interval: any;
-    if (isSyncActive && fileHandle) {
-      interval = setInterval(() => performSyncToFile(fileHandle), 5 * 60 * 1000); // Every 5 mins
-    }
-    return () => clearInterval(interval);
-  }, [isSyncActive, fileHandle]);
+    const handleSystemBackupEvent = () => {
+      if (isSyncActive && fileHandle) {
+        console.log('[Settings] responding to background sync request');
+        performSyncToFile(fileHandle);
+      }
+    };
+
+    window.addEventListener('perform-system-backup', handleSystemBackupEvent);
+    return () => window.removeEventListener('perform-system-backup', handleSystemBackupEvent);
+  }, [isSyncActive, fileHandle, performSyncToFile]);
+
+  // Load last sync time from local storage on mount
+  React.useEffect(() => {
+    const savedTime = localStorage.getItem('last_device_sync_time');
+    if (savedTime) setLastSyncTime(savedTime);
+  }, []);
 
   if (!isAdmin) {
     return <div className="p-20 text-center font-black">جاري التحقق من الصلاحيات...</div>
@@ -233,7 +258,7 @@ export default function SettingsPage() {
     reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target?.result as string)
-        const isSystemBackup = data.products || data.customers || data.categories || data.data; // Unified check
+        const isSystemBackup = data.products || data.customers || data.categories || data.data; 
         
         const actualData = data.data ? data.data : data;
 
@@ -249,8 +274,6 @@ export default function SettingsPage() {
             }
           }
           for (const role of actualData.user_roles || []) setDocumentNonBlocking(doc(db, "user_roles", role.id), { ...role, updatedAt: serverTimestamp() }, { merge: true })
-        } else {
-          // Legacy...
         }
         toast({ title: "اكتمل الاستيراد", description: "تمت معالجة الملف وتحديث قاعدة البيانات بنجاح" })
       } catch (err) {
@@ -260,6 +283,16 @@ export default function SettingsPage() {
       }
     }
     reader.readAsText(file)
+  }
+
+  const handleManualSync = () => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'MANUAL_BACKUP' });
+      toast({ title: "جاري المزامنة", description: "تم إرسال طلب مزامنة فورية للخلفية" });
+    } else {
+      // Fallback
+      if (isSyncActive && fileHandle) performSyncToFile(fileHandle);
+    }
   }
 
   return (
@@ -274,7 +307,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {/* --- NEW SECTION: Smart Device Sync --- */}
+      {/* Smart Device Sync Card */}
       <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden shadow-2xl relative border border-white/5">
         <div className="absolute top-0 left-0 p-8 opacity-5">
            <HardDrive className="h-48 w-48 -rotate-12" />
@@ -290,12 +323,12 @@ export default function SettingsPage() {
                  </div>
                  <div>
                     <CardTitle className="text-2xl md:text-3xl font-black tracking-tight">مزامنة الجهاز الذكية</CardTitle>
-                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">Smart Device File Sync (SDFS)</p>
+                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">Background File Sync (BFS)</p>
                  </div>
               </div>
               <div className="flex items-center gap-3">
                  <Badge className={cn("h-8 px-4 rounded-xl font-black text-[10px] border-none", isSyncActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/30")}>
-                    {isSyncActive ? "المزامنة نشطة حالياً" : "المزامنة غير مفعلة"}
+                    {isSyncActive ? "المزامنة مستمرة في الخلفية" : "المزامنة غير مفعلة"}
                  </Badge>
               </div>
            </div>
@@ -304,14 +337,14 @@ export default function SettingsPage() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                  <p className="text-sm md:text-base text-white/70 leading-relaxed font-medium">
-                    هذه الميزة تتيح لك اختيار ملف حقيقي على جهازك (مثلاً داخل مجلد الـ Cloud الخاص بك) ليقوم البرنامج بتحديثه آلياً كلما قمت بعملية بيع أو تعديل.
+                    يتم إدارة التوقيت عبر Service Worker مستقل، مما يضمن استمرار المحاولة كل 5 دقائق حتى لو انتقلت لصفحة أخرى.
                  </p>
                  <ul className="space-y-2">
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> تحديث مستمر كل 5 دقائق
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> توقيت مستقل عن عمر الصفحة
                     </li>
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> حفظ في ملف JSON معياري
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> نسخ فوري عند كل عملية بيع
                     </li>
                  </ul>
               </div>
@@ -339,6 +372,9 @@ export default function SettingsPage() {
                          <span className="text-[9px] font-bold text-white/30">آخر مزامنة ناجحة:</span>
                          <span className="text-[10px] font-black text-white/60 tabular-nums">{lastSyncTime || "جاري التحضير..."}</span>
                       </div>
+                      <Button onClick={handleManualSync} variant="outline" className="w-full h-10 rounded-xl border-white/10 font-black text-xs gap-2">
+                         <RefreshCw className="h-3 w-3" /> تنفيذ مزامنة فورية الآن
+                      </Button>
                    </div>
                  ) : (
                    <div className="flex flex-col items-center justify-center text-center gap-6 py-4">
@@ -347,7 +383,7 @@ export default function SettingsPage() {
                       </div>
                       <div className="space-y-1">
                         <p className="font-black text-sm">لم يتم ربط ملف محلي</p>
-                        <p className="text-[10px] font-bold text-white/30">اربط ملفاً الآن لتفعيل الحفظ الذاتي</p>
+                        <p className="text-[10px] font-bold text-white/30">اربط ملفاً الآن لتفعيل الحفظ الذاتي الدائم</p>
                       </div>
                       <Button 
                         onClick={handleSetupDeviceSync}

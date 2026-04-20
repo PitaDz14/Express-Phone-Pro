@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -7,8 +8,8 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 
 /**
  * AutoBackup Component
- * Periodically saves a snapshot of the Firestore collections to LocalStorage
- * Fixed: Only backups user_roles if the user is an Admin to prevent permission errors.
+ * Periodically saves a snapshot of the Firestore collections to LocalStorage.
+ * Listens to global 'perform-system-backup' events from the Service Worker.
  */
 export function AutoBackup() {
   const db = useFirestore();
@@ -21,13 +22,8 @@ export function AutoBackup() {
     
     setIsBackingUp(true);
     try {
-      // Base collections that everyone (Admin/Worker) can read
       const collections = ["categories", "products", "customers", "invoices"];
-      
-      // Sensitive collections only Admins can read
-      if (role === 'Admin') {
-        collections.push("user_roles");
-      }
+      if (role === 'Admin') collections.push("user_roles");
 
       const fullBackup: any = {
         timestamp: new Date().toISOString(),
@@ -46,11 +42,11 @@ export function AutoBackup() {
       const backupStr = JSON.stringify(fullBackup);
       if (backupStr.length < 4.5 * 1024 * 1024) { 
         localStorage.setItem('ep_emergency_backup', backupStr);
-      } else {
-        console.warn("Backup too large for LocalStorage, please use Manual Export.");
       }
-
-      setLastBackup(new Date().toLocaleTimeString('ar-DZ'));
+      
+      const time = new Date().toLocaleTimeString('ar-DZ');
+      setLastBackup(time);
+      localStorage.setItem('last_backup_time', time);
     } catch (error) {
       console.error("AutoBackup Core Error:", error);
     } finally {
@@ -59,12 +55,24 @@ export function AutoBackup() {
   }, [db, isBackingUp, role]);
 
   React.useEffect(() => {
-    const initialTimer = setTimeout(() => performBackup(), 30000);
-    const interval = setInterval(() => performBackup(), 5 * 60 * 1000);
+    // Respond to Service Worker requests
+    const handleSyncRequest = () => {
+      console.log('[AutoBackup] Responding to background trigger');
+      performBackup();
+    };
+
+    window.addEventListener('perform-system-backup', handleSyncRequest);
+    
+    // Initial sync
+    const initialTimer = setTimeout(() => performBackup(), 5000);
+    
+    // Load last time from storage
+    const savedTime = localStorage.getItem('last_backup_time');
+    if (savedTime) setLastBackup(savedTime);
 
     return () => {
+      window.removeEventListener('perform-system-backup', handleSyncRequest);
       clearTimeout(initialTimer);
-      clearInterval(interval);
     };
   }, [performBackup]);
 
@@ -77,7 +85,7 @@ export function AutoBackup() {
             <ShieldCheck className="h-3 w-3 text-emerald-500" />
           )}
           <span className="text-[8px] font-black uppercase tracking-widest opacity-60">
-            {isBackingUp ? "جاري التزامن المحلي..." : `نسخة محلية آمنة: ${lastBackup || "جاري التحضير"}`}
+            {isBackingUp ? "جاري التزامن المحلي..." : `نسخة طوارئ: ${lastBackup || "جاري التحضير"}`}
           </span>
        </div>
     </div>
