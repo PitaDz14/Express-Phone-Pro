@@ -1,62 +1,65 @@
-
 'use client';
 
 import * as React from 'react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { Database, ShieldCheck, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 
 /**
  * AutoBackup Component
- * Periodically saves a snapshot of the Firestore collections to IndexedDB/LocalStorage
- * to ensure data is safe even during extended offline periods.
+ * Periodically saves a snapshot of the Firestore collections to LocalStorage
+ * Fixed: Only backups user_roles if the user is an Admin to prevent permission errors.
  */
 export function AutoBackup() {
   const db = useFirestore();
-  const { toast } = useToast();
+  const { role } = useUser();
   const [lastBackup, setLastBackup] = React.useState<string | null>(null);
   const [isBackingUp, setIsBackingUp] = React.useState(false);
 
   const performBackup = React.useCallback(async () => {
-    if (isBackingUp) return;
+    if (isBackingUp || !role) return;
     
     setIsBackingUp(true);
     try {
-      const collections = ["categories", "products", "customers", "invoices", "user_roles"];
+      // Base collections that everyone (Admin/Worker) can read
+      const collections = ["categories", "products", "customers", "invoices"];
+      
+      // Sensitive collections only Admins can read
+      if (role === 'Admin') {
+        collections.push("user_roles");
+      }
+
       const fullBackup: any = {
         timestamp: new Date().toISOString(),
         data: {}
       };
 
       for (const colName of collections) {
-        const snapshot = await getDocs(collection(db, colName));
-        fullBackup.data[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        try {
+          const snapshot = await getDocs(collection(db, colName));
+          fullBackup.data[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (colErr) {
+          console.error(`Failed to backup collection: ${colName}`, colErr);
+        }
       }
 
-      // Store in IndexedDB or LocalStorage
-      // LocalStorage has 5MB limit, so we use it only if data is small, otherwise log it.
       const backupStr = JSON.stringify(fullBackup);
-      if (backupStr.length < 4.5 * 1024 * 1024) { // Under 4.5MB
+      if (backupStr.length < 4.5 * 1024 * 1024) { 
         localStorage.setItem('ep_emergency_backup', backupStr);
       } else {
-        console.warn("Backup too large for LocalStorage, please use Manual Export frequently.");
+        console.warn("Backup too large for LocalStorage, please use Manual Export.");
       }
 
       setLastBackup(new Date().toLocaleTimeString('ar-DZ'));
-      console.log("Offline snapshot updated locally.");
     } catch (error) {
-      console.error("AutoBackup Error:", error);
+      console.error("AutoBackup Core Error:", error);
     } finally {
       setIsBackingUp(false);
     }
-  }, [db, isBackingUp]);
+  }, [db, isBackingUp, role]);
 
   React.useEffect(() => {
-    // Perform initial backup after 30 seconds of app load
     const initialTimer = setTimeout(() => performBackup(), 30000);
-    
-    // Perform periodic backup every 5 minutes
     const interval = setInterval(() => performBackup(), 5 * 60 * 1000);
 
     return () => {
