@@ -95,7 +95,6 @@ export default function InvoiceHistoryPage() {
           aValue = a.totalAmount - a.paidAmount;
           bValue = b.totalAmount - b.paidAmount;
         } else if (sortConfig.key === 'status') {
-          // Sort by debt status (Debt = 1, Paid = 0 for logical ordering)
           aValue = (a.totalAmount - a.paidAmount > 0) ? 1 : 0;
           bValue = (b.totalAmount - b.paidAmount > 0) ? 1 : 0;
         } else {
@@ -159,7 +158,6 @@ export default function InvoiceHistoryPage() {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      // Smart Grouping: deduplicate items by productId and unitPrice
       const itemsMap: Record<string, any> = {}
       snapshot.docs.forEach(d => {
         const item = d.data()
@@ -335,9 +333,6 @@ export default function InvoiceHistoryPage() {
                   <TableHeader>
                     <TableRow className="border-b border-white/10 hover:bg-transparent">
                       <TableHead className="font-black text-center w-[80px]">كود QR</TableHead>
-                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
-                        <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
-                      </TableHead>
                       <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
                         <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
                       </TableHead>
@@ -353,6 +348,9 @@ export default function InvoiceHistoryPage() {
                       </TableHead>
                       <TableHead className="text-center font-black cursor-pointer select-none group" onClick={() => handleSort('status')}>
                         <div className="flex items-center gap-2 justify-center">الحالة <SortIcon column="status" /></div>
+                      </TableHead>
+                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
+                        <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
                       </TableHead>
                       <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
@@ -388,7 +386,6 @@ export default function InvoiceHistoryPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
                         <TableCell>
                            <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -428,6 +425,7 @@ export default function InvoiceHistoryPage() {
                             <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">كاملة</Badge>
                           )}
                         </TableCell>
+                        <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
                              <Button 
