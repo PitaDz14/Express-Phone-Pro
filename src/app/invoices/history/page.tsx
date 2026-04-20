@@ -88,8 +88,20 @@ export default function InvoiceHistoryPage() {
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.key === 'remainingDebt') {
+          aValue = a.totalAmount - a.paidAmount;
+          bValue = b.totalAmount - b.paidAmount;
+        } else if (sortConfig.key === 'status') {
+          // Sort by debt status (Debt = 1, Paid = 0 for logical ordering)
+          aValue = (a.totalAmount - a.paidAmount > 0) ? 1 : 0;
+          bValue = (b.totalAmount - b.paidAmount > 0) ? 1 : 0;
+        } else {
+          aValue = a[sortConfig.key];
+          bValue = b[sortConfig.key];
+        }
         
         if (sortConfig.key === 'createdAt') {
            const timeA = aValue?.toDate ? aValue.toDate().getTime() : (aValue instanceof Date ? aValue.getTime() : 0);
@@ -336,8 +348,12 @@ export default function InvoiceHistoryPage() {
                       <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
                         <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
                       </TableHead>
-                      <TableHead className="text-left font-black">المتبقي (الدين)</TableHead>
-                      <TableHead className="text-center font-black">الحالة</TableHead>
+                      <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('remainingDebt')}>
+                        <div className="flex items-center gap-2">المتبقي (الدين) <SortIcon column="remainingDebt" /></div>
+                      </TableHead>
+                      <TableHead className="text-center font-black cursor-pointer select-none group" onClick={() => handleSort('status')}>
+                        <div className="flex items-center gap-2 justify-center">الحالة <SortIcon column="status" /></div>
+                      </TableHead>
                       <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
