@@ -21,7 +21,8 @@ import {
   Maximize2,
   Layers,
   Filter,
-  X
+  X,
+  AlertCircle
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -230,8 +231,10 @@ export default function ProductsPage() {
 
     if (editingProduct) {
       updateDocumentNonBlocking(doc(db, "products", editingProduct.id), productData)
+      toast({ title: "تم التعديل", description: `تم تحديث بيانات ${productName}` })
     } else {
       addDocumentNonBlocking(productsRef, { ...productData, createdAt: serverTimestamp(), createdByUserId: user.uid })
+      toast({ title: "تمت الإضافة", description: `تم إضافة ${productName} للمخزون` })
     }
     
     setOpen(false)
@@ -255,7 +258,17 @@ export default function ProductsPage() {
 
   const handleEdit = React.useCallback((p: any) => {
     if (!isAdmin) return;
-    setEditingProduct(p); setProductName(p.name); setProductCode(p.productCode || ""); setImageUrl(p.imageUrl || ""); setSalePrice(p.salePrice); setRepairPrice(p.repairPrice || 0); setQuantity(p.quantity); setMinStock(p.minStockQuantity || 1); setPurchasePrice(p.purchasePrice); setCategoryId(p.categoryId || ""); setOpen(true);
+    setEditingProduct(p); 
+    setProductName(p.name); 
+    setProductCode(p.productCode || ""); 
+    setImageUrl(p.imageUrl || ""); 
+    setSalePrice(p.salePrice); 
+    setRepairPrice(p.repairPrice || 0); 
+    setQuantity(p.quantity); 
+    setMinStock(p.minStockQuantity || 1); 
+    setPurchasePrice(p.purchasePrice); 
+    setCategoryId(p.categoryId || ""); 
+    setOpen(true);
   }, [isAdmin])
 
   const handleDelete = React.useCallback((p: any) => {
@@ -442,7 +455,7 @@ export default function ProductsPage() {
 
       {/* Edit/Add Product Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[300] max-h-[90vh] overflow-y-auto">
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[300] max-h-[90vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black text-gradient-premium">{editingProduct ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}</DialogTitle>
           </DialogHeader>
@@ -450,11 +463,11 @@ export default function ProductsPage() {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="font-black text-[10px] text-primary uppercase">اسم المنتج</Label>
-                  <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" />
+                  <Input value={productName} onChange={(e) => setProductName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="مثال: شاشة ايفون 11" />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-black text-[10px] text-primary uppercase">كود المنتج / الباركود</Label>
-                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="h-12 glass border-none rounded-xl font-mono" />
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} className="h-12 glass border-none rounded-xl font-mono" placeholder="اتركه فارغاً للتوليد التلقائي" />
                 </div>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -469,25 +482,29 @@ export default function ProductsPage() {
                 </div>
                 <div className="space-y-2">
                    <Label className="font-black text-[10px] text-primary uppercase">رابط الصورة</Label>
-                   <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" />
+                   <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="رابط خارجي للصورة" />
                 </div>
              </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="space-y-2">
                   <Label className="font-black text-[10px] text-primary uppercase">الكمية</Label>
-                  <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                  <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
                 </div>
                 <div className="space-y-2">
                    <Label className="font-black text-[10px] text-orange-600 uppercase">سعر الشراء</Label>
-                   <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-orange-600" />
+                   <Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-orange-600" />
                 </div>
                 <div className="space-y-2">
                    <Label className="font-black text-[10px] text-emerald-600 uppercase">سعر البيع</Label>
-                   <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-emerald-600" />
+                   <Input type="number" value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-emerald-600" />
                 </div>
                 <div className="space-y-2">
-                   <Label className="font-black text-[10px] text-muted-foreground uppercase">سعر التصليح</Label>
-                   <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                   <Label className="font-black text-[10px] text-muted-foreground uppercase">التصليح</Label>
+                   <Input type="number" value={repairPrice} onChange={(e) => setRepairPrice(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-red-500 uppercase">تنبيه عند</Label>
+                   <Input type="number" value={minStock} onChange={(e) => setMinStock(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-red-600" title="الحد الأدنى للتنبيه" />
                 </div>
              </div>
           </div>

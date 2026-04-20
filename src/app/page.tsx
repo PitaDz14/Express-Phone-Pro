@@ -69,7 +69,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
-import Link from "next/link"
+import Link from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
@@ -110,10 +110,11 @@ const QuickActionButton = React.memo(({ href, icon: Icon, label, color, onClick 
   )
 
   if (href) {
+    const router = useRouter();
     return (
-      <Link href={href} className="glass rounded-[2.5rem] hover:bg-white/40 transition-all border-none hover:shadow-lg">
+      <button onClick={() => router.push(href)} className="glass rounded-[2.5rem] hover:bg-white/40 transition-all border-none hover:shadow-lg w-full">
         {content}
-      </Link>
+      </button>
     )
   }
 
@@ -228,9 +229,28 @@ export default function Dashboard() {
 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [quickEditSearch, setQuickEditSearch] = React.useState("")
+  
+  // Persistent Settings
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
   const [showRepairInEdit, setShowRepairInEdit] = React.useState(true)
   const [showRepairInSearch, setShowRepairInSearch] = React.useState(false)
+
+  React.useEffect(() => {
+    if (isMounted) {
+      const s1 = localStorage.getItem('setting_showPurchaseInEdit')
+      const s2 = localStorage.getItem('setting_showRepairInEdit')
+      const s3 = localStorage.getItem('setting_showRepairInSearch')
+      if (s1 !== null) setShowPurchaseInEdit(s1 === 'true')
+      if (s2 !== null) setShowRepairInEdit(s2 === 'true')
+      if (s3 !== null) setShowRepairInSearch(s3 === 'true')
+    }
+  }, [isMounted])
+
+  const handleToggleSetting = (key: string, val: boolean, setter: (v: boolean) => void) => {
+    setter(val)
+    localStorage.setItem(`setting_${key}`, String(val))
+  }
+
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
@@ -458,7 +478,7 @@ export default function Dashboard() {
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
     ).slice(0, 5)
-  }, [searchTerm, products, showRepairInSearch])
+  }, [searchTerm, products])
 
   const quickEditProducts = React.useMemo(() => {
     if (!products) return []
@@ -641,7 +661,7 @@ export default function Dashboard() {
                            </div>
                            <Switch 
                              checked={showRepairInSearch} 
-                             onCheckedChange={setShowRepairInSearch}
+                             onCheckedChange={(v) => handleToggleSetting('showRepairInSearch', v, setShowRepairInSearch)}
                              className="data-[state=checked]:bg-primary"
                            />
                         </div>
@@ -696,7 +716,7 @@ export default function Dashboard() {
                        </div>
                     </div>
                   ))}
-                  <Link href="/products" className="block p-3 text-center bg-primary/5 text-[10px] font-black text-primary uppercase tracking-widest">مشاهدة كافة المنتجات</Link>
+                  <button onClick={() => router.push("/products")} className="w-full p-3 text-center bg-primary/5 text-[10px] font-black text-primary uppercase tracking-widest">مشاهدة كافة المنتجات</button>
                 </>
               )}
             </div>
@@ -785,9 +805,9 @@ export default function Dashboard() {
             <CardHeader className="p-6 md:p-8 border-b border-white/5 bg-primary/5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base md:text-lg font-black">أحدث العمليات</CardTitle>
-                <Button asChild variant="ghost" size="sm" className="text-[9px] md:text-[10px] font-black text-primary">
-                   <Link href="/invoices/history">الكل</Link>
-                </Button>
+                <button onClick={() => router.push("/invoices/history")} className="text-[9px] md:text-[10px] font-black text-primary hover:underline">
+                   الكل
+                </button>
               </div>
             </CardHeader>
             <CardContent className="p-0 flex-1">
@@ -972,22 +992,26 @@ export default function Dashboard() {
                  </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                  <div className="space-y-2">
                     <Label className="font-black text-[10px] text-primary uppercase px-1">الكمية</Label>
-                    <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                    <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
                  </div>
                  <div className="space-y-2">
                     <Label className="font-black text-[10px] text-orange-600 uppercase px-1">سعر الشراء</Label>
-                    <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-orange-600" />
+                    <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-orange-600" />
                  </div>
                  <div className="space-y-2">
                     <Label className="font-black text-[10px] text-emerald-600 uppercase px-1">سعر البيع</Label>
-                    <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center text-emerald-600" />
+                    <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-emerald-600" />
                  </div>
                  <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-muted-foreground uppercase px-1">سعر التصليح</Label>
-                    <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="h-12 glass border-none rounded-xl font-black text-center" />
+                    <Label className="font-black text-[10px] text-muted-foreground uppercase px-1">التصليح</Label>
+                    <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-[10px] text-red-500 uppercase px-1">تنبيه عند</Label>
+                    <Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-red-600" title="أقل كمية قبل التنبيه" />
                  </div>
               </div>
            </div>
@@ -1022,18 +1046,18 @@ export default function Dashboard() {
               </div>
            </div>
 
-           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
-              <div className="flex items-center justify-end gap-4 mb-4">
-                 <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black">إظهار الشراء</Label>
-                    <Switch checked={showPurchaseInEdit} onCheckedChange={setShowPurchaseInEdit} />
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black">إظهار التصليح</Label>
-                    <Switch checked={showRepairInEdit} onCheckedChange={setShowRepairInEdit} />
-                 </div>
+           <div className="flex items-center justify-end gap-4 p-4 bg-white/5 border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-2">
+                 <Label className="text-[10px] font-black">إظهار الشراء</Label>
+                 <Switch checked={showPurchaseInEdit} onCheckedChange={(v) => handleToggleSetting('showPurchaseInEdit', v, setShowPurchaseInEdit)} />
               </div>
+              <div className="flex items-center gap-2">
+                 <Label className="text-[10px] font-black">إظهار التصليح</Label>
+                 <Switch checked={showRepairInEdit} onCheckedChange={(v) => handleToggleSetting('showRepairInEdit', v, setShowRepairInEdit)} />
+              </div>
+           </div>
 
+           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
               {quickEditProducts.length === 0 ? (
                 <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة</div>
               ) : (
