@@ -58,7 +58,6 @@ export default function SettingsPage() {
   const [isExporting, setIsExporting] = React.useState(false)
   const [isImporting, setIsImporting] = React.useState(false)
   const [isWiping, setIsWiping] = React.useState(false)
-  const [isResyncing, setIsResyncing] = React.useState(false)
   const [showWipeDialog, setShowWipeDialog] = React.useState(false)
   const [password, setPassword] = React.useState("")
   
@@ -287,33 +286,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleResyncDebts = async () => {
-    setIsResyncing(true)
-    try {
-      const invoicesSnap = await getDocs(collection(db, "invoices"))
-      const customersSnap = await getDocs(collection(db, "customers"))
-      const debtMap: Record<string, number> = {}
-      invoicesSnap.docs.forEach(d => {
-        const inv = d.data()
-        if (inv.customerId && inv.customerId !== 'walk-in') {
-          const unpaid = (inv.totalAmount || 0) - (inv.paidAmount || 0)
-          if (unpaid > 0) debtMap[inv.customerId] = (debtMap[inv.customerId] || 0) + unpaid
-        }
-      })
-      const batch = writeBatch(db)
-      customersSnap.docs.forEach(d => {
-        const currentDebt = debtMap[d.id] || 0
-        batch.update(d.ref, { debt: currentDebt, updatedAt: serverTimestamp() })
-      })
-      await batch.commit()
-      toast({ title: "اكتملت المزامنة", description: "تمت إعادة حساب مديونيات كافة الزبائن بناءً على سجل الفواتير" })
-    } catch (err) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشلت عملية إعادة المزامنة" })
-    } finally {
-      setIsResyncing(false)
-    }
-  }
-
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
@@ -533,18 +505,10 @@ export default function SettingsPage() {
                   <h2 className="text-2xl md:text-3xl font-black">حماية البيانات المتكاملة</h2>
                </div>
                <p className="text-sm md:text-base text-white/70 leading-relaxed font-medium">
-                  نحن نؤمن بأهمية بياناتك. لهذا قمنا بتوفير أدوات صيانة الحسابات ومسح النظام الشامل لضمان التحكم الكامل في متجرك.
+                  نحن نؤمن بأهمية بياناتك. لهذا قمنا بتوفير أدوات التحكم المتقدمة لضمان أمان متجرك وإمكانية البدء من جديد عند الحاجة.
                </p>
             </div>
             <div className="flex flex-col gap-3 w-full md:w-72">
-               <Button 
-                 onClick={handleResyncDebts} 
-                 disabled={isResyncing}
-                 className="h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 font-black text-xs gap-2"
-               >
-                  {isResyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  إصلاح مديونيات الزبائن
-               </Button>
                <Button 
                  variant="destructive" 
                  className="h-12 rounded-xl font-black shadow-2xl text-xs"
