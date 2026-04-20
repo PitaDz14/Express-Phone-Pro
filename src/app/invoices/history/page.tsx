@@ -557,7 +557,7 @@ export default function InvoiceHistoryPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={!!zoomQR} onOpenChange={setZoomQR(null)}>
+          <Dialog open={!!zoomQR} onOpenChange={() => setZoomQR(null)}>
             <DialogContent dir="rtl" className="glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[400] max-w-sm">
                <DialogHeader className="p-6 bg-primary/5 border-b border-white/5">
                   <DialogTitle className="text-xl font-black text-center">كود QR للفاتورة</DialogTitle>
