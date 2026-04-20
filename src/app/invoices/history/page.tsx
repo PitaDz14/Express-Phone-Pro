@@ -324,6 +324,7 @@ export default function InvoiceHistoryPage() {
                       <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
                         <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
                       </TableHead>
+                      <TableHead className="text-left font-black">المتبقي (الدين)</TableHead>
                       <TableHead className="text-center font-black">الحالة</TableHead>
                       <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
@@ -331,14 +332,14 @@ export default function InvoiceHistoryPage() {
                   <TableBody>
                     {isLoading && sortedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-20">
+                        <TableCell colSpan={9} className="text-center py-20">
                           <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
                           <p className="text-sm font-bold text-muted-foreground mt-4">جاري استرجاع السجلات...</p>
                         </TableCell>
                       </TableRow>
                     ) : sortedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
+                        <TableCell colSpan={9} className="text-center py-20 text-muted-foreground font-bold italic opacity-30">
                           لا توجد فواتير مسجلة حالياً
                         </TableCell>
                       </TableRow>
@@ -385,8 +386,19 @@ export default function InvoiceHistoryPage() {
                         <TableCell className="text-left font-black tabular-nums text-lg text-primary">
                           {inv.totalAmount.toLocaleString()} دج
                         </TableCell>
+                        <TableCell className="text-left">
+                          {inv.totalAmount - inv.paidAmount > 0 ? (
+                            <span className="font-black text-red-600 tabular-nums">{(inv.totalAmount - inv.paidAmount).toLocaleString()} دج</span>
+                          ) : (
+                            <span className="font-bold text-emerald-600">مدفوعة</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
-                          <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">ناجحة</Badge>
+                          {inv.totalAmount - inv.paidAmount > 0 ? (
+                            <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-none px-4 rounded-lg">دين</Badge>
+                          ) : (
+                            <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">كاملة</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
