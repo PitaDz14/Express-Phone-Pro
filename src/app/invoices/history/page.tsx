@@ -66,7 +66,6 @@ export default function InvoiceHistoryPage() {
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'createdAt', direction: 'desc' })
   const [zoomQR, setZoomQR] = React.useState<{ code: string, id: string } | null>(null)
 
-  // Use a query that includes offline documents immediately
   const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices")), [db])
   const { data: invoices, isLoading } = useCollection(invoicesRef)
 
@@ -92,7 +91,6 @@ export default function InvoiceHistoryPage() {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
-        // Robust sorting for dates (including Firestore Timestamps and estimated ones)
         if (sortConfig.key === 'createdAt') {
            const timeA = aValue?.toDate ? aValue.toDate().getTime() : (aValue instanceof Date ? aValue.getTime() : 0);
            const timeB = bValue?.toDate ? bValue.toDate().getTime() : (bValue instanceof Date ? bValue.getTime() : 0);
@@ -144,10 +142,25 @@ export default function InvoiceHistoryPage() {
   const handleViewDetails = async (invoice: any) => {
     setSelectedInvoice(invoice)
     setIsLoadingItems(true)
+    setInvoiceItems([])
     try {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      
+      // Smart Grouping: deduplicate items by productId and unitPrice
+      const itemsMap: Record<string, any> = {}
+      snapshot.docs.forEach(d => {
+        const item = d.data()
+        const key = `${item.productId}_${item.unitPrice}`
+        if (itemsMap[key]) {
+          itemsMap[key].quantity += item.quantity
+          itemsMap[key].itemTotal += item.itemTotal
+        } else {
+          itemsMap[key] = { id: d.id, ...item }
+        }
+      })
+      
+      const items = Object.values(itemsMap)
       setInvoiceItems(items)
       return items;
     } catch (error) {
@@ -231,7 +244,6 @@ export default function InvoiceHistoryPage() {
       </html>
     `;
 
-    // Professional printing via hidden iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -448,7 +460,6 @@ export default function InvoiceHistoryPage() {
             </CardContent>
           </Card>
 
-          {/* Invoice Details Dialog - Thermal Styled */}
           <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
             <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
                <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
@@ -457,7 +468,6 @@ export default function InvoiceHistoryPage() {
 
                <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                   <div className="flex flex-col items-center min-h-full py-4">
-                    {/* Simulated Paper */}
                     <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                        <div className="text-center space-y-1 border-b-2 border-black pb-4">
                           <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
@@ -547,8 +557,7 @@ export default function InvoiceHistoryPage() {
             </DialogContent>
           </Dialog>
 
-          {/* QR Zoom Dialog */}
-          <Dialog open={!!zoomQR} onOpenChange={() => setZoomQR(null)}>
+          <Dialog open={!!zoomQR} onOpenChange={setZoomQR(null)}>
             <DialogContent dir="rtl" className="glass border-none rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[400] max-w-sm">
                <DialogHeader className="p-6 bg-primary/5 border-b border-white/5">
                   <DialogTitle className="text-xl font-black text-center">كود QR للفاتورة</DialogTitle>

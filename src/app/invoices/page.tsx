@@ -74,7 +74,7 @@ export default function InvoicesPage() {
   const editId = searchParams.get('editId')
 
   const [cart, setCart] = React.useState<CartItem[]>([])
-  const [originalCart, setOriginalCart] = React.useState<CartItem[]>([]) // Track original state for stock correction
+  const [originalCart, setOriginalCart] = React.useState<CartItem[]>([]) 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [customerSearch, setCustomerSearch] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
@@ -85,7 +85,6 @@ export default function InvoicesPage() {
   const [showPreview, setShowPreview] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   
-  // Real ID generation for preview
   const [pendingId, setPendingId] = React.useState("")
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
@@ -95,14 +94,12 @@ export default function InvoicesPage() {
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
 
-  // Generate a real potential ID if not editing
   React.useEffect(() => {
     if (!editId && !pendingId) {
       setPendingId(doc(collection(db, "invoices")).id);
     }
   }, [editId, db, pendingId])
 
-  // Load Invoice for Editing
   React.useEffect(() => {
     if (editId && products) {
       const loadInvoice = async () => {
@@ -116,17 +113,27 @@ export default function InvoicesPage() {
             setPaidAmount(data.paidAmount)
             
             const itemsSnap = await getDocs(collection(db, "invoices", editId, "items"))
-            const items = itemsSnap.docs.map(d => {
+            
+            // Fix: Group items by productId when loading for edit to clean up corrupted data
+            const itemsMap: Record<string, CartItem> = {}
+            itemsSnap.docs.forEach(d => {
               const itemData = d.data()
-              return {
-                id: d.id,
-                productId: itemData.productId,
-                name: itemData.productName,
-                price: itemData.unitPrice,
-                qty: itemData.quantity,
-                categoryPath: itemData.categoryPath
+              const pid = itemData.productId
+              if (itemsMap[pid]) {
+                itemsMap[pid].qty += itemData.quantity
+              } else {
+                itemsMap[pid] = {
+                  id: d.id,
+                  productId: pid,
+                  name: itemData.productName,
+                  price: itemData.unitPrice,
+                  qty: itemData.quantity,
+                  categoryPath: itemData.categoryPath
+                }
               }
             })
+            
+            const items = Object.values(itemsMap)
             setCart(items)
             setOriginalCart(items)
           }
@@ -155,7 +162,6 @@ export default function InvoicesPage() {
     const existing = cart.find(item => item.productId === product.id)
     const currentQtyInCart = existing ? existing.qty : 0
     
-    // In edit mode, available stock = db_qty + original_inv_qty
     const originalQtyInInv = originalCart.find(i => i.productId === product.id)?.qty || 0
     const availableStock = product.quantity + originalQtyInInv
 
@@ -285,7 +291,6 @@ export default function InvoicesPage() {
       </html>
     `;
 
-    // Professional Mobile-First Printing using hidden iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -302,11 +307,9 @@ export default function InvoicesPage() {
       iframeDoc.write(printContent);
       iframeDoc.close();
 
-      // Wait for resources to load then print
       setTimeout(() => {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
-        // Cleanup after print dialog closes
         setTimeout(() => document.body.removeChild(iframe), 1000);
       }, 500);
     }
@@ -319,7 +322,6 @@ export default function InvoicesPage() {
       return
     }
 
-    // FINAL STOCK VALIDATION
     for (const item of cart) {
       const product = products?.find(p => p.id === item.productId)
       const originalQtyInInv = originalCart.find(i => i.productId === item.productId)?.qty || 0
@@ -342,13 +344,11 @@ export default function InvoicesPage() {
       const currentInvoiceId = editId || pendingId;
       const targetDocRef = doc(db, "invoices", currentInvoiceId);
 
-      // Handle Revert logic for Editing
       if (editId) {
         const oldInvSnap = await getDoc(doc(db, "invoices", editId));
         if (oldInvSnap.exists()) {
           const oldData = oldInvSnap.data();
           
-          // Revert old debt
           const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
           if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
             batch.update(doc(db, "customers", oldData.customerId), {
@@ -356,7 +356,6 @@ export default function InvoicesPage() {
             });
           }
 
-          // Revert old items
           const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
           for (const d of oldItemsSnap.docs) {
             const item = d.data();
@@ -418,7 +417,6 @@ export default function InvoicesPage() {
         });
       }
 
-      // OFFLINE-READY COMMIT: Don't await server confirmation for UI transition
       batch.commit().catch(e => {
         console.error("Batch Sync Error:", e);
         toast({ title: "خطأ في المزامنة", description: "تم الحفظ محلياً وسيتزامن عند توفر الإنترنت", variant: "destructive" });
@@ -427,7 +425,6 @@ export default function InvoicesPage() {
       toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: "تمت العملية بنجاح (وضع أوفلاين نشط)" })
       handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
 
-      // Immediate UI reset
       setCart([])
       setOriginalCart([])
       setSelectedCustomer(null)
@@ -665,7 +662,6 @@ export default function InvoicesPage() {
           </div>
         </main>
 
-        {/* Professional Preview Dialog (Thermal Simulated) */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
              <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
@@ -674,7 +670,6 @@ export default function InvoicesPage() {
 
              <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                 <div className="flex flex-col items-center min-h-full py-4">
-                  {/* Simulated Paper */}
                   <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                      <div className="text-center space-y-1 border-b-2 border-black pb-4">
                         <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>

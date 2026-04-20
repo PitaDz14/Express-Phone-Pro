@@ -58,17 +58,14 @@ export default function DebtsPage() {
   const [isLoadingInvoices, setIsLoadingInvoices] = React.useState(false)
   const [sortConfig, setSortConfig] = React.useState({ key: 'debt', direction: 'desc' })
 
-  // Bulk Payment States
   const [isBulkOpen, setIsBulkOpen] = React.useState(false)
   const [bulkAmount, setBulkAmount] = React.useState<number | "">("")
   const [isProcessingBulk, setIsProcessingBulk] = React.useState(false)
 
-  // States for Invoice Preview
   const [selectedInvoiceForItems, setSelectedInvoiceForItems] = React.useState<any>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
   const [isLoadingItems, setIsLoadingItems] = React.useState(false)
 
-  // 1. Fetch customers with debt > 0
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
   const { data: allCustomers, isLoading: isCustomersLoading } = useCollection(customersRef)
 
@@ -103,7 +100,6 @@ export default function DebtsPage() {
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter((inv: any) => inv.totalAmount > inv.paidAmount)
       
-      // Sort in UI: Newest First
       items.sort((a: any, b: any) => {
         const tA = a.createdAt?.seconds || 0
         const tB = b.createdAt?.seconds || 0
@@ -126,7 +122,6 @@ export default function DebtsPage() {
     const batch = writeBatch(db)
     
     try {
-      // 1. Fetch ALL unpaid invoices for this customer ordered by date desc (Newest first)
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", selectedCustomer.id),
@@ -139,7 +134,7 @@ export default function DebtsPage() {
         .sort((a, b) => {
           const tA = a.createdAt?.seconds || 0
           const tB = b.createdAt?.seconds || 0
-          return tB - tA // NEWEST FIRST
+          return tB - tA 
         })
 
       let remaining = amountToApply
@@ -160,7 +155,6 @@ export default function DebtsPage() {
         remaining -= paymentForThisInv
       }
 
-      // 2. Update customer's overall debt
       batch.update(doc(db, "customers", selectedCustomer.id), {
         debt: increment(-amountToApply),
         updatedAt: serverTimestamp()
@@ -175,7 +169,7 @@ export default function DebtsPage() {
       
       setIsBulkOpen(false)
       setBulkAmount("")
-      setSelectedCustomer(null) // Close main dialog to refresh data
+      setSelectedCustomer(null) 
     } catch (e) {
       console.error(e)
       toast({ variant: "destructive", title: "خطأ", description: "فشلت عملية معالجة الدفعة" })
@@ -187,11 +181,25 @@ export default function DebtsPage() {
   const fetchInvoiceItems = async (invoice: any) => {
     setSelectedInvoiceForItems(invoice)
     setIsLoadingItems(true)
+    setInvoiceItems([]) // Reset items list
     try {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      setInvoiceItems(items)
+      
+      // Smart Grouping: deduplicate items by productId and unitPrice
+      const itemsMap: Record<string, any> = {}
+      snapshot.docs.forEach(d => {
+        const item = d.data()
+        const key = `${item.productId}_${item.unitPrice}`
+        if (itemsMap[key]) {
+          itemsMap[key].quantity += item.quantity
+          itemsMap[key].itemTotal += item.itemTotal
+        } else {
+          itemsMap[key] = { id: d.id, ...item }
+        }
+      })
+      
+      setInvoiceItems(Object.values(itemsMap))
     } catch (error) {
       console.error("Error fetching items:", error)
       toast({ variant: "destructive", title: "خطأ", description: "فشل استرجاع عناصر الفاتورة" })
@@ -349,7 +357,6 @@ export default function DebtsPage() {
         </div>
       </Card>
 
-      {/* Customer Invoices List Dialog */}
       <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-border shrink-0">
@@ -418,7 +425,7 @@ export default function DebtsPage() {
                        </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 justify-end border-t sm:border-none border-white/5 pt-3 sm:pt-0">
+                    <div className="flex items-center gap-2 justify-end pt-3 sm:pt-0 border-t sm:border-none border-white/5">
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-primary/10 text-primary"
                         onClick={() => fetchInvoiceItems(inv)}
@@ -453,7 +460,6 @@ export default function DebtsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Payment Entry Dialog */}
       <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
          <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl z-[300] max-w-md w-[95%]">
             <DialogHeader>
@@ -511,7 +517,6 @@ export default function DebtsPage() {
          </DialogContent>
       </Dialog>
 
-      {/* Invoice Items Details Dialog */}
       <Dialog open={!!selectedInvoiceForItems} onOpenChange={() => setSelectedInvoiceForItems(null)}>
         <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[220]">
           <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">

@@ -60,7 +60,6 @@ export default function CustomersPage() {
   const db = useFirestore()
   const router = useRouter()
   
-  // States for Customers List
   const [searchTerm, setSearchTerm] = React.useState("")
   const [openAdd, setOpenAdd] = React.useState(false)
   const [editingCustomer, setEditingCustomer] = React.useState<any>(null)
@@ -68,7 +67,6 @@ export default function CustomersPage() {
   const [customerPhone, setCustomerPhone] = React.useState("")
   const [sortConfig, setSortConfig] = React.useState({ key: 'name', direction: 'asc' })
   
-  // States for History Dialog
   const [selectedHistoryCustomer, setSelectedHistoryCustomer] = React.useState<any>(null)
   const [historyInvoices, setHistoryInvoices] = React.useState<any[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = React.useState(false)
@@ -76,7 +74,6 @@ export default function CustomersPage() {
   const [historyFilter, setHistoryFilter] = React.useState("all")
   const [historySort, setHistorySort] = React.useState("desc")
 
-  // States for Invoice Details Preview
   const [selectedInvPreview, setSelectedInvPreview] = React.useState<any>(null)
   const [previewItems, setPreviewItems] = React.useState<any[]>([])
   const [isPreviewLoading, setIsPreviewLoading] = React.useState(false)
@@ -184,10 +181,25 @@ export default function CustomersPage() {
   const fetchInvItems = async (inv: any) => {
     setSelectedInvPreview(inv)
     setIsPreviewLoading(true)
+    setPreviewItems([])
     try {
       const itemsRef = collection(db, "invoices", inv.id, "items")
       const snapshot = await getDocs(itemsRef)
-      setPreviewItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+      
+      // Smart Grouping logic
+      const itemsMap: Record<string, any> = {}
+      snapshot.docs.forEach(d => {
+        const item = d.data()
+        const key = `${item.productId}_${item.unitPrice}`
+        if (itemsMap[key]) {
+          itemsMap[key].quantity += item.quantity
+          itemsMap[key].itemTotal += item.itemTotal
+        } else {
+          itemsMap[key] = { id: d.id, ...item }
+        }
+      })
+      
+      setPreviewItems(Object.values(itemsMap))
     } catch (e) {
       console.error(e)
     } finally {
@@ -196,7 +208,6 @@ export default function CustomersPage() {
   }
 
   const handleEditInvoice = (inv: any) => {
-    // Redirect to POS with edit mode
     router.push(`/invoices?editId=${inv.id}`)
   }
 
@@ -357,7 +368,6 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* History Dialog */}
       <Dialog open={!!selectedHistoryCustomer} onOpenChange={() => setSelectedHistoryCustomer(null)}>
         <DialogContent dir="rtl" className="max-w-5xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[310] h-[90vh] flex flex-col">
           <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-white/10 shrink-0">
@@ -486,7 +496,6 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Invoice Details Preview */}
       <Dialog open={!!selectedInvPreview} onOpenChange={() => setSelectedInvPreview(null)}>
         <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[350]">
            <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
