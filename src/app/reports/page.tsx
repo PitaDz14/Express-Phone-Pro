@@ -80,14 +80,12 @@ export default function ReportsPage() {
   const router = useRouter()
   const isAdmin = role === "Admin"
 
-  // Filter States
   const [timePreset, setTimePreset] = React.useState("monthly")
   const [startDate, setStartDate] = React.useState(format(subDays(new Date(), 30), "yyyy-MM-dd"))
   const [endDate, setEndDate] = React.useState(format(new Date(), "yyyy-MM-dd"))
   const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([])
   const [isDataProcessing, setIsDataDataProcessing] = React.useState(false)
 
-  // Data Aggregates
   const [processedInvoices, setProcessedInvoices] = React.useState<any[]>([])
   const [bestSellers, setBestSellers] = React.useState<any[]>([])
   const [stagnantProducts, setStagnantProducts] = React.useState<any[]>([])
@@ -130,49 +128,54 @@ export default function ReportsPage() {
         return date && isWithinInterval(date, { start, end });
       });
 
-      // 2. Filter Sold Items by Categories
-      for (const inv of filteredInvoices) {
-        let invCurrentTotal = 0;
-        const itemsSnap = await getDocs(collection(db, "invoices", inv.id, "items"));
-        
-        itemsSnap.docs.forEach(d => {
-          const item = d.data();
-          const product = allProducts.find(p => p.id === item.productId);
-          
-          // Apply Category Filter
-          if (selectedCategoryIds.length > 0 && product && !selectedCategoryIds.includes(product.categoryId)) {
-            return;
-          }
+      // 2. Parallel Processing of Items (Fixed Speed & Accuracy)
+      const batchSize = 10;
+      for (let i = 0; i < filteredInvoices.length; i += batchSize) {
+        const batch = filteredInvoices.slice(i, i + batchSize);
+        const itemSnaps = await Promise.all(
+          batch.map(inv => getDocs(collection(db, "invoices", inv.id, "items")))
+        );
 
-          if (!productSalesMap[item.productId]) {
-            productSalesMap[item.productId] = {
-              id: item.productId,
-              name: item.productName,
-              categoryPath: item.categoryPath || "عام",
-              categoryId: product?.categoryId || "unknown",
-              quantitySold: 0,
-              revenue: 0,
-              purchaseCost: 0
-            };
-          }
-          productSalesMap[item.productId].quantitySold += item.quantity;
-          productSalesMap[item.productId].revenue += item.itemTotal;
-          const cost = (product?.purchasePrice || 0) * item.quantity;
-          productSalesMap[item.productId].purchaseCost += cost;
-          
-          totalRev += item.itemTotal;
-          totalProf += (item.itemTotal - cost);
-          invCurrentTotal += item.itemTotal;
+        itemSnaps.forEach((itemsSnap, snapIdx) => {
+          itemsSnap.docs.forEach(d => {
+            const item = d.data();
+            const product = allProducts.find(p => p.id === item.productId);
+            
+            // Apply Category Filter
+            if (selectedCategoryIds.length > 0 && product && !selectedCategoryIds.includes(product.categoryId)) {
+              return;
+            }
+
+            const itemValue = item.itemTotal || (item.quantity * item.unitPrice) || 0;
+
+            if (!productSalesMap[item.productId]) {
+              productSalesMap[item.productId] = {
+                id: item.productId,
+                name: item.productName,
+                categoryPath: item.categoryPath || "عام",
+                categoryId: product?.categoryId || "unknown",
+                quantitySold: 0,
+                revenue: 0,
+                purchaseCost: 0
+              };
+            }
+            productSalesMap[item.productId].quantitySold += item.quantity;
+            productSalesMap[item.productId].revenue += itemValue;
+            
+            const cost = (product?.purchasePrice || 0) * item.quantity;
+            productSalesMap[item.productId].purchaseCost += cost;
+            
+            totalRev += itemValue;
+            totalProf += (itemValue - cost);
+          });
         });
       }
 
       setTotals({ revenue: totalRev, profit: totalProf });
 
-      // 3. Best Sellers Sorting
       const sortedSellers = Object.values(productSalesMap).sort((a: any, b: any) => b.quantitySold - a.quantitySold);
       setBestSellers(sortedSellers);
 
-      // 4. Stagnant Products with Filter
       const soldIds = new Set(Object.keys(productSalesMap));
       let stagnant = allProducts.filter(p => !soldIds.has(p.id));
       if (selectedCategoryIds.length > 0) {
@@ -180,7 +183,6 @@ export default function ReportsPage() {
       }
       setStagnantProducts(stagnant.slice(0, 10));
 
-      // 5. Smart Insights
       const newInsights = [];
       const hoursMap: Record<number, number> = {};
       filteredInvoices.forEach(inv => {
@@ -196,7 +198,7 @@ export default function ReportsPage() {
         newInsights.push({
           type: "peak",
           title: "أوقات ذروة المبيعات",
-          text: `ساعة الذروة العامة هي حوالي الساعة ${peakHour[0]}:00. ننصح بتجهيز الطاقم أو إطلاق العروض في هذا الوقت.`,
+          text: `ساعة الذروة هي حوالي الساعة ${peakHour[0]}:00. ننصح بتجهيز الطاقم في هذا الوقت.`,
           icon: Clock,
           color: "text-blue-500 bg-blue-500/10"
         });
@@ -206,7 +208,7 @@ export default function ReportsPage() {
         newInsights.push({
           type: "demand",
           title: "منتج مطلوب بشدة",
-          text: `المنتج "${sortedSellers[0].name}" هو الأكثر طلباً في الفلتر الحالي بـ ${sortedSellers[0].quantitySold} قطعة.`,
+          text: `المنتج "${sortedSellers[0].name}" هو الأكثر طلباً بـ ${sortedSellers[0].quantitySold} قطعة.`,
           icon: ShoppingBag,
           color: "text-emerald-500 bg-emerald-500/10"
         });
@@ -216,7 +218,7 @@ export default function ReportsPage() {
         newInsights.push({
           type: "stagnant",
           title: "نصيحة للمخزون",
-          text: `لديك ${stagnant.length} منتجات راكدة في الأصناف المختارة. ننصح بعمل تخفيضات لتنشيط حركتها.`,
+          text: `لديك ${stagnant.length} منتجات راكدة. ننصح بعمل تخفيضات لتنشيط حركتها.`,
           icon: Lightbulb,
           color: "text-orange-500 bg-orange-500/10"
         });
@@ -283,7 +285,6 @@ export default function ReportsPage() {
           </div>
         </header>
 
-        {/* Dynamic Filters Section */}
         <section className="glass p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border-white/10 shadow-xl space-y-6">
            <div className="flex flex-col xl:flex-row md:items-center justify-between gap-6">
               <div className="space-y-1">
@@ -294,7 +295,6 @@ export default function ReportsPage() {
               </div>
               
               <div className="flex flex-wrap items-center gap-3">
-                 {/* Category Filter */}
                  <Popover>
                     <PopoverTrigger asChild>
                        <Button variant="outline" className="h-12 glass border-none rounded-2xl px-6 font-black text-xs gap-2 relative">
@@ -360,7 +360,6 @@ export default function ReportsPage() {
            </div>
         </section>
 
-        {/* Key Performance Indicators */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <Card className="border-none glass-premium rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all">
              <div className="absolute top-0 right-0 p-4 opacity-5"><Wallet className="h-20 w-20" /></div>
@@ -402,9 +401,7 @@ export default function ReportsPage() {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-           
            <div className="lg:col-span-2 space-y-6 md:space-y-8">
-              {/* Best Sellers List */}
               <Card className="border-none glass rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-xl">
                  <CardHeader className="p-8 border-b border-white/5 bg-primary/5">
                     <div className="flex items-center justify-between">
@@ -458,7 +455,6 @@ export default function ReportsPage() {
                  </CardContent>
               </Card>
 
-              {/* Comparative Growth Chart */}
               <Card className="border-none glass rounded-[2.5rem] md:rounded-[3rem] p-8 shadow-xl">
                  <CardHeader className="p-0 mb-8">
                     <CardTitle className="text-xl font-black">مقارنة الإيرادات والتكاليف</CardTitle>
@@ -486,7 +482,6 @@ export default function ReportsPage() {
            </div>
 
            <div className="space-y-6 md:space-y-8">
-              {/* Intelligent Advisor */}
               <Card className="border-none glass-premium rounded-[2.5rem] shadow-2xl relative overflow-hidden bg-gradient-to-br from-primary/5 to-accent/5">
                  <div className="absolute -top-10 -left-10 opacity-5"><Lightbulb className="h-40 w-40 rotate-12 text-primary" /></div>
                  <CardHeader className="p-8 relative z-10">
@@ -514,7 +509,6 @@ export default function ReportsPage() {
                  </CardContent>
               </Card>
 
-              {/* Stagnant Filtered List */}
               <Card className="border-none glass rounded-[2.5rem] shadow-xl overflow-hidden">
                  <CardHeader className="p-8 border-b border-white/5 bg-orange-500/5">
                     <CardTitle className="text-lg font-black flex items-center gap-2 text-orange-700">

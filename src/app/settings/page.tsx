@@ -43,7 +43,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
-// IndexedDB Keys for Persistence
 const STORE_NAME = 'ep_sync_store';
 const KEY_NAME = 'active_file_handle';
 
@@ -61,7 +60,6 @@ export default function SettingsPage() {
   const [showWipeDialog, setShowWipeDialog] = React.useState(false)
   const [password, setPassword] = React.useState("")
   
-  // Device Sync States
   const [isSyncActive, setIsSyncActive] = React.useState(false)
   const [lastSyncTime, setLastSyncTime] = React.useState<string | null>(null)
   const [fileHandle, setFileHandle] = React.useState<any>(null)
@@ -69,14 +67,11 @@ export default function SettingsPage() {
   
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Security Redirect for Workers
   React.useEffect(() => {
     if (!isAdmin && role !== null) {
       router.push("/")
     }
   }, [isAdmin, role, router])
-
-  // --- PERSISTENT FILE HANDLE LOGIC (IndexedDB Native) ---
 
   const saveHandleToIDB = async (handle: any) => {
     const request = indexedDB.open(STORE_NAME, 1);
@@ -112,23 +107,22 @@ export default function SettingsPage() {
     });
   };
 
-  // RESTORE ON MOUNT
   React.useEffect(() => {
     const restore = async () => {
       const savedHandle = await getHandleFromIDB();
       if (savedHandle) {
         setFileHandle(savedHandle);
         setIsHandleRestored(true);
-        // Check if we already have permission (silent try)
         try {
           if (await savedHandle.queryPermission({ mode: 'readwrite' }) === 'granted') {
             setIsSyncActive(true);
+            setIsHandleRestored(false);
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
               navigator.serviceWorker.controller.postMessage({ type: 'START_BACKUP' });
             }
           }
         } catch (e) {
-          console.log("Handle restore need user gesture");
+          console.log("Handle restore needs user gesture");
         }
       }
     };
@@ -138,7 +132,6 @@ export default function SettingsPage() {
     if (savedTime) setLastSyncTime(savedTime);
   }, []);
 
-  // START NEW SYNC
   const handleSetupDeviceSync = async () => {
     try {
       // @ts-ignore
@@ -168,7 +161,6 @@ export default function SettingsPage() {
     }
   }
 
-  // RE-ACTIVATE EXISTING SYNC
   const handleResumeSync = async () => {
     if (!fileHandle) return;
     try {
@@ -217,7 +209,6 @@ export default function SettingsPage() {
     }
   }, [db]);
 
-  // LISTEN TO BACKGROUND WORKER PINGS
   React.useEffect(() => {
     const handleSystemBackupEvent = () => {
       if (isSyncActive && fileHandle) {
@@ -227,8 +218,6 @@ export default function SettingsPage() {
     window.addEventListener('perform-system-backup', handleSystemBackupEvent);
     return () => window.removeEventListener('perform-system-backup', handleSystemBackupEvent);
   }, [isSyncActive, fileHandle, performSyncToFile]);
-
-  // --- TRADITIONAL BACKUP LOGIC ---
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -319,6 +308,14 @@ export default function SettingsPage() {
     reader.readAsText(file)
   }
 
+  const handleManualSync = () => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'MANUAL_BACKUP' });
+    } else {
+      performSyncToFile(fileHandle);
+    }
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 md:space-y-10 pb-32">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -331,7 +328,6 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {/* Smart Device Sync Card - V3 Enhanced */}
       <Card className="border-none bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-white rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden shadow-2xl relative border border-white/5">
         <div className="absolute top-0 left-0 p-8 opacity-5">
            <HardDrive className="h-48 w-48 -rotate-12" />
@@ -361,14 +357,14 @@ export default function SettingsPage() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                  <p className="text-sm md:text-base text-white/70 leading-relaxed font-medium">
-                    يقوم هذا النظام بربط البرنامج بملف حقيقي على جهازك. يتم تحديث الملف تلقائياً كل 5 دقائق حتى لو قمت بتحديث الصفحة (بمجرد استعادة الإذن).
+                    يقوم هذا النظام بربط البرنامج بملف حقيقي على جهازك. يتم تحديث الملف تلقائياً كل 5 دقائق في الخلفية لضمان أمان بياناتك.
                  </p>
                  <ul className="space-y-2">
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> حفظ دائم في قاعدة بيانات المتصفح
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> تحديث دوري مستقر (Service Worker)
                     </li>
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> تحديث دوري عبر Service Worker
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> استمرارية العمل عند تحديث الصفحة
                     </li>
                  </ul>
               </div>
@@ -388,7 +384,7 @@ export default function SettingsPage() {
                             <FileJson className="h-5 w-5 text-primary shrink-0" />
                             <span className="text-xs font-mono font-bold text-white/80 truncate">{(fileHandle?.name) || "ExpressBackup.json"}</span>
                          </div>
-                         <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:bg-red-500/10" onClick={() => setIsSyncActive(false)}>
+                         <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:bg-red-500/10" onClick={() => { setIsSyncActive(false); localStorage.removeItem(KEY_NAME); }}>
                             <X className="h-4 w-4" />
                          </Button>
                       </div>
@@ -396,7 +392,7 @@ export default function SettingsPage() {
                          <span className="text-[9px] font-bold text-white/30">آخر مزامنة:</span>
                          <span className="text-[10px] font-black text-white/60 tabular-nums">{lastSyncTime || "الآن..."}</span>
                       </div>
-                      <Button onClick={() => performSyncToFile(fileHandle)} variant="outline" className="w-full h-10 rounded-xl border-white/10 font-black text-xs gap-2">
+                      <Button onClick={handleManualSync} variant="outline" className="w-full h-10 rounded-xl border-white/10 font-black text-xs gap-2">
                          <RefreshCw className="h-3 w-3" /> مزامنة يدوية فورية
                       </Button>
                    </div>
