@@ -159,14 +159,28 @@ export default function InvoiceHistoryPage() {
       const snapshot = await getDocs(itemsRef)
       
       const itemsMap: Record<string, any> = {}
+      // Legacy Fix: Use subtotal (total + discount) as a limit for validation
+      const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
+      let runningSubtotal = 0;
+
       snapshot.docs.forEach(d => {
         const item = d.data()
         const key = `${item.productId}_${item.unitPrice}`
+        const currentItemValue = (item.itemTotal || (item.quantity * item.unitPrice) || 0);
+
         if (itemsMap[key]) {
-          itemsMap[key].quantity += item.quantity
-          itemsMap[key].itemTotal += item.itemTotal
+          // Only add more quantity if it doesn't violate the invoice's recorded total (Legacy Duplicate Fix)
+          if (runningSubtotal + currentItemValue <= limit + 1) { // +1 for small rounding safety
+            itemsMap[key].quantity += item.quantity
+            itemsMap[key].itemTotal += currentItemValue
+            runningSubtotal += currentItemValue
+          }
         } else {
-          itemsMap[key] = { id: d.id, ...item }
+          // For the first occurrence, check if it's within limits
+          if (runningSubtotal + currentItemValue <= limit + 1 || runningSubtotal === 0) {
+            itemsMap[key] = { id: d.id, ...item, itemTotal: currentItemValue }
+            runningSubtotal += currentItemValue
+          }
         }
       })
       

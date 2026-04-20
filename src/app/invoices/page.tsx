@@ -114,21 +114,32 @@ export default function InvoicesPage() {
             
             const itemsSnap = await getDocs(collection(db, "invoices", editId, "items"))
             
-            // Fix: Group items by productId when loading for edit to clean up corrupted data
             const itemsMap: Record<string, CartItem> = {}
+            const limit = (data.totalAmount || 0) + (data.discount || 0);
+            let runningSubtotal = 0;
+
             itemsSnap.docs.forEach(d => {
               const itemData = d.data()
               const pid = itemData.productId
+              const itemValue = (itemData.quantity || 1) * (itemData.unitPrice || 0);
+
               if (itemsMap[pid]) {
-                itemsMap[pid].qty += itemData.quantity
+                // Legacy Fix: Only merge if within invoice total bounds
+                if (runningSubtotal + itemValue <= limit + 1) {
+                  itemsMap[pid].qty += itemData.quantity
+                  runningSubtotal += itemValue
+                }
               } else {
-                itemsMap[pid] = {
-                  id: d.id,
-                  productId: pid,
-                  name: itemData.productName,
-                  price: itemData.unitPrice,
-                  qty: itemData.quantity,
-                  categoryPath: itemData.categoryPath
+                if (runningSubtotal + itemValue <= limit + 1 || runningSubtotal === 0) {
+                  itemsMap[pid] = {
+                    id: d.id,
+                    productId: pid,
+                    name: itemData.productName,
+                    price: itemData.unitPrice,
+                    qty: itemData.quantity,
+                    categoryPath: itemData.categoryPath
+                  }
+                  runningSubtotal += itemValue
                 }
               }
             })
@@ -515,7 +526,7 @@ export default function InvoicesPage() {
                       />
                     </div>
                     {searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[300px] overflow-y-auto border border-white/20">
+                      <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[300px] overflow-y-auto border border-white/10">
                         {filteredProducts.map(p => (
                           <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer flex justify-between items-center border-b border-border transition-all" onClick={() => addToCart(p)}>
                             <div className="flex flex-col">
