@@ -885,7 +885,7 @@ export default function Dashboard() {
                     <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs md:w-56">
                        <SelectValue placeholder="حسب التصنيف" />
                     </SelectTrigger>
-                    <SelectContent className="glass border-none rounded-xl z-[250]">
+                    <SelectContent className="glass border-none rounded-xl z-[400]">
                        <SelectItem value="all">كافة التصنيفات</SelectItem>
                        {categories?.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
                     </SelectContent>
