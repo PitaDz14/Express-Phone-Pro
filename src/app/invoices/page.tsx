@@ -54,6 +54,7 @@ import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
+import { SyncReconnectButton } from "@/components/sync-reconnect-button"
 
 interface CartItem {
   id: string
@@ -477,6 +478,8 @@ export default function InvoicesPage() {
             <div className="h-8 w-px bg-border mx-1 md:mx-2" />
 
             <div className="flex items-center gap-2">
+               <SyncReconnectButton />
+               
                <div className={cn(
                  "h-8 w-8 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-white shadow-lg border border-white/20",
                  isAdmin ? "bg-gradient-to-br from-primary to-[#2a4580]" : "bg-gradient-to-br from-emerald-500 to-teal-700"

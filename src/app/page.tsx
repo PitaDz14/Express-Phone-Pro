@@ -74,6 +74,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 import { useRouter } from "next/navigation"
+import { SyncReconnectButton } from "@/components/sync-reconnect-button"
 
 // --- Memoized Sub-components for Speed ---
 
@@ -594,6 +595,8 @@ export default function Dashboard() {
           </Link>
 
           <div className="flex items-center gap-2">
+             <SyncReconnectButton />
+             
              <div className="flex flex-col items-end mr-1 text-right">
                 <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none">الحساب الحالي</span>
                 <span className={cn(
