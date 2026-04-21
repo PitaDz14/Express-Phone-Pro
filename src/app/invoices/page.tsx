@@ -22,7 +22,9 @@ import {
   ArrowRight,
   History,
   ShieldCheck,
-  UserCog
+  UserCog,
+  ChevronDown,
+  User
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -43,8 +45,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, setDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp, increment, getDoc, getDocs, deleteDoc, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -86,6 +95,11 @@ export default function InvoicesPage() {
   const [showPreview, setShowPreview] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   
+  // Quick Add Customer States
+  const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false)
+  const [qaCustName, setQaCustName] = React.useState("")
+  const [qaCustPhone, setQaCustPhone] = React.useState("")
+
   const [pendingId, setPendingId] = React.useState("")
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
@@ -125,7 +139,6 @@ export default function InvoicesPage() {
               const itemValue = (itemData.quantity || 1) * (itemData.unitPrice || 0);
 
               if (itemsMap[pid]) {
-                // Legacy Fix: Only merge if within invoice total bounds
                 if (runningSubtotal + itemValue <= limit + 1) {
                   itemsMap[pid].qty += itemData.quantity
                   runningSubtotal += itemValue
@@ -230,8 +243,38 @@ export default function InvoicesPage() {
     setCart(cart.map(item => item.productId === productId ? { ...item, price: newPrice } : item))
   }
 
+  const handleQuickAddCustomer = async () => {
+    if (!qaCustName || !qaCustPhone) {
+      toast({ title: "خطأ", description: "يرجى إدخال بيانات العميل كاملة", variant: "destructive" })
+      return
+    }
+    try {
+      const newCustRef = await addDocumentNonBlocking(collection(db, "customers"), {
+        name: qaCustName,
+        phone: qaCustPhone,
+        debt: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      const newCustDoc = await getDoc(newCustRef as any)
+      if (newCustDoc.exists()) {
+        const cData = { id: newCustDoc.id, ...newCustDoc.data() }
+        setSelectedCustomer(cData)
+        setCustomerSearch("")
+        setIsQuickAddOpen(false)
+        setQaCustName("")
+        setQaCustPhone("")
+        toast({ title: "تم تسجيل العميل", description: `تمت إضافة ${qaCustName} واختياره للفاتورة` })
+      }
+    } catch (e) {
+      toast({ title: "خطأ", description: "فشل تسجيل العميل الجديد", variant: "destructive" })
+    }
+  }
+
   const handlePrintInvoice = (invId: string, invoiceData: any, cartItems: CartItem[], customer: any) => {
     const hasDiscount = (invoiceData.discount || 0) > 0;
+    const customerDisplayName = customer ? customer.name : (customerSearch || "عميل عام");
     const printContent = `
       <html dir="rtl">
         <head>
@@ -263,8 +306,8 @@ export default function InvoicesPage() {
             </div>
 
             <div style="font-size: 10px; margin-bottom: 10px;">
-              <p><strong>العميل:</strong> ${customer?.name || "عميل عام"}</p>
-              <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? "لا يوجد" : customer.phone}</p>
+              <p><strong>العميل:</strong> ${customerDisplayName}</p>
+              <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? (customerSearch ? "غير مسجل" : "لا يوجد") : customer.phone}</p>
               <p><strong>الموظف:</strong> ${username || "غير معرف"}</p>
             </div>
 
@@ -329,6 +372,10 @@ export default function InvoicesPage() {
 
   const handleProcessInvoice = async () => {
     if (cart.length === 0 || !user) return
+    
+    // Determine the customer name to be saved
+    const finalCustomerName = selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام")
+    
     if (debtAmount > 0 && (!selectedCustomer || selectedCustomer.id === 'walk-in')) {
       toast({ title: "تنبيه", description: "يجب تحديد عميل مسجل لتسجيل الدين باسمه", variant: "destructive" })
       return
@@ -383,7 +430,7 @@ export default function InvoicesPage() {
 
       const invoiceData: any = {
         customerId: selectedCustomer?.id || "walk-in",
-        customerName: selectedCustomer?.name || "عميل عام",
+        customerName: finalCustomerName,
         totalAmount: total,
         paidAmount: finalPaid,
         discount: discount,
@@ -440,6 +487,7 @@ export default function InvoicesPage() {
       setCart([])
       setOriginalCart([])
       setSelectedCustomer(null)
+      setCustomerSearch("")
       setDiscount(0)
       setPaidAmount("")
       setShowPreview(false)
@@ -609,31 +657,76 @@ export default function InvoicesPage() {
                 <CardContent className="p-6 md:p-8 space-y-6">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div className="space-y-2 relative">
-                        <Label className="text-[10px] font-black text-primary uppercase">العميل</Label>
-                        <div className="relative group">
-                          <Input className="h-11 glass border-none rounded-xl font-bold" placeholder="بحث عن عميل مسجل..." value={selectedCustomer ? selectedCustomer.name : customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} disabled={!!selectedCustomer} />
-                          {selectedCustomer && (
-                            <Button variant="ghost" size="icon" className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSelectedCustomer(null)}><X className="h-4 w-4" /></Button>
-                          )}
+                        <Label className="text-[10px] font-black text-primary uppercase flex items-center justify-between">
+                           العميل
+                           <span className="text-[8px] opacity-40 font-bold">(يمكنك الكتابة مباشرة للعملاء غير المسجلين)</span>
+                        </Label>
+                        <div className="flex gap-2">
+                           <div className="relative flex-1 group">
+                              <Input 
+                                className="h-12 glass border-none rounded-xl font-bold pr-4" 
+                                placeholder="ابحث أو اكتب اسم العميل..." 
+                                value={selectedCustomer ? selectedCustomer.name : customerSearch} 
+                                onChange={(e) => {
+                                   setCustomerSearch(e.target.value);
+                                   if (selectedCustomer) setSelectedCustomer(null);
+                                }} 
+                              />
+                              <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                 { (selectedCustomer || customerSearch) && (
+                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
+                                      <X className="h-4 w-4" />
+                                   </Button>
+                                 )}
+                                 <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                       <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+                                          <ChevronDown className="h-4 w-4" />
+                                       </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="glass border-none rounded-2xl z-[250] w-64 max-h-60 overflow-y-auto shadow-2xl" align="end" dir="rtl">
+                                       <p className="p-2 text-[10px] font-black text-primary border-b border-white/10 uppercase">اختر من القائمة:</p>
+                                       {customers?.sort((a,b) => a.name.localeCompare(b.name, 'ar')).map(c => (
+                                          <DropdownMenuItem key={c.id} className="font-bold py-3 cursor-pointer" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
+                                             <User className="h-3 w-3 ml-2 text-primary" /> {c.name}
+                                          </DropdownMenuItem>
+                                       ))}
+                                    </DropdownMenuContent>
+                                 </DropdownMenu>
+                              </div>
+                           </div>
+                           <Button 
+                              variant="outline" 
+                              className="h-12 w-12 rounded-xl glass border-white/20 text-primary shadow-lg"
+                              onClick={() => setIsQuickAddOpen(true)}
+                              title="إضافة عميل جديد للقاعدة"
+                           >
+                              <UserPlus className="h-5 w-5" />
+                           </Button>
                         </div>
+
                         {customerSearch && !selectedCustomer && (
-                          <div className="absolute top-full left-0 right-0 mt-2 glass border-border rounded-2xl shadow-xl z-20 overflow-hidden max-h-[200px] overflow-y-auto border border-white/10">
+                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-[150] overflow-hidden max-h-[200px] overflow-y-auto border border-white/10">
                             {customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
-                              <div key={c.id} className="p-3 hover:bg-primary/5 cursor-pointer border-b border-border font-bold text-xs" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
-                                {c.name} - {c.phone}
+                              <div key={c.id} className="p-4 hover:bg-primary/5 cursor-pointer border-b border-border font-bold text-xs flex justify-between items-center" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
+                                <span>{c.name}</span>
+                                <span className="text-[10px] opacity-40">{c.phone}</span>
                               </div>
                             ))}
+                            <div className="p-3 bg-black/5 text-[9px] font-black text-center text-muted-foreground italic">
+                               سيتم تسجيل الاسم "{customerSearch}" في هذه الفاتورة فقط
+                            </div>
                           </div>
                         )}
                      </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black text-primary uppercase">الخصم</Label>
-                            <Input type="number" className="h-11 glass border-none rounded-xl font-black text-orange-600" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
+                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-orange-600" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
                         </div>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black text-emerald-500 uppercase">المدفوع</Label>
-                            <Input type="number" className="h-11 glass border-none rounded-xl font-black text-emerald-600" placeholder={total.toString()} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
+                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-emerald-600" placeholder={total.toString()} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
                         </div>
                      </div>
                    </div>
@@ -676,8 +769,35 @@ export default function InvoicesPage() {
           </div>
         </main>
 
+        {/* Quick Add Customer Dialog */}
+        <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
+           <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl p-8 z-[300] max-w-md w-[95%]">
+              <DialogHeader>
+                 <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
+                    <UserPlus className="h-6 w-6 text-primary" /> تسجيل عميل جديد
+                 </DialogTitle>
+                 <DialogDescription className="font-bold text-xs mt-2">أدخل البيانات الأساسية لإضافة العميل للقاعدة بشكل دائم.</DialogDescription>
+              </DialogHeader>
+              <div className="py-6 space-y-6">
+                 <div className="space-y-2">
+                    <Label className="font-black text-xs text-primary uppercase px-1">الاسم الكامل</Label>
+                    <Input value={qaCustName} onChange={(e) => setQaCustName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="اسم العميل الرباعي" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-xs text-primary uppercase px-1">رقم الهاتف</Label>
+                    <Input value={qaCustPhone} onChange={(e) => setQaCustPhone(e.target.value)} className="h-12 glass border-none rounded-xl font-bold tabular-nums" placeholder="06XXXXXXXX" />
+                 </div>
+              </div>
+              <DialogFooter>
+                 <Button className="w-full h-14 rounded-2xl bg-primary text-white font-black shadow-xl" onClick={handleQuickAddCustomer}>
+                    تأكيد وتسجيل العميل
+                 </Button>
+              </DialogFooter>
+           </DialogContent>
+        </Dialog>
+
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
+          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
              <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
                 <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
              </DialogHeader>
@@ -693,8 +813,8 @@ export default function InvoicesPage() {
 
                      <div className="space-y-1">
                         <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || pendingId}</span></p>
-                        <p>العميل: {selectedCustomer?.name || "عميل عام"}</p>
-                        <p>الهاتف: {selectedCustomer?.id === 'walk-in' || !selectedCustomer?.phone ? "لا يوجد" : selectedCustomer.phone}</p>
+                        <p>العميل: {selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام")}</p>
+                        <p>الهاتف: {selectedCustomer?.id === 'walk-in' || (!selectedCustomer?.phone && !customerSearch) ? "لا يوجد" : (selectedCustomer?.phone || "غير مسجل")}</p>
                         <p>بواسطة: {username || "غير معرف"}</p>
                      </div>
 
