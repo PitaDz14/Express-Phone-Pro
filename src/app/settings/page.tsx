@@ -65,6 +65,7 @@ export default function SettingsPage() {
   const [fileHandle, setFileHandle] = React.useState<any>(null)
   const [isHandleRestored, setIsHandleRestored] = React.useState(false)
   
+  const isApiSupported = typeof window !== 'undefined' && 'showSaveFilePicker' in window;
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -97,6 +98,10 @@ export default function SettingsPage() {
       };
       request.onsuccess = (e: any) => {
         const db = e.target.result;
+        if (!db.objectStoreNames.contains('handles')) {
+          resolve(null);
+          return;
+        }
         const tx = db.transaction('handles', 'readonly');
         const store = tx.objectStore('handles');
         const getRequest = store.get(KEY_NAME);
@@ -108,6 +113,8 @@ export default function SettingsPage() {
   };
 
   React.useEffect(() => {
+    if (!isApiSupported) return;
+    
     const restore = async () => {
       const savedHandle = await getHandleFromIDB();
       if (savedHandle) {
@@ -130,7 +137,7 @@ export default function SettingsPage() {
     
     const savedTime = localStorage.getItem('last_device_sync_time');
     if (savedTime) setLastSyncTime(savedTime);
-  }, []);
+  }, [isApiSupported]);
 
   const handleSetupDeviceSync = async () => {
     try {
@@ -208,6 +215,29 @@ export default function SettingsPage() {
       setIsSyncActive(false);
     }
   }, [db]);
+
+  const handleManualMobileExport = async () => {
+    setIsExporting(true);
+    try {
+      const collections = ["categories", "products", "customers", "invoices", "user_roles"];
+      const backup: any = { timestamp: new Date().toISOString(), data: {} };
+      for (const col of collections) {
+        const snap = await getDocs(collection(db, col));
+        backup.data[col] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ExpressPhone_Mobile_QuickBackup_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      toast({ title: "تم الحفظ", description: "تم تحميل نسخة احتياطية فورية على هاتفك." });
+    } catch (err) {
+      toast({ variant: "destructive", title: "فشل الحفظ", description: "حدث خطأ أثناء جمع البيانات." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   React.useEffect(() => {
     const handleSystemBackupEvent = () => {
@@ -348,7 +378,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-3">
                  <Badge className={cn("h-8 px-4 rounded-xl font-black text-[10px] border-none", isSyncActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/30")}>
-                    {isSyncActive ? "المزامنة مستمرة بنجاح" : isHandleRestored ? "بانتظار استعادة الإذن" : "المزامنة غير مفعلة"}
+                    {isSyncActive ? "المزامنة مستمرة بنجاح" : isHandleRestored ? "بانتظار استعادة الإذن" : !isApiSupported ? "وضع الهاتف النشط" : "المزامنة غير مفعلة"}
                  </Badge>
               </div>
            </div>
@@ -357,14 +387,17 @@ export default function SettingsPage() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                  <p className="text-sm md:text-base text-white/70 leading-relaxed font-medium">
-                    يقوم هذا النظام بربط البرنامج بملف حقيقي على جهازك. يتم تحديث الملف تلقائياً كل 5 دقائق في الخلفية لضمان أمان بياناتك.
+                    {isApiSupported 
+                      ? "يقوم هذا النظام بربط البرنامج بملف حقيقي على جهازك. يتم تحديث الملف تلقائياً كل 5 دقائق في الخلفية لضمان أمان بياناتك."
+                      : "نظراً للقيود الأمنية في متصفحات الهاتف، لا يمكن الربط المباشر بملف، ولكن يمكنك تحميل نسخة احتياطية كاملة لجهازك بنقرة واحدة سريعة."
+                    }
                  </p>
                  <ul className="space-y-2">
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> تحديث دوري مستقر (Service Worker)
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> {isApiSupported ? "تحديث دوري مستقر (Service Worker)" : "تحميل سريع بضغطة واحدة"}
                     </li>
                     <li className="flex items-center gap-3 text-xs font-bold text-white/50">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> استمرارية العمل عند تحديث الصفحة
+                       <CheckCircle2 className="h-4 w-4 text-emerald-400" /> {isApiSupported ? "استمرارية العمل عند تحديث الصفحة" : "نسخ احتياطي داخلي (LocalStorage) مفعل"}
                     </li>
                  </ul>
               </div>
@@ -408,6 +441,22 @@ export default function SettingsPage() {
                          className="w-full h-12 rounded-2xl bg-orange-500 text-white font-black hover:bg-orange-600 shadow-xl transition-all"
                        >
                           تفعيل المزامنة المباشرة
+                       </Button>
+                    </div>
+                 ) : !isApiSupported ? (
+                    <div className="flex flex-col items-center justify-center text-center gap-4 py-4">
+                       <div className="h-14 w-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                          <Download className="h-6 w-6" />
+                       </div>
+                       <p className="font-black text-sm text-emerald-400">تحميل نسخة احتياطية فورية</p>
+                       <p className="text-[9px] text-white/30 leading-tight">هاتفك لا يدعم المزامنة المستمرة، استخدم هذا الزر لحفظ نسخة على جهازك يدوياً.</p>
+                       <Button 
+                         onClick={handleManualMobileExport}
+                         disabled={isExporting}
+                         className="w-full h-12 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-2xl transition-all"
+                       >
+                          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          حفظ نسخة في الهاتف الآن
                        </Button>
                     </div>
                  ) : (
