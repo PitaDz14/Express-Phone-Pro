@@ -594,8 +594,8 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2">
-             <SyncReconnectButton />
+          <div className="flex items-center gap-3">
+             {isAdmin && <SyncReconnectButton />}
              
              <div className="flex flex-col items-end mr-1 text-right">
                 <span className="text-[7px] md:text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none">الحساب الحالي</span>
@@ -885,7 +885,7 @@ export default function Dashboard() {
                     <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs md:w-56">
                        <SelectValue placeholder="حسب التصنيف" />
                     </SelectTrigger>
-                    <SelectContent className="glass border-none rounded-xl z-[350]">
+                    <SelectContent className="glass border-none rounded-xl z-[250]">
                        <SelectItem value="all">كافة التصنيفات</SelectItem>
                        {categories?.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
                     </SelectContent>
