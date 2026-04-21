@@ -50,9 +50,6 @@ npm start
 2.  **تحديث الإعدادات:** استبدل القيم في ملف `src/firebase/config.ts` ببيانات الـ `firebaseConfig` الجديدة.
 3.  **المستخدم الأول:** أنشئ مستخدماً في Firebase وانسخ الـ **UID**، ثم اطلبه مني لتعيينه كـ Admin.
 
-## 📦 حل مشكلة الرفع لـ GitHub (403 Forbidden)
-إذا واجهت خطأ عند الرفع: تأكد من أن الـ **Token** الخاص بك يمتلك صلاحيات **Write** على المستودع. استخدم الأوامر التالية لتحديث الرابط:
-```bash
 git remote remove origin
 git remote add origin https://YOUR_TOKEN_HERE@github.com/PitaDz14/Express-Phone-Pro.git
 git push -u origin main
