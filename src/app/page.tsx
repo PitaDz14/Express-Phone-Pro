@@ -34,7 +34,10 @@ import {
   ArrowUp,
   ArrowDown,
   Wrench,
-  CheckCircle2
+  CheckCircle2,
+  LayoutGrid,
+  List,
+  Grid2X2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -235,21 +238,35 @@ export default function Dashboard() {
   const [showPurchaseInEdit, setShowPurchaseInEdit] = React.useState(false)
   const [showRepairInEdit, setShowRepairInEdit] = React.useState(true)
   const [showRepairInSearch, setShowRepairInSearch] = React.useState(false)
+  
+  // Low Stock Display Settings
+  const [lowStockViewMode, setLowStockViewMode] = React.useState<'grid' | 'compact' | 'list'>('grid')
+  const [lowStockLimit, setLowStockLimit] = React.useState<number>(25)
 
   React.useEffect(() => {
     if (isMounted) {
       const s1 = localStorage.getItem('setting_showPurchaseInEdit')
       const s2 = localStorage.getItem('setting_showRepairInEdit')
       const s3 = localStorage.getItem('setting_showRepairInSearch')
+      const s4 = localStorage.getItem('lowStock_viewMode')
+      const s5 = localStorage.getItem('lowStock_limit')
+      
       if (s1 !== null) setShowPurchaseInEdit(s1 === 'true')
       if (s2 !== null) setShowRepairInEdit(s2 === 'true')
       if (s3 !== null) setShowRepairInSearch(s3 === 'true')
+      if (s4 !== null) setLowStockViewMode(s4 as any)
+      if (s5 !== null) setLowStockLimit(Number(s5))
     }
   }, [isMounted])
 
   const handleToggleSetting = (key: string, val: boolean, setter: (v: boolean) => void) => {
     setter(val)
     localStorage.setItem(`setting_${key}`, String(val))
+  }
+
+  const handleUpdateLowStockPref = (key: string, val: any, setter: any) => {
+    setter(val)
+    localStorage.setItem(`lowStock_${key}`, String(val))
   }
 
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
@@ -310,6 +327,11 @@ export default function Dashboard() {
     
     return filtered;
   }, [products, lowStockFilter, lowStockSortConfig, isMounted]);
+
+  const displayedLowStockItems = React.useMemo(() => {
+    if (lowStockLimit === 0) return lowStockItems;
+    return lowStockItems.slice(0, lowStockLimit);
+  }, [lowStockItems, lowStockLimit]);
 
   const handleExportLowStock = React.useCallback((format: 'excel' | 'txt' | 'print') => {
     if (!lowStockItems || lowStockItems.length === 0) {
@@ -841,9 +863,9 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Low Stock Dialog - Enhanced with Sorting & Export */}
+      {/* Low Stock Dialog - Enhanced with Custom View Options */}
       <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
-        <DialogContent dir="rtl" className="max-w-5xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[90vh] flex flex-col">
+        <DialogContent dir="rtl" className="max-w-6xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[90vh] flex flex-col">
            <DialogHeader className="p-6 md:p-8 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -856,6 +878,36 @@ export default function Dashboard() {
                    </div>
                 </div>
                 <div className="flex items-center gap-2">
+                   <div className="flex items-center bg-black/5 p-1 rounded-xl gap-1 mr-4">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'grid' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        onClick={() => handleUpdateLowStockPref('viewMode', 'grid', setLowStockViewMode)}
+                        title="عرض شبكة"
+                      >
+                         <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'compact' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        onClick={() => handleUpdateLowStockPref('viewMode', 'compact', setLowStockViewMode)}
+                        title="عرض مضغوط"
+                      >
+                         <Grid2X2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'list' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        onClick={() => handleUpdateLowStockPref('viewMode', 'list', setLowStockViewMode)}
+                        title="عرض قائمة"
+                      >
+                         <List className="h-4 w-4" />
+                      </Button>
+                   </div>
+
                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                          <Button className="h-10 px-6 rounded-xl bg-orange-600 text-white font-black gap-2 shadow-lg shadow-orange-500/20">
@@ -878,69 +930,128 @@ export default function Dashboard() {
               </div>
            </DialogHeader>
 
-           <div className="p-4 md:px-8 bg-card/40 border-b border-white/5 flex flex-col md:flex-row gap-3 shrink-0">
-              <div className="flex-1 flex flex-col md:flex-row items-center gap-2">
-                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">فلترة:</Label>
-                 <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
-                    <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs md:w-56">
-                       <SelectValue placeholder="حسب التصنيف" />
-                    </SelectTrigger>
-                    <SelectContent className="glass border-none rounded-xl z-[400]">
-                       <SelectItem value="all">كافة التصنيفات</SelectItem>
-                       {categories?.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                    </SelectContent>
-                 </Select>
-                 
-                 <div className="h-6 w-px bg-border mx-2 hidden md:block" />
-                 
-                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">ترتيب:</Label>
+           <div className="p-4 md:px-8 bg-card/40 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-4">
                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className={cn("h-9 rounded-xl gap-2 font-bold text-xs", lowStockSortConfig.key === 'name' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
-                      onClick={() => handleLowStockSort('name')}
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">التصنيف:</Label>
+                    <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
+                       <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs w-40 md:w-48">
+                          <SelectValue placeholder="حسب التصنيف" />
+                       </SelectTrigger>
+                       <SelectContent className="glass border-none rounded-xl z-[400]">
+                          <SelectItem value="all">كافة التصنيفات</SelectItem>
+                          {categories?.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                       </SelectContent>
+                    </Select>
+                 </div>
+                 
+                 <div className="flex items-center gap-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">الكمية المعروضة:</Label>
+                    <Select 
+                      value={String(lowStockLimit)} 
+                      onValueChange={(v) => handleUpdateLowStockPref('limit', Number(v), setLowStockLimit)}
                     >
-                       الاسم {lowStockSortConfig.key === 'name' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className={cn("h-9 rounded-xl gap-2 font-bold text-xs", lowStockSortConfig.key === 'quantity' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
-                      onClick={() => handleLowStockSort('quantity')}
-                    >
-                       الكمية {lowStockSortConfig.key === 'quantity' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-                    </Button>
+                       <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs w-24">
+                          <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent className="glass border-none rounded-xl z-[400]">
+                          <SelectItem value="15">15 عنصر</SelectItem>
+                          <SelectItem value="25">25 عنصر</SelectItem>
+                          <SelectItem value="50">50 عنصر</SelectItem>
+                          <SelectItem value="0">عرض الكل</SelectItem>
+                       </SelectContent>
+                    </Select>
+                 </div>
+
+                 <div className="h-6 w-px bg-border hidden md:block" />
+                 
+                 <div className="flex items-center gap-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">ترتيب:</Label>
+                    <div className="flex items-center gap-2">
+                       <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn("h-9 rounded-xl gap-2 font-bold text-xs px-3", lowStockSortConfig.key === 'name' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        onClick={() => handleLowStockSort('name')}
+                       >
+                          الاسم {lowStockSortConfig.key === 'name' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                       </Button>
+                       <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn("h-9 rounded-xl gap-2 font-bold text-xs px-3", lowStockSortConfig.key === 'quantity' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        onClick={() => handleLowStockSort('quantity')}
+                       >
+                          الكمية {lowStockSortConfig.key === 'quantity' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                       </Button>
+                    </div>
                  </div>
               </div>
-              <Badge variant="destructive" className="h-10 px-4 rounded-xl font-black text-xs self-center">
-                 {lowStockItems.length} منتجات ناقصة
-              </Badge>
+              
+              <div className="flex items-center gap-2">
+                 <span className="text-[10px] font-bold text-muted-foreground">إجمالي النواقص: {lowStockItems.length}</span>
+                 <Badge variant="destructive" className="h-9 px-4 rounded-xl font-black text-xs">
+                    معروض الآن: {displayedLowStockItems.length}
+                 </Badge>
+              </div>
            </div>
 
            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar">
-              {lowStockItems.length === 0 ? (
+              {displayedLowStockItems.length === 0 ? (
                 <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة لهذا الفرز</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {lowStockItems.map((p) => (
-                     <div key={p.id} className="p-4 rounded-2xl glass border-orange-500/10 flex items-center justify-between group hover:bg-orange-500/5 transition-all shadow-sm">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                           <div className="h-14 w-14 rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="h-6 w-6 text-muted-foreground/10" />}
+                <div className={cn(
+                  "grid gap-4 transition-all duration-500",
+                  lowStockViewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : 
+                  lowStockViewMode === 'compact' ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" :
+                  "grid-cols-1"
+                )}>
+                   {displayedLowStockItems.map((p) => (
+                     <div 
+                      key={p.id} 
+                      className={cn(
+                        "rounded-2xl glass border-orange-500/10 group hover:bg-orange-500/5 transition-all shadow-sm flex",
+                        lowStockViewMode === 'list' ? "p-3 flex-row items-center justify-between" : "p-4 flex-col gap-4"
+                      )}
+                     >
+                        <div className={cn(
+                          "flex items-center gap-3 overflow-hidden",
+                          lowStockViewMode === 'list' ? "flex-1" : ""
+                        )}>
+                           <div className={cn(
+                             "rounded-xl bg-card border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-inner",
+                             lowStockViewMode === 'compact' ? "h-10 w-10" : "h-14 w-14"
+                           )}>
+                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className={cn("text-muted-foreground/10", lowStockViewMode === 'compact' ? "h-4 w-4" : "h-6 w-6")} />}
                            </div>
                            <div className="flex flex-col overflow-hidden">
-                              <span className="font-black text-xs text-foreground truncate">{p.name}</span>
-                              <span className="text-[8px] text-muted-foreground font-black tabular-nums mt-0.5">#{p.productCode}</span>
-                              <span className="text-[9px] text-primary font-bold mt-1 bg-primary/5 px-2 py-0.5 rounded-lg w-fit">{p.categoryName}</span>
+                              <span className={cn("font-black text-foreground truncate", lowStockViewMode === 'compact' ? "text-[10px]" : "text-xs")}>{p.name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                 <span className="text-[8px] text-muted-foreground font-black tabular-nums">#{p.productCode}</span>
+                                 {lowStockViewMode !== 'compact' && (
+                                   <span className="text-[9px] text-primary font-bold bg-primary/5 px-2 py-0.5 rounded-lg w-fit">{p.categoryName}</span>
+                                 )}
+                              </div>
                            </div>
                         </div>
-                        <div className="flex flex-col items-end shrink-0 pl-2">
-                           <div className="flex items-center gap-1">
-                              <span className="text-xl font-black text-red-600 tabular-nums">{p.quantity}</span>
-                              <span className="text-[10px] text-muted-foreground font-bold">متوفر</span>
+
+                        <div className={cn(
+                          "flex shrink-0",
+                          lowStockViewMode === 'list' ? "items-center gap-8 pl-4" : "items-end justify-between border-t border-white/5 pt-2"
+                        )}>
+                           <div className="flex flex-col items-end">
+                              <div className="flex items-center gap-1.5">
+                                 <span className={cn("font-black text-red-600 tabular-nums", lowStockViewMode === 'compact' ? "text-sm" : "text-xl")}>{p.quantity}</span>
+                                 <span className="text-[10px] text-muted-foreground font-bold">متوفر</span>
+                              </div>
+                              <span className="text-[8px] font-black text-muted-foreground uppercase mt-0.5">الحد الأدنى: {p.minStockQuantity || 1}</span>
                            </div>
-                           <span className="text-[8px] font-black text-muted-foreground uppercase mt-1">الحد الأدنى: {p.minStockQuantity || 1}</span>
+                           {lowStockViewMode !== 'list' && (
+                             <div className="text-left">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase opacity-40">سعر البيع</p>
+                                <p className="font-black text-xs text-primary tabular-nums">{(p.salePrice || 0).toLocaleString()} دج</p>
+                             </div>
+                           )}
                         </div>
                      </div>
                    ))}
