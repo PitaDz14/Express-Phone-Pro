@@ -159,7 +159,7 @@ const QuickActionButton = React.memo(({ href, icon: Icon, label, color, onClick 
 })
 QuickActionButton.displayName = "QuickActionButton"
 
-const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userId, isAdmin }: { product: any, db: any, showPurchase: boolean, showRepair: boolean, userId: string, isAdmin: boolean }) => {
+const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userId, isAdmin, onNameClick }: { product: any, db: any, showPurchase: boolean, showRepair: boolean, userId: string, isAdmin: boolean, onNameClick: (name: string) => void }) => {
   const [localQty, setLocalQty] = React.useState(product.quantity)
   const [localSalePrice, setLocalSalePrice] = React.useState(product.salePrice)
   const [localPurchasePrice, setLocalPurchasePrice] = React.useState(product.purchasePrice || 0)
@@ -194,7 +194,7 @@ const QuickEditItem = React.memo(({ product, db, showPurchase, showRepair, userI
                )}
             </div>
             <div className="overflow-hidden">
-               <p className="font-black text-sm text-foreground truncate">{product.name}</p>
+               <p onClick={() => onNameClick(product.name)} className="font-black text-sm text-foreground truncate cursor-pointer hover:text-primary transition-colors">{product.name}</p>
                <p className="text-[9px] text-primary font-bold truncate">{product.categoryPath || product.categoryName}</p>
             </div>
           </div>
@@ -274,6 +274,7 @@ export default function Dashboard() {
 
   // Exclusion Search States
   const [exclusionProdSearch, setExclusionProductSearch] = React.useState("")
+  const [viewFullName, setViewFullName] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (isMounted) {
@@ -825,7 +826,7 @@ export default function Dashboard() {
                             )}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-black text-xs md:text-base text-foreground group-hover:text-primary transition-colors">{p.name}</span>
+                             <span onClick={(e) => { e.stopPropagation(); setViewFullName(p.name); }} className="font-black text-xs md:text-base text-foreground group-hover:text-primary transition-colors cursor-pointer">{p.name}</span>
                              <span className="text-[8px] md:text-[10px] text-primary font-bold uppercase tracking-widest mt-1">{p.categoryPath || p.categoryName}</span>
                           </div>
                        </div>
@@ -967,63 +968,60 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Low Stock Dialog - Enhanced with Exclusion System */}
+      {/* Low Stock Dialog - Enhanced Header and Layout */}
       <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
         <DialogContent dir="rtl" className="max-w-6xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[90vh] flex flex-col">
-           <DialogHeader className="p-6 md:p-8 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
+           <DialogHeader className="p-4 md:p-5 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-600 shadow-inner">
-                      <AlertTriangle className="h-7 w-7" />
+                <div className="flex items-center gap-3">
+                   <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-600 shadow-inner">
+                      <AlertTriangle className="h-6 w-6" />
                    </div>
                    <div>
-                      <DialogTitle className="text-xl md:text-2xl font-black text-orange-700">قائمة النواقص الاحترافية</DialogTitle>
-                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-1">تحديد حاجيات التوريد والمشتريات</p>
+                      <DialogTitle className="text-lg md:text-xl font-black text-orange-700 leading-tight">قائمة النواقص الاحترافية</DialogTitle>
+                      <p className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">تحديد حاجيات التوريد والمشتريات</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                    <Button 
                     variant="outline" 
-                    className="h-10 px-4 rounded-xl border-orange-500/20 bg-white/50 text-orange-700 font-black gap-2 shadow-sm"
+                    className="h-9 px-3 rounded-xl border-orange-500/20 bg-white/50 text-orange-700 font-black gap-2 shadow-sm text-xs"
                     onClick={() => setIsExclusionsOpen(true)}
                    >
-                      <EyeOff className="h-4 w-4" /> إدارة المستثنيات
+                      <EyeOff className="h-3.5 w-3.5" /> إدارة المستثنيات
                    </Button>
 
-                   <div className="flex items-center bg-black/5 p-1 rounded-xl gap-1 mr-2">
+                   <div className="flex items-center bg-black/5 p-0.5 rounded-xl gap-0.5 mr-2">
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'grid' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        className={cn("h-8 w-8 rounded-lg", lowStockViewMode === 'grid' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
                         onClick={() => handleUpdateLowStockPref('viewMode', 'grid', setLowStockViewMode)}
-                        title="عرض شبكة"
                       >
-                         <LayoutGrid className="h-4 w-4" />
+                         <LayoutGrid className="h-3.5 w-3.5" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'compact' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        className={cn("h-8 w-8 rounded-lg", lowStockViewMode === 'compact' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
                         onClick={() => handleUpdateLowStockPref('viewMode', 'compact', setLowStockViewMode)}
-                        title="عرض مضغوط"
                       >
-                         <Grid2X2 className="h-4 w-4" />
+                         <Grid2X2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className={cn("h-9 w-9 rounded-lg", lowStockViewMode === 'list' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
+                        className={cn("h-8 w-8 rounded-lg", lowStockViewMode === 'list' ? "bg-white text-primary shadow-sm" : "text-muted-foreground")}
                         onClick={() => handleUpdateLowStockPref('viewMode', 'list', setLowStockViewMode)}
-                        title="عرض قائمة"
                       >
-                         <List className="h-4 w-4" />
+                         <List className="h-3.5 w-3.5" />
                       </Button>
                    </div>
 
                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                         <Button className="h-10 px-6 rounded-xl bg-orange-600 text-white font-black gap-2 shadow-lg shadow-orange-500/20">
-                            <Download className="h-4 w-4" /> تصدير القائمة <ChevronDown className="h-3 w-3" />
+                         <Button className="h-9 px-4 rounded-xl bg-orange-600 text-white font-black gap-2 shadow-lg shadow-orange-500/20 text-xs">
+                            <Download className="h-3.5 w-3.5" /> تصدير <ChevronDown className="h-3 w-3" />
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="glass border-none rounded-xl z-[350]">
@@ -1042,12 +1040,12 @@ export default function Dashboard() {
               </div>
            </DialogHeader>
 
-           <div className="p-4 md:px-8 bg-card/40 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
-              <div className="flex flex-wrap items-center gap-4">
+           <div className="p-2 md:px-4 bg-card/40 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-3">
                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">التصنيف:</Label>
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">التصنيف:</Label>
                     <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
-                       <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs w-40 md:w-48">
+                       <SelectTrigger className="h-8 glass border-none rounded-lg font-bold text-[10px] w-36 md:w-44">
                           <SelectValue placeholder="حسب التصنيف" />
                        </SelectTrigger>
                        <SelectContent className="glass border-none rounded-xl z-[400]">
@@ -1058,57 +1056,56 @@ export default function Dashboard() {
                  </div>
                  
                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">الكمية المعروضة:</Label>
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">الكمية:</Label>
                     <Select 
                       value={String(lowStockLimit)} 
                       onValueChange={(v) => handleUpdateLowStockPref('limit', Number(v), setLowStockLimit)}
                     >
-                       <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs w-24">
+                       <SelectTrigger className="h-8 glass border-none rounded-lg font-bold text-[10px] w-20">
                           <SelectValue />
                        </SelectTrigger>
                        <SelectContent className="glass border-none rounded-xl z-[400]">
-                          <SelectItem value="15">15 عنصر</SelectItem>
-                          <SelectItem value="25">25 عنصر</SelectItem>
-                          <SelectItem value="50">50 عنصر</SelectItem>
-                          <SelectItem value="0">عرض الكل</SelectItem>
+                          <SelectItem value="15">15</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="0">الكل</SelectItem>
                        </SelectContent>
                     </Select>
                  </div>
 
-                 <div className="h-6 w-px bg-border hidden md:block" />
+                 <div className="h-5 w-px bg-border hidden md:block" />
                  
                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">ترتيب:</Label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                        <Button 
                         variant="ghost" 
                         size="sm" 
-                        className={cn("h-9 rounded-xl gap-2 font-bold text-xs px-3", lowStockSortConfig.key === 'name' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        className={cn("h-8 rounded-lg gap-1.5 font-bold text-[10px] px-2", lowStockSortConfig.key === 'name' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
                         onClick={() => handleLowStockSort('name')}
                        >
-                          الاسم {lowStockSortConfig.key === 'name' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                          الاسم {lowStockSortConfig.key === 'name' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />)}
                        </Button>
                        <Button 
                         variant="ghost" 
                         size="sm" 
-                        className={cn("h-9 rounded-xl gap-2 font-bold text-xs px-3", lowStockSortConfig.key === 'quantity' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        className={cn("h-8 rounded-lg gap-1.5 font-bold text-[10px] px-2", lowStockSortConfig.key === 'quantity' ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
                         onClick={() => handleLowStockSort('quantity')}
                        >
-                          الكمية {lowStockSortConfig.key === 'quantity' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                          الكمية {lowStockSortConfig.key === 'quantity' && (lowStockSortConfig.direction === 'asc' ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />)}
                        </Button>
                     </div>
                  </div>
               </div>
               
               <div className="flex items-center gap-2">
-                 <span className="text-[10px] font-bold text-muted-foreground">إجمالي النواقص: {lowStockItems.length}</span>
-                 <Badge variant="destructive" className="h-9 px-4 rounded-xl font-black text-xs">
-                    معروض الآن: {displayedLowStockItems.length}
+                 <span className="text-[9px] font-bold text-muted-foreground">الإجمالي: {lowStockItems.length}</span>
+                 <Badge variant="destructive" className="h-6 px-2 rounded-lg font-black text-[9px] border-none">
+                    المعروض: {displayedLowStockItems.length}
                  </Badge>
               </div>
            </div>
 
-           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar">
+           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
               {displayedLowStockItems.length === 0 ? (
                 <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة لهذا الفرز</div>
               ) : (
@@ -1122,11 +1119,10 @@ export default function Dashboard() {
                      <div 
                       key={p.id} 
                       className={cn(
-                        "rounded-2xl glass border-orange-500/10 group hover:bg-orange-500/5 transition-all shadow-sm flex relative",
+                        "rounded-2xl glass border-white/10 group hover:bg-white/20 transition-all shadow-sm flex relative",
                         lowStockViewMode === 'list' ? "p-3 flex-row items-center justify-between" : "p-4 flex-col gap-4"
                       )}
                      >
-                        {/* Exclusion Trigger */}
                         {isAdmin && (
                           <button 
                             onClick={() => toggleProductExclusion(p.id, false)}
@@ -1148,7 +1144,7 @@ export default function Dashboard() {
                               {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className={cn("text-muted-foreground/10", lowStockViewMode === 'compact' ? "h-4 w-4" : "h-6 w-6")} />}
                            </div>
                            <div className="flex flex-col overflow-hidden">
-                              <span className={cn("font-black text-foreground truncate", lowStockViewMode === 'compact' ? "text-[10px]" : "text-xs")}>{p.name}</span>
+                              <span onClick={() => setViewFullName(p.name)} className={cn("font-black text-foreground truncate cursor-pointer hover:text-primary transition-colors", lowStockViewMode === 'compact' ? "text-[10px]" : "text-xs")}>{p.name}</span>
                               <div className="flex items-center gap-2 mt-0.5">
                                  <span className="text-[8px] text-muted-foreground font-black tabular-nums">#{p.productCode}</span>
                                  {lowStockViewMode !== 'compact' && (
@@ -1182,73 +1178,72 @@ export default function Dashboard() {
               )}
            </div>
 
-           <div className="p-6 bg-black/5 flex justify-center shrink-0">
-              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق نافذة النواقص</Button>
+           <div className="p-4 bg-black/5 flex justify-center shrink-0">
+              <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-11 font-black shadow-lg text-sm">إغلاق النافذة</Button>
            </div>
         </DialogContent>
       </Dialog>
 
-      {/* Exclusion Management Dialog - Redesigned with Search & Selection */}
+      {/* Exclusion Management Dialog - Optimized Layout */}
       <Dialog open={isExclusionsOpen} onOpenChange={setIsExclusionsOpen}>
         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[400] max-h-[85vh] flex flex-col">
-          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
-            <div className="absolute top-0 right-0 p-8 opacity-10"><ShieldAlert className="h-32 w-32 rotate-12" /></div>
+          <DialogHeader className="p-5 bg-slate-900 text-white shrink-0 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldAlert className="h-20 w-20 rotate-12" /></div>
             <div className="flex items-center gap-4 relative z-10">
-              <div className="h-14 w-14 rounded-[1.5rem] bg-white/10 flex items-center justify-center text-white border border-white/10">
-                <ShieldAlert className="h-8 w-8" />
+              <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/10 shadow-lg">
+                <ShieldAlert className="h-6 w-6" />
               </div>
               <div>
-                <DialogTitle className="text-2xl md:text-3xl font-black">مركز إدارة المستثنيات</DialogTitle>
-                <p className="text-xs font-bold text-white/50 uppercase tracking-[0.2em] mt-1">التحكم الذكي في نطاق الإحصائيات</p>
+                <DialogTitle className="text-lg md:text-xl font-black">مركز إدارة المستثنيات</DialogTitle>
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em]">التحكم الذكي في نطاق الإحصائيات</p>
               </div>
             </div>
           </DialogHeader>
 
           <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-            <div className="px-8 pt-6 border-b border-white/10 bg-white">
-              <TabsList className="glass border-none rounded-2xl mb-4 bg-slate-100 p-1.5 h-14">
-                <TabsTrigger value="products" className="rounded-xl font-black text-xs md:text-sm px-10 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg h-full transition-all">المنتجات المستبعدة ({excludedProducts.length})</TabsTrigger>
-                <TabsTrigger value="categories" className="rounded-xl font-black text-xs md:text-sm px-10 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg h-full transition-all">الأصناف المستبعدة ({excludedCategories.length})</TabsTrigger>
+            <div className="px-6 pt-4 border-b border-white/10 bg-white">
+              <TabsList className="glass border-none rounded-xl mb-3 bg-slate-100 p-1 h-11">
+                <TabsTrigger value="products" className="rounded-lg font-black text-xs px-6 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md h-full transition-all">المنتجات المستبعدة ({excludedProducts.length})</TabsTrigger>
+                <TabsTrigger value="categories" className="rounded-lg font-black text-xs px-6 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md h-full transition-all">الأصناف المستبعدة ({excludedCategories.length})</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <TabsContent value="products" className="mt-0 p-8 space-y-8 h-full">
-                {/* Product Search & Add Section */}
-                <div className="space-y-3">
-                   <Label className="font-black text-xs text-slate-500 uppercase tracking-widest px-2">البحث عن منتج لاستبعاده</Label>
+              <TabsContent value="products" className="mt-0 p-5 space-y-6 h-full">
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-slate-500 uppercase tracking-widest px-1">البحث عن منتج لاستبعاده</Label>
                    <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                       <Input 
                         placeholder="ابحث بالاسم أو الكود لإضافة منتج لقائمة الاستثناءات..." 
-                        className="pl-12 h-14 bg-white border-slate-200 shadow-sm rounded-2xl font-bold text-sm focus:ring-primary focus:border-primary transition-all" 
+                        className="pl-12 h-12 bg-white border-slate-200 shadow-sm rounded-xl font-bold text-sm focus:ring-primary transition-all" 
                         value={exclusionProdSearch}
                         onChange={(e) => setExclusionProductSearch(e.target.value)}
                       />
                       
                       {exclusionProdSearch && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-slate-200 divide-y divide-slate-100 animate-in slide-in-from-top-2 duration-200">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl z-50 overflow-hidden border border-slate-200 divide-y divide-slate-100 animate-in slide-in-from-top-2 duration-200">
                           {exclusionSearchSuggestions.length === 0 ? (
-                            <div className="p-6 text-center text-slate-400 font-bold italic text-xs">لا توجد نتائج مطابقة لم تستبعد بعد</div>
+                            <div className="p-4 text-center text-slate-400 font-bold italic text-xs">لا توجد نتائج مطابقة لم تستبعد بعد</div>
                           ) : (
                             exclusionSearchSuggestions.map(p => (
-                              <div key={p.id} className="p-4 hover:bg-slate-50 flex items-center justify-between group transition-colors">
+                              <div key={p.id} className="p-3 hover:bg-slate-50 flex items-center justify-between group transition-colors">
                                  <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                                       {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-300" />}
+                                    <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                       {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Package className="h-4 w-4 text-slate-300" />}
                                     </div>
                                     <div className="flex flex-col">
-                                       <span className="font-bold text-sm text-slate-700">{p.name}</span>
-                                       <span className="text-[10px] text-slate-400 font-bold uppercase">#{p.productCode}</span>
+                                       <span onClick={() => setViewFullName(p.name)} className="font-bold text-xs text-slate-700 cursor-pointer hover:text-primary">{p.name}</span>
+                                       <span className="text-[9px] text-slate-400 font-bold uppercase">#{p.productCode}</span>
                                     </div>
                                  </div>
                                  <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  className="rounded-xl font-black text-[10px] bg-red-50 text-red-600 hover:bg-red-600 hover:text-white gap-2"
+                                  className="h-8 rounded-lg font-black text-[9px] bg-red-50 text-red-600 hover:bg-red-600 hover:text-white gap-2"
                                   onClick={() => { toggleProductExclusion(p.id, false); setExclusionProductSearch(""); }}
                                  >
-                                    <EyeOff className="h-3.5 w-3.5" /> استبعاد الآن
+                                    <EyeOff className="h-3 w-3" /> استبعاد
                                  </Button>
                               </div>
                             ))
@@ -1260,37 +1255,37 @@ export default function Dashboard() {
 
                 <Separator className="bg-slate-200" />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2">
-                     <h4 className="font-black text-slate-800 text-sm">القائمة الحالية للمستثنيات</h4>
-                     <Badge className="bg-slate-200 text-slate-600 border-none font-black">{excludedProducts.length}</Badge>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                     <h4 className="font-black text-slate-800 text-xs">القائمة الحالية للمستثنيات</h4>
+                     <Badge className="bg-slate-200 text-slate-600 border-none font-black text-[10px] h-6">{excludedProducts.length}</Badge>
                   </div>
 
                   {excludedProducts.length === 0 ? (
-                    <div className="py-20 text-center flex flex-col items-center gap-4 opacity-20">
-                      <Ghost className="h-16 w-16" />
-                      <p className="font-black italic">لا توجد منتجات مستبعدة حالياً من الإحصائيات</p>
+                    <div className="py-12 text-center flex flex-col items-center gap-3 opacity-20">
+                      <Ghost className="h-12 w-12" />
+                      <p className="font-black italic text-xs">لا توجد منتجات مستبعدة حالياً</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {excludedProducts.map(p => (
-                        <div key={p.id} className="p-4 rounded-2xl border border-slate-200 bg-white flex items-center justify-between group hover:shadow-md transition-all">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="h-11 w-11 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
-                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-200" />}
+                        <div key={p.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between group hover:shadow-sm transition-all">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="h-9 w-9 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
+                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Package className="h-4 w-4 text-slate-200" />}
                             </div>
                             <div className="flex flex-col overflow-hidden">
-                              <span className="font-bold text-sm text-slate-800 truncate">{p.name}</span>
-                              <span className="text-[10px] text-slate-400 font-bold">#{p.productCode}</span>
+                              <span onClick={() => setViewFullName(p.name)} className="font-bold text-xs text-slate-800 truncate cursor-pointer hover:text-primary">{p.name}</span>
+                              <span className="text-[9px] text-slate-400 font-bold">#{p.productCode}</span>
                             </div>
                           </div>
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-9 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-black text-[10px] gap-2 transition-colors"
+                            className="h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-black text-[9px] gap-2 transition-colors"
                             onClick={() => toggleProductExclusion(p.id, true)}
                           >
-                            <Eye className="h-3.5 w-3.5" /> إعادة للتنبيهات
+                            <Eye className="h-3 w-3" /> إعادة
                           </Button>
                         </div>
                       ))}
@@ -1299,22 +1294,21 @@ export default function Dashboard() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="categories" className="mt-0 p-8 space-y-8 h-full">
-                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Info className="h-5 w-5" /></div>
-                  <p className="text-xs font-bold text-primary leading-relaxed">
+              <TabsContent value="categories" className="mt-0 p-5 space-y-6 h-full">
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0"><Info className="h-4 w-4" /></div>
+                  <p className="text-[10px] font-bold text-primary leading-relaxed">
                     عند استبعاد صنف كامل، سيقوم النظام تلقائياً بتجاهل كافة المنتجات (الحالية والمستقبلية) التي تنتمي لهذا الصنف وفروعه من حسابات النواقص.
                   </p>
                 </div>
 
-                {/* Category Selection Dropdown */}
-                <div className="space-y-3">
-                   <Label className="font-black text-xs text-slate-500 uppercase px-2 tracking-widest">اختر صنفاً لاستبعاده</Label>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-slate-500 uppercase px-1 tracking-widest">اختر صنفاً لاستبعاده</Label>
                    <Select onValueChange={(val) => toggleCategoryExclusion(val, false)}>
-                      <SelectTrigger className="h-14 bg-white border-slate-200 rounded-2xl font-bold text-sm shadow-sm focus:ring-primary">
-                         <div className="flex items-center gap-3"><Layers className="h-5 w-5 text-slate-400" /><SelectValue placeholder="اختر من قائمة التصنيفات المتاحة..." /></div>
+                      <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl font-bold text-sm shadow-sm focus:ring-primary">
+                         <div className="flex items-center gap-3"><Layers className="h-4 w-4 text-slate-400" /><SelectValue placeholder="اختر من قائمة التصنيفات المتاحة..." /></div>
                       </SelectTrigger>
-                      <SelectContent className="glass border-none rounded-2xl z-[450] max-h-64 shadow-2xl">
+                      <SelectContent className="glass border-none rounded-xl z-[450] max-h-64 shadow-2xl">
                          {availableCategoriesToExclude.length === 0 ? (
                            <p className="p-4 text-center text-xs font-bold text-slate-400">كافة الأصناف مستبعدة حالياً</p>
                          ) : (
@@ -1330,39 +1324,39 @@ export default function Dashboard() {
 
                 <Separator className="bg-slate-200" />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2">
-                     <h4 className="font-black text-slate-800 text-sm">أصناف خارج نطاق النواقص</h4>
-                     <Badge className="bg-slate-200 text-slate-600 border-none font-black">{excludedCategories.length}</Badge>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                     <h4 className="font-black text-slate-800 text-xs">أصناف خارج نطاق النواقص</h4>
+                     <Badge className="bg-slate-200 text-slate-600 border-none font-black text-[10px] h-6">{excludedCategories.length}</Badge>
                   </div>
 
                   {excludedCategories.length === 0 ? (
-                    <div className="py-16 text-center flex flex-col items-center gap-4 opacity-20">
-                      <Layers className="h-14 w-14" />
-                      <p className="font-black italic">لم يتم استبعاد أي صنف بالكامل حتى الآن</p>
+                    <div className="py-12 text-center flex flex-col items-center gap-3 opacity-20">
+                      <Layers className="h-10 w-10" />
+                      <p className="font-black italic text-xs">لم يتم استبعاد أي صنف بالكامل</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {excludedCategories.map(cat => (
-                        <div key={cat.id} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 text-white shadow-xl flex flex-col gap-4 group transition-all hover:scale-[1.02]">
+                        <div key={cat.id} className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-white shadow-lg flex flex-col gap-3 group transition-all hover:scale-[1.01]">
                           <div className="flex items-center justify-between">
-                            <div className="h-11 w-11 rounded-xl bg-white/10 flex items-center justify-center border border-white/5">
-                              <Layers className="h-6 w-6" />
+                            <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center border border-white/5">
+                              <Layers className="h-4 w-4" />
                             </div>
-                            <Badge className="bg-red-500 text-white border-none font-black text-[8px] uppercase tracking-widest">مستبعد</Badge>
+                            <Badge className="bg-red-500 text-white border-none font-black text-[7px] uppercase tracking-widest">مستبعد</Badge>
                           </div>
                           
                           <div>
-                            <h4 className="font-black text-sm truncate">{cat.name}</h4>
-                            <p className="text-[10px] font-bold text-white/40 mt-1 truncate">{cat.path || "صنف أساسي"}</p>
+                            <h4 className="font-black text-xs truncate">{cat.name}</h4>
+                            <p className="text-[9px] font-bold text-white/40 mt-0.5 truncate">{cat.path || "صنف أساسي"}</p>
                           </div>
 
                           <Button 
                             variant="secondary" 
-                            className="w-full h-10 rounded-xl font-black text-[10px] gap-2 bg-white text-slate-900 hover:bg-white/90"
+                            className="w-full h-8 rounded-lg font-black text-[9px] gap-2 bg-white text-slate-900 hover:bg-white/90"
                             onClick={() => toggleCategoryExclusion(cat.id, true)}
                           >
-                            <Eye className="h-4 w-4" /> إعادة للتنبيهات
+                            <Eye className="h-3 w-3" /> إعادة للتنبيهات
                           </Button>
                         </div>
                       ))}
@@ -1373,101 +1367,101 @@ export default function Dashboard() {
             </div>
           </Tabs>
 
-          <div className="p-6 bg-slate-100 flex justify-center shrink-0 border-t border-slate-200">
-            <Button onClick={() => setIsExclusionsOpen(false)} className="rounded-2xl px-12 h-14 font-black shadow-2xl bg-slate-900 text-white hover:bg-black transition-all hover:scale-105">
+          <div className="p-4 bg-slate-100 flex justify-center shrink-0 border-t border-slate-200">
+            <Button onClick={() => setIsExclusionsOpen(false)} className="rounded-xl px-12 h-12 font-black shadow-xl bg-slate-900 text-white hover:bg-black transition-all hover:scale-105">
                إغلاق وإرسال التحديثات
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Add Product Dialog */}
+      {/* Add Product Dialog - Optimized Padding */}
       <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-8 z-[310] max-h-[90vh] overflow-y-auto custom-scrollbar">
-           <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-gradient-premium">إضافة منتج جديد للمخزون</DialogTitle>
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-6 md:p-8 z-[310] max-h-[90vh] overflow-y-auto custom-scrollbar">
+           <DialogHeader className="mb-4">
+              <DialogTitle className="text-xl md:text-2xl font-black text-gradient-premium">إضافة منتج جديد للمخزون</DialogTitle>
            </DialogHeader>
            
-           <div className="py-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="space-y-2">
+           <div className="py-2 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 <div className="space-y-1.5">
                     <Label className="font-black text-[10px] text-primary uppercase px-1">اسم المنتج</Label>
-                    <Input value={qaName} onChange={(e) => setQaName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="مثال: شاشة iPhone 13 Original" />
+                    <Input value={qaName} onChange={(e) => setQaName(e.target.value)} className="h-11 glass border-none rounded-xl font-bold" placeholder="مثال: شاشة iPhone 13 Original" />
                  </div>
-                 <div className="space-y-2">
+                 <div className="space-y-1.5">
                     <Label className="font-black text-[10px] text-primary uppercase px-1">كود المنتج (اختياري)</Label>
-                    <Input value={qaCode} onChange={(e) => setQaCode(e.target.value)} className="h-12 glass border-none rounded-xl font-mono" placeholder="سيتولد تلقائياً إذا تركت فارغاً" />
+                    <Input value={qaCode} onChange={(e) => setQaCode(e.target.value)} className="h-11 glass border-none rounded-xl font-mono text-xs" placeholder="سيتولد تلقائياً..." />
                  </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 <div className="space-y-1.5">
                     <Label className="font-black text-[10px] text-primary uppercase px-1">التصنيف</Label>
                     <Select value={qaCat} onValueChange={setQaCat}>
-                       <SelectTrigger className="h-12 glass border-none rounded-xl font-bold"><SelectValue placeholder="اختر التصنيف..." /></SelectTrigger>
+                       <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-xs"><SelectValue placeholder="اختر التصنيف..." /></SelectTrigger>
                        <SelectContent className="glass border-none rounded-xl z-[400]">
                           {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                        </SelectContent>
                     </Select>
                  </div>
-                 <div className="space-y-2">
+                 <div className="space-y-1.5">
                     <Label className="font-black text-[10px] text-primary uppercase px-1">صورة المنتج</Label>
                     <div className="flex gap-2">
-                       <Input value={qaImageUrl} onChange={(e) => setQaImageUrl(e.target.value)} className="h-12 glass border-none rounded-xl font-bold text-xs" placeholder="رابط الصورة أو ارفع ملفاً" />
-                       <label className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary cursor-pointer hover:bg-primary hover:text-white transition-colors">
-                          <Upload className="h-5 w-5" /><input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                       <Input value={qaImageUrl} onChange={(e) => setQaImageUrl(e.target.value)} className="h-11 glass border-none rounded-xl font-bold text-xs" placeholder="رابط الصورة أو ارفع ملفاً" />
+                       <label className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary cursor-pointer hover:bg-primary hover:text-white transition-colors shrink-0">
+                          <Upload className="h-4 w-4" /><input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
                        </label>
                     </div>
                  </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                 <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-primary uppercase px-1">الكمية</Label>
-                    <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+                 <div className="space-y-1.5">
+                    <Label className="font-black text-[9px] text-primary uppercase px-1">الكمية</Label>
+                    <Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center" />
                  </div>
-                 <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-orange-600 uppercase px-1">سعر الشراء</Label>
-                    <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-orange-600" />
+                 <div className="space-y-1.5">
+                    <Label className="font-black text-[9px] text-orange-600 uppercase px-1">سعر الشراء</Label>
+                    <Input type="number" value={qaPurchase} onChange={(e) => setQaPurchase(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-orange-600" />
                  </div>
-                 <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-emerald-600 uppercase px-1">سعر البيع</Label>
-                    <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-emerald-600" />
+                 <div className="space-y-1.5">
+                    <Label className="font-black text-[9px] text-emerald-600 uppercase px-1">سعر البيع</Label>
+                    <Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-emerald-600" />
                  </div>
-                 <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-muted-foreground uppercase px-1">التصليح</Label>
-                    <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center" />
+                 <div className="space-y-1.5">
+                    <Label className="font-black text-[9px] text-muted-foreground uppercase px-1">التصليح</Label>
+                    <Input type="number" value={qaRepair} onChange={(e) => setQaRepair(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center" />
                  </div>
-                 <div className="space-y-2">
-                    <Label className="font-black text-[10px] text-red-500 uppercase px-1">تنبيه عند</Label>
-                    <Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="h-11 glass border-none rounded-xl font-black text-center text-red-600" title="أقل كمية قبل التنبيه" />
+                 <div className="space-y-1.5">
+                    <Label className="font-black text-[9px] text-red-500 uppercase px-1">تنبيه عند</Label>
+                    <Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-red-600" />
                  </div>
               </div>
            </div>
 
-           <DialogFooter>
-              <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl hover:scale-[1.02] transition-transform">
-                 {isAdding ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />} تأكيد الإضافة والمزامنة
+           <DialogFooter className="mt-6">
+              <Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-12 rounded-xl bg-primary text-white font-black text-lg shadow-xl hover:scale-[1.01] transition-transform">
+                 {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />} تأكيد الإضافة
               </Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Quick Edit Dialog */}
+      {/* Quick Edit Dialog - Optimized Header */}
       <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
         <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[320] flex flex-col h-[80vh]">
-           <DialogHeader className="p-6 md:p-8 bg-primary/5 border-b border-white/10 shrink-0">
-              <DialogTitle className="text-xl font-black text-primary flex items-center gap-3">
-                 <Edit3 className="h-6 w-6" /> التعديل السريع للمخزون
+           <DialogHeader className="p-4 md:p-5 bg-primary/5 border-b border-white/10 shrink-0">
+              <DialogTitle className="text-lg font-black text-primary flex items-center gap-2">
+                 <Edit3 className="h-5 w-5" /> التعديل السريع للمخزون
               </DialogTitle>
            </DialogHeader>
 
-           <div className="p-4 md:p-6 bg-card/40 border-b border-white/5 shrink-0">
+           <div className="p-4 md:p-5 bg-card/40 border-b border-white/5 shrink-0">
               <div className="relative group">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                  <Input 
                    placeholder="ابحث عن المنتج لتعديله..." 
-                   className="pl-12 h-12 glass border-none rounded-2xl font-bold" 
+                   className="pl-11 h-11 glass border-none rounded-xl font-bold text-sm" 
                    value={quickEditSearch}
                    onChange={(e) => setQuickEditSearch(e.target.value)}
                    autoFocus
@@ -1475,18 +1469,18 @@ export default function Dashboard() {
               </div>
            </div>
 
-           <div className="flex items-center justify-end gap-4 p-4 bg-white/5 border-b border-white/5 shrink-0">
+           <div className="flex items-center justify-end gap-4 p-3 bg-white/5 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-2">
-                 <Label className="text-[10px] font-black">إظهار الشراء</Label>
+                 <Label className="text-[9px] font-black opacity-60 uppercase">إظهار الشراء</Label>
                  <Switch checked={showPurchaseInEdit} onCheckedChange={(v) => handleToggleSetting('showPurchaseInEdit', v, setShowPurchaseInEdit)} />
               </div>
               <div className="flex items-center gap-2">
-                 <Label className="text-[10px] font-black">إظهار التصليح</Label>
+                 <Label className="text-[9px] font-black opacity-60 uppercase">إظهار التصليح</Label>
                  <Switch checked={showRepairInEdit} onCheckedChange={(v) => handleToggleSetting('showRepairInEdit', v, setShowRepairInEdit)} />
               </div>
            </div>
 
-           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
+           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {quickEditProducts.length === 0 ? (
                 <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات مطابقة</div>
               ) : (
@@ -1500,15 +1494,34 @@ export default function Dashboard() {
                        showRepair={showRepairInEdit} 
                        userId={user?.uid || ""} 
                        isAdmin={isAdmin}
+                       onNameClick={setViewFullName}
                      />
                    ))}
                 </div>
               )}
            </div>
 
-           <div className="p-6 bg-black/5 text-center shrink-0">
-              <Button onClick={() => setIsQuickEditOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق النافذة</Button>
+           <div className="p-4 bg-black/5 text-center shrink-0">
+              <Button onClick={() => setIsQuickEditOpen(false)} className="rounded-xl px-12 h-11 font-black shadow-lg text-sm">إغلاق النافذة</Button>
            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Product Name View Dialog - New Feature */}
+      <Dialog open={!!viewFullName} onOpenChange={() => setViewFullName(null)}>
+        <DialogContent dir="rtl" className="max-w-md w-[90%] glass border-none rounded-[2rem] shadow-2xl p-8 z-[500] text-center">
+           <DialogHeader>
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                 <Info className="h-8 w-8" />
+              </div>
+              <DialogTitle className="text-xl font-black text-primary leading-relaxed">الاسم الكامل للمنتج</DialogTitle>
+           </DialogHeader>
+           <div className="py-6">
+              <div className="p-6 rounded-2xl bg-black/5 border border-primary/10 text-lg font-black leading-relaxed">
+                 {viewFullName}
+              </div>
+           </div>
+           <Button onClick={() => setViewFullName(null)} className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg">إغلاق المعاينة</Button>
         </DialogContent>
       </Dialog>
     </div>
