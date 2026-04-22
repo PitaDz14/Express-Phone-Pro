@@ -41,7 +41,9 @@ import {
   EyeOff,
   Eye,
   ShieldAlert,
-  Ghost
+  Ghost,
+  History,
+  Info
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -269,6 +271,9 @@ export default function Dashboard() {
   const [lowStockViewMode, setLowStockViewMode] = React.useState<'grid' | 'compact' | 'list'>('grid')
   const [lowStockLimit, setLowStockLimit] = React.useState<number>(25)
 
+  // Exclusion Search States
+  const [exclusionProdSearch, setExclusionProductSearch] = React.useState("")
+
   React.useEffect(() => {
     if (isMounted) {
       const s1 = localStorage.getItem('setting_showPurchaseInEdit')
@@ -376,9 +381,23 @@ export default function Dashboard() {
     return products.filter(p => p.excludeFromLowStock);
   }, [products]);
 
+  const exclusionSearchSuggestions = React.useMemo(() => {
+    if (!exclusionProdSearch || !products) return [];
+    const term = exclusionProdSearch.toLowerCase();
+    return products.filter(p => 
+      !p.excludeFromLowStock && 
+      (p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term))
+    ).slice(0, 5);
+  }, [exclusionProdSearch, products]);
+
   const excludedCategories = React.useMemo(() => {
     if (!categories) return [];
     return categories.filter(c => c.excludeFromLowStock);
+  }, [categories]);
+
+  const availableCategoriesToExclude = React.useMemo(() => {
+    if (!categories) return [];
+    return categories.filter(c => !c.excludeFromLowStock);
   }, [categories]);
 
   const displayedLowStockItems = React.useMemo(() => {
@@ -737,7 +756,7 @@ export default function Dashboard() {
                 size="icon" 
                 className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10 flex" 
                 onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}
-                title="تعديل سريع"
+                title="التعديل السريع"
                >
                  <Edit3 className="h-4 w-4" />
                </Button>
@@ -1110,7 +1129,7 @@ export default function Dashboard() {
                         {isAdmin && (
                           <button 
                             onClick={() => toggleProductExclusion(p.id, false)}
-                            className="absolute top-2 left-2 h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center text-muted-foreground opacity-0 group-hover/product-card:opacity-100 hover:bg-red-500 hover:text-white transition-all z-10"
+                            className="absolute top-2 left-2 h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-10"
                             title="استبعاد من النواقص"
                           >
                             <EyeOff className="h-3.5 w-3.5" />
@@ -1168,115 +1187,195 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Exclusion Management Dialog */}
+      {/* Exclusion Management Dialog - Redesigned with Search & Selection */}
       <Dialog open={isExclusionsOpen} onOpenChange={setIsExclusionsOpen}>
         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[400] max-h-[85vh] flex flex-col">
-          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                <ShieldAlert className="h-7 w-7" />
+          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10"><ShieldAlert className="h-32 w-32 rotate-12" /></div>
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="h-14 w-14 rounded-[1.5rem] bg-white/10 flex items-center justify-center text-white border border-white/10">
+                <ShieldAlert className="h-8 w-8" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black">إدارة مستثنيات النواقص</DialogTitle>
-                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">التحكم في المنتجات والأصناف الخارجة عن الإحصاء</p>
+                <DialogTitle className="text-2xl md:text-3xl font-black">مركز إدارة المستثنيات</DialogTitle>
+                <p className="text-xs font-bold text-white/50 uppercase tracking-[0.2em] mt-1">التحكم الذكي في نطاق الإحصائيات</p>
               </div>
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-8 pt-6 border-b border-white/5 bg-slate-50">
-              <TabsList className="glass border-none rounded-xl mb-4 bg-slate-200">
-                <TabsTrigger value="products" className="rounded-lg font-black text-xs px-8">المنتجات المستبعدة ({excludedProducts.length})</TabsTrigger>
-                <TabsTrigger value="categories" className="rounded-lg font-black text-xs px-8">الأصناف المستبعدة ({excludedCategories.length})</TabsTrigger>
+          <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+            <div className="px-8 pt-6 border-b border-white/10 bg-white">
+              <TabsList className="glass border-none rounded-2xl mb-4 bg-slate-100 p-1.5 h-14">
+                <TabsTrigger value="products" className="rounded-xl font-black text-xs md:text-sm px-10 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg h-full transition-all">المنتجات المستبعدة ({excludedProducts.length})</TabsTrigger>
+                <TabsTrigger value="categories" className="rounded-xl font-black text-xs md:text-sm px-10 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg h-full transition-all">الأصناف المستبعدة ({excludedCategories.length})</TabsTrigger>
               </TabsList>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-              <TabsContent value="products" className="mt-0 space-y-4">
-                {excludedProducts.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center gap-4 opacity-30">
-                    <Ghost className="h-16 w-16" />
-                    <p className="font-black italic">لا توجد منتجات مستبعدة حالياً</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {excludedProducts.map(p => (
-                      <div key={p.id} className="p-4 rounded-2xl border border-slate-200 bg-white flex items-center justify-between group">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                            {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-300" />}
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-bold text-sm truncate">{p.name}</span>
-                            <span className="text-[10px] text-muted-foreground">#{p.productCode}</span>
-                          </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <TabsContent value="products" className="mt-0 p-8 space-y-8 h-full">
+                {/* Product Search & Add Section */}
+                <div className="space-y-3">
+                   <Label className="font-black text-xs text-slate-500 uppercase tracking-widest px-2">البحث عن منتج لاستبعاده</Label>
+                   <div className="relative group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                      <Input 
+                        placeholder="ابحث بالاسم أو الكود لإضافة منتج لقائمة الاستثناءات..." 
+                        className="pl-12 h-14 bg-white border-slate-200 shadow-sm rounded-2xl font-bold text-sm focus:ring-primary focus:border-primary transition-all" 
+                        value={exclusionProdSearch}
+                        onChange={(e) => setExclusionProductSearch(e.target.value)}
+                      />
+                      
+                      {exclusionProdSearch && (
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-slate-200 divide-y divide-slate-100 animate-in slide-in-from-top-2 duration-200">
+                          {exclusionSearchSuggestions.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 font-bold italic text-xs">لا توجد نتائج مطابقة لم تستبعد بعد</div>
+                          ) : (
+                            exclusionSearchSuggestions.map(p => (
+                              <div key={p.id} className="p-4 hover:bg-slate-50 flex items-center justify-between group transition-colors">
+                                 <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                                       {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-300" />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                       <span className="font-bold text-sm text-slate-700">{p.name}</span>
+                                       <span className="text-[10px] text-slate-400 font-bold uppercase">#{p.productCode}</span>
+                                    </div>
+                                 </div>
+                                 <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="rounded-xl font-black text-[10px] bg-red-50 text-red-600 hover:bg-red-600 hover:text-white gap-2"
+                                  onClick={() => { toggleProductExclusion(p.id, false); setExclusionProductSearch(""); }}
+                                 >
+                                    <EyeOff className="h-3.5 w-3.5" /> استبعاد الآن
+                                 </Button>
+                              </div>
+                            ))
+                          )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-9 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-black text-xs gap-2"
-                          onClick={() => toggleProductExclusion(p.id, true)}
-                        >
-                          <Eye className="h-4 w-4" /> إعادة للتنبيهات
-                        </Button>
-                      </div>
-                    ))}
+                      )}
+                   </div>
+                </div>
+
+                <Separator className="bg-slate-200" />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                     <h4 className="font-black text-slate-800 text-sm">القائمة الحالية للمستثنيات</h4>
+                     <Badge className="bg-slate-200 text-slate-600 border-none font-black">{excludedProducts.length}</Badge>
                   </div>
-                )}
+
+                  {excludedProducts.length === 0 ? (
+                    <div className="py-20 text-center flex flex-col items-center gap-4 opacity-20">
+                      <Ghost className="h-16 w-16" />
+                      <p className="font-black italic">لا توجد منتجات مستبعدة حالياً من الإحصائيات</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {excludedProducts.map(p => (
+                        <div key={p.id} className="p-4 rounded-2xl border border-slate-200 bg-white flex items-center justify-between group hover:shadow-md transition-all">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="h-11 w-11 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
+                              {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-200" />}
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="font-bold text-sm text-slate-800 truncate">{p.name}</span>
+                              <span className="text-[10px] text-slate-400 font-bold">#{p.productCode}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-9 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-black text-[10px] gap-2 transition-colors"
+                            onClick={() => toggleProductExclusion(p.id, true)}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> إعادة للتنبيهات
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
-              <TabsContent value="categories" className="mt-0 space-y-6">
-                <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mb-6">
+              <TabsContent value="categories" className="mt-0 p-8 space-y-8 h-full">
+                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Info className="h-5 w-5" /></div>
                   <p className="text-xs font-bold text-primary leading-relaxed">
-                    استبعاد صنف كامل يعني أن كافة المنتجات التابعة له لن تظهر في قائمة النواقص أبداً، حتى لو نفد مخزونها تماماً.
+                    عند استبعاد صنف كامل، سيقوم النظام تلقائياً بتجاهل كافة المنتجات (الحالية والمستقبلية) التي تنتمي لهذا الصنف وفروعه من حسابات النواقص.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categories?.map(cat => (
-                    <div key={cat.id} className={cn(
-                      "p-5 rounded-2xl border transition-all flex flex-col gap-4 group",
-                      cat.excludeFromLowStock 
-                        ? "bg-slate-900 border-slate-800 text-white shadow-xl scale-[1.02]" 
-                        : "bg-white border-slate-200 hover:border-primary/30"
-                    )}>
-                      <div className="flex items-center justify-between">
-                        <div className={cn(
-                          "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner",
-                          cat.excludeFromLowStock ? "bg-white/10" : "bg-primary/5 text-primary"
-                        )}>
-                          <Layers className="h-5 w-5" />
-                        </div>
-                        {cat.excludeFromLowStock && <Badge className="bg-red-500 text-white border-none font-black text-[8px] uppercase">مستبعد حالياً</Badge>}
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-black text-sm">{cat.name}</h4>
-                        <p className={cn("text-[10px] font-bold mt-1", cat.excludeFromLowStock ? "text-white/40" : "text-muted-foreground")}>
-                          {cat.path || "تصنيف أساسي"}
-                        </p>
-                      </div>
+                {/* Category Selection Dropdown */}
+                <div className="space-y-3">
+                   <Label className="font-black text-xs text-slate-500 uppercase px-2 tracking-widest">اختر صنفاً لاستبعاده</Label>
+                   <Select onValueChange={(val) => toggleCategoryExclusion(val, false)}>
+                      <SelectTrigger className="h-14 bg-white border-slate-200 rounded-2xl font-bold text-sm shadow-sm focus:ring-primary">
+                         <div className="flex items-center gap-3"><Layers className="h-5 w-5 text-slate-400" /><SelectValue placeholder="اختر من قائمة التصنيفات المتاحة..." /></div>
+                      </SelectTrigger>
+                      <SelectContent className="glass border-none rounded-2xl z-[450] max-h-64 shadow-2xl">
+                         {availableCategoriesToExclude.length === 0 ? (
+                           <p className="p-4 text-center text-xs font-bold text-slate-400">كافة الأصناف مستبعدة حالياً</p>
+                         ) : (
+                           availableCategoriesToExclude.map(cat => (
+                             <SelectItem key={cat.id} value={cat.id} className="font-bold py-3">
+                                {cat.name} <span className="text-[10px] text-slate-400 font-normal mr-2">({cat.path || "أساسي"})</span>
+                             </SelectItem>
+                           ))
+                         )}
+                      </SelectContent>
+                   </Select>
+                </div>
 
-                      <Button 
-                        variant={cat.excludeFromLowStock ? "secondary" : "outline"} 
-                        className={cn(
-                          "w-full h-10 rounded-xl font-black text-xs gap-2 transition-all",
-                          cat.excludeFromLowStock ? "bg-white text-slate-900 hover:bg-white/90" : "border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                        )}
-                        onClick={() => toggleCategoryExclusion(cat.id, !!cat.excludeFromLowStock)}
-                      >
-                        {cat.excludeFromLowStock ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                        {cat.excludeFromLowStock ? "إعادة الصنف للإحصاء" : "استبعاد الصنف بالكامل"}
-                      </Button>
+                <Separator className="bg-slate-200" />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                     <h4 className="font-black text-slate-800 text-sm">أصناف خارج نطاق النواقص</h4>
+                     <Badge className="bg-slate-200 text-slate-600 border-none font-black">{excludedCategories.length}</Badge>
+                  </div>
+
+                  {excludedCategories.length === 0 ? (
+                    <div className="py-16 text-center flex flex-col items-center gap-4 opacity-20">
+                      <Layers className="h-14 w-14" />
+                      <p className="font-black italic">لم يتم استبعاد أي صنف بالكامل حتى الآن</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {excludedCategories.map(cat => (
+                        <div key={cat.id} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 text-white shadow-xl flex flex-col gap-4 group transition-all hover:scale-[1.02]">
+                          <div className="flex items-center justify-between">
+                            <div className="h-11 w-11 rounded-xl bg-white/10 flex items-center justify-center border border-white/5">
+                              <Layers className="h-6 w-6" />
+                            </div>
+                            <Badge className="bg-red-500 text-white border-none font-black text-[8px] uppercase tracking-widest">مستبعد</Badge>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-black text-sm truncate">{cat.name}</h4>
+                            <p className="text-[10px] font-bold text-white/40 mt-1 truncate">{cat.path || "صنف أساسي"}</p>
+                          </div>
+
+                          <Button 
+                            variant="secondary" 
+                            className="w-full h-10 rounded-xl font-black text-[10px] gap-2 bg-white text-slate-900 hover:bg-white/90"
+                            onClick={() => toggleCategoryExclusion(cat.id, true)}
+                          >
+                            <Eye className="h-4 w-4" /> إعادة للتنبيهات
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </div>
           </Tabs>
 
           <div className="p-6 bg-slate-100 flex justify-center shrink-0 border-t border-slate-200">
-            <Button onClick={() => setIsExclusionsOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg bg-slate-900 text-white">إغلاق نافذة التحكم</Button>
+            <Button onClick={() => setIsExclusionsOpen(false)} className="rounded-2xl px-12 h-14 font-black shadow-2xl bg-slate-900 text-white hover:bg-black transition-all hover:scale-105">
+               إغلاق وإرسال التحديثات
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
