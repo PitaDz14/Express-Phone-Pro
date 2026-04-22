@@ -186,17 +186,41 @@ export default function CustomersPage() {
       const itemsRef = collection(db, "invoices", inv.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      // Smart Grouping logic
+      // Smart Grouping and Legacy Correction Logic
       const itemsMap: Record<string, any> = {}
+      const limit = (inv.totalAmount || 0) + (inv.discount || 0);
+      let runningSubtotal = 0;
+
       snapshot.docs.forEach(d => {
         const item = d.data()
-        const key = `${item.productId}_${item.unitPrice}`
+        const unitPrice = item.unitPrice || 0;
+        const rawQty = item.quantity || 1;
+
+        if (unitPrice <= 0) return;
+
+        // Validation against Grand Total (Fix for Point 1 and 2 in your image)
+        const remainingBalance = limit - runningSubtotal;
+        const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
+        const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
+        
+        // Ensure at least one item if it's the only record (safety fallback)
+        const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
+
+        if (finalQty <= 0 && runningSubtotal > 0) return;
+
+        const key = `${item.productId}_${unitPrice}`
         if (itemsMap[key]) {
-          itemsMap[key].quantity += item.quantity
-          itemsMap[key].itemTotal += item.itemTotal
+          itemsMap[key].quantity += finalQty
+          itemsMap[key].itemTotal = itemsMap[key].quantity * unitPrice
         } else {
-          itemsMap[key] = { id: d.id, ...item }
+          itemsMap[key] = { 
+            id: d.id, 
+            ...item, 
+            quantity: finalQty, 
+            itemTotal: finalQty * unitPrice 
+          }
         }
+        runningSubtotal += (finalQty * unitPrice);
       })
       
       setPreviewItems(Object.values(itemsMap))

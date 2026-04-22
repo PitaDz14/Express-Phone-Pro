@@ -181,22 +181,44 @@ export default function DebtsPage() {
   const fetchInvoiceItems = async (invoice: any) => {
     setSelectedInvoiceForItems(invoice)
     setIsLoadingItems(true)
-    setInvoiceItems([]) // Reset items list
+    setInvoiceItems([])
     try {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      // Smart Grouping: deduplicate items by productId and unitPrice
+      // Smart Grouping & Legacy Corruption Fix
       const itemsMap: Record<string, any> = {}
+      const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
+      let runningSubtotal = 0;
+
       snapshot.docs.forEach(d => {
         const item = d.data()
-        const key = `${item.productId}_${item.unitPrice}`
+        const unitPrice = item.unitPrice || 0;
+        const rawQty = item.quantity || 1;
+
+        if (unitPrice <= 0) return;
+
+        // Cross-validation logic
+        const remainingBalance = limit - runningSubtotal;
+        const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
+        const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
+        const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
+
+        if (finalQty <= 0 && runningSubtotal > 0) return;
+
+        const key = `${item.productId}_${unitPrice}`
         if (itemsMap[key]) {
-          itemsMap[key].quantity += item.quantity
-          itemsMap[key].itemTotal += item.itemTotal
+          itemsMap[key].quantity += finalQty
+          itemsMap[key].itemTotal = itemsMap[key].quantity * unitPrice
         } else {
-          itemsMap[key] = { id: d.id, ...item }
+          itemsMap[key] = { 
+            id: d.id, 
+            ...item, 
+            quantity: finalQty, 
+            itemTotal: finalQty * unitPrice 
+          }
         }
+        runningSubtotal += (finalQty * unitPrice);
       })
       
       setInvoiceItems(Object.values(itemsMap))

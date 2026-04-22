@@ -165,23 +165,32 @@ export default function InvoiceHistoryPage() {
 
       snapshot.docs.forEach(d => {
         const item = d.data()
-        const key = `${item.productId}_${item.unitPrice}`
-        const currentItemValue = (item.itemTotal || (item.quantity * item.unitPrice) || 0);
+        const unitPrice = item.unitPrice || 0;
+        const rawQty = item.quantity || 1;
 
+        if (unitPrice <= 0) return;
+
+        // Validation against Grand Total
+        const remainingBalance = limit - runningSubtotal;
+        const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
+        const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
+        const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
+
+        if (finalQty <= 0 && runningSubtotal > 0) return;
+
+        const key = `${item.productId}_${unitPrice}`
         if (itemsMap[key]) {
-          // Only add more quantity if it doesn't violate the invoice's recorded total (Legacy Duplicate Fix)
-          if (runningSubtotal + currentItemValue <= limit + 1) { // +1 for small rounding safety
-            itemsMap[key].quantity += item.quantity
-            itemsMap[key].itemTotal += currentItemValue
-            runningSubtotal += currentItemValue
-          }
+          itemsMap[key].quantity += finalQty
+          itemsMap[key].itemTotal = itemsMap[key].quantity * unitPrice
         } else {
-          // For the first occurrence, check if it's within limits
-          if (runningSubtotal + currentItemValue <= limit + 1 || runningSubtotal === 0) {
-            itemsMap[key] = { id: d.id, ...item, itemTotal: currentItemValue }
-            runningSubtotal += currentItemValue
+          itemsMap[key] = { 
+            id: d.id, 
+            ...item, 
+            quantity: finalQty, 
+            itemTotal: finalQty * unitPrice 
           }
         }
+        runningSubtotal += (finalQty * unitPrice);
       })
       
       const items = Object.values(itemsMap)

@@ -136,26 +136,34 @@ export default function InvoicesPage() {
             itemsSnap.docs.forEach(d => {
               const itemData = d.data()
               const pid = itemData.productId
-              const itemValue = (itemData.quantity || 1) * (itemData.unitPrice || 0);
+              const unitPrice = itemData.unitPrice || 0;
+              const rawQty = itemData.quantity || 1;
+
+              if (unitPrice <= 0) return;
+
+              // Cross-validation logic for legacy correction
+              const remainingBalance = limit - runningSubtotal;
+              const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
+              const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
+              
+              // Fallback for first item corruption
+              const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
+
+              if (finalQty <= 0 && runningSubtotal > 0) return;
 
               if (itemsMap[pid]) {
-                if (runningSubtotal + itemValue <= limit + 1) {
-                  itemsMap[pid].qty += itemData.quantity
-                  runningSubtotal += itemValue
-                }
+                itemsMap[pid].qty += finalQty
               } else {
-                if (runningSubtotal + itemValue <= limit + 1 || runningSubtotal === 0) {
-                  itemsMap[pid] = {
-                    id: d.id,
-                    productId: pid,
-                    name: itemData.productName,
-                    price: itemData.unitPrice,
-                    qty: itemData.quantity,
-                    categoryPath: itemData.categoryPath
-                  }
-                  runningSubtotal += itemValue
+                itemsMap[pid] = {
+                  id: d.id,
+                  productId: pid,
+                  name: itemData.productName,
+                  price: unitPrice,
+                  qty: finalQty,
+                  categoryPath: itemData.categoryPath
                 }
               }
+              runningSubtotal += (finalQty * unitPrice);
             })
             
             const items = Object.values(itemsMap)
