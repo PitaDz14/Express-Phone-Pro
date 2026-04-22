@@ -70,6 +70,22 @@ type SortConfig = {
   direction: 'asc' | 'desc' | null;
 }
 
+// --- Helper Functions ---
+const getCategoryAndDescendantsSet = (selectedIds: string[], allCats: any[]) => {
+  const result = new Set<string>(selectedIds);
+  const stack = [...selectedIds];
+  while (stack.length > 0) {
+    const parentId = stack.pop();
+    allCats.filter(c => c.parentId === parentId).forEach(child => {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        stack.push(child.id);
+      }
+    });
+  }
+  return result;
+};
+
 // Memoized Row for High Speed Scrolling
 const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR, onZoomImage, isAdmin }: { p: any, onEdit: any, onDelete: any, onPrint: any, onZoomQR: any, onZoomImage: any, isAdmin: boolean }) => (
   <TableRow className="group border-white/5 hover:bg-muted/30 transition-colors duration-200">
@@ -184,13 +200,20 @@ export default function ProductsPage() {
   }
 
   const sortedProducts = React.useMemo(() => {
-    if (!products) return [];
+    if (!products || !categories) return [];
     const term = searchTerm.toLowerCase()
+    
+    // Hierarchical filter set
+    const allowedCategoryIds = selectedCategoryIds.length > 0 
+      ? getCategoryAndDescendantsSet(selectedCategoryIds, categories)
+      : null;
+
     let items = products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(term) || 
         (p.productCode && p.productCode.toLowerCase().includes(term)) ||
         (p.categoryPath && p.categoryPath.toLowerCase().includes(term));
-      const matchesCategory = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(p.categoryId);
+      
+      const matchesCategory = !allowedCategoryIds || allowedCategoryIds.has(p.categoryId);
       return matchesSearch && matchesCategory;
     });
 
@@ -204,7 +227,7 @@ export default function ProductsPage() {
       });
     }
     return items;
-  }, [products, searchTerm, sortConfig, selectedCategoryIds]);
+  }, [products, categories, searchTerm, sortConfig, selectedCategoryIds]);
 
   const handleSaveProduct = () => {
     if (!isAdmin || !productName || !categoryId || !user) return;

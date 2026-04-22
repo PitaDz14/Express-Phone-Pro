@@ -90,7 +90,22 @@ import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 import { useRouter } from "next/navigation"
 import { SyncReconnectButton } from "@/components/sync-reconnect-button"
 
-// --- Memoized Sub-components for Speed ---
+// --- Helper Functions ---
+
+const getCategoryAndDescendants = (selectedId: string, allCats: any[]) => {
+  const result = new Set<string>([selectedId]);
+  const stack = [selectedId];
+  while (stack.length > 0) {
+    const parentId = stack.pop();
+    allCats.filter(c => c.parentId === parentId).forEach(child => {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        stack.push(child.id);
+      }
+    });
+  }
+  return result;
+};
 
 const StatCard = React.memo(({ title, value, icon: Icon, color, subValue, onClick }: any) => (
   <Card 
@@ -331,7 +346,9 @@ export default function Dashboard() {
     });
     
     if (lowStockFilter && lowStockFilter !== "all") {
-      filtered = filtered.filter(p => p.categoryId === lowStockFilter);
+      // Hierarchical Filter Implementation
+      const allowedCategoryIds = getCategoryAndDescendants(lowStockFilter, categories);
+      filtered = filtered.filter(p => allowedCategoryIds.has(p.categoryId));
     }
     
     if (lowStockSortConfig.key) {
@@ -1093,7 +1110,7 @@ export default function Dashboard() {
                         {isAdmin && (
                           <button 
                             onClick={() => toggleProductExclusion(p.id, false)}
-                            className="absolute top-2 left-2 h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-10"
+                            className="absolute top-2 left-2 h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center text-muted-foreground opacity-0 group-hover/product-card:opacity-100 hover:bg-red-500 hover:text-white transition-all z-10"
                             title="استبعاد من النواقص"
                           >
                             <EyeOff className="h-3.5 w-3.5" />

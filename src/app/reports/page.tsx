@@ -73,6 +73,22 @@ import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, 
 import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 
+// --- Helper Functions ---
+const getCategoryAndDescendantsSet = (selectedIds: string[], allCats: any[]) => {
+  const result = new Set<string>(selectedIds);
+  const stack = [...selectedIds];
+  while (stack.length > 0) {
+    const parentId = stack.pop();
+    allCats.filter(c => c.parentId === parentId).forEach(child => {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        stack.push(child.id);
+      }
+    });
+  }
+  return result;
+};
+
 export default function ReportsPage() {
   const { toast } = useToast()
   const db = useFirestore()
@@ -110,7 +126,7 @@ export default function ReportsPage() {
   }, [isAdmin, role, router, isMounted])
 
   React.useEffect(() => {
-    if (!allInvoices || !allProducts || !isMounted) return;
+    if (!allInvoices || !allProducts || !categories || !isMounted) return;
 
     const runAnalysis = async () => {
       setIsDataDataProcessing(true);
@@ -122,13 +138,18 @@ export default function ReportsPage() {
       let totalRev = 0;
       let totalProf = 0;
 
+      // Hierarchical filter set
+      const allowedCategoryIds = selectedCategoryIds.length > 0 
+        ? getCategoryAndDescendantsSet(selectedCategoryIds, categories)
+        : null;
+
       // 1. Filter Invoices by Date
       const filteredInvoices = allInvoices.filter(inv => {
         const date = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt instanceof Date ? inv.createdAt : null);
         return date && isWithinInterval(date, { start, end });
       });
 
-      // 2. Parallel Processing of Items (Fixed Speed & Accuracy)
+      // 2. Parallel Processing of Items
       const batchSize = 10;
       for (let i = 0; i < filteredInvoices.length; i += batchSize) {
         const batch = filteredInvoices.slice(i, i + batchSize);
@@ -141,8 +162,8 @@ export default function ReportsPage() {
             const item = d.data();
             const product = allProducts.find(p => p.id === item.productId);
             
-            // Apply Category Filter
-            if (selectedCategoryIds.length > 0 && product && !selectedCategoryIds.includes(product.categoryId)) {
+            // Apply Hierarchical Category Filter
+            if (allowedCategoryIds && product && !allowedCategoryIds.has(product.categoryId)) {
               return;
             }
 
@@ -178,8 +199,8 @@ export default function ReportsPage() {
 
       const soldIds = new Set(Object.keys(productSalesMap));
       let stagnant = allProducts.filter(p => !soldIds.has(p.id));
-      if (selectedCategoryIds.length > 0) {
-        stagnant = stagnant.filter(p => selectedCategoryIds.includes(p.categoryId));
+      if (allowedCategoryIds) {
+        stagnant = stagnant.filter(p => allowedCategoryIds.has(p.categoryId));
       }
       setStagnantProducts(stagnant.slice(0, 10));
 
@@ -230,7 +251,7 @@ export default function ReportsPage() {
     };
 
     runAnalysis();
-  }, [allInvoices, allProducts, startDate, endDate, selectedCategoryIds, isMounted, db]);
+  }, [allInvoices, allProducts, categories, startDate, endDate, selectedCategoryIds, isMounted, db]);
 
   const handleTimePresetChange = (val: string) => {
     setTimePreset(val);
