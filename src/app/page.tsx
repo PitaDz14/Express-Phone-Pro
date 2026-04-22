@@ -37,7 +37,11 @@ import {
   CheckCircle2,
   LayoutGrid,
   List,
-  Grid2X2
+  Grid2X2,
+  EyeOff,
+  Eye,
+  ShieldAlert,
+  Ghost
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,7 +54,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -70,6 +75,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
 import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
@@ -273,6 +284,7 @@ export default function Dashboard() {
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   const [isLowStockOpen, setIsLowStockOpen] = React.useState(false)
+  const [isExclusionsOpen, setIsExclusionsOpen] = React.useState(false)
   const [lowStockFilter, setLowStockFilter] = React.useState("all")
   const [lowStockSortConfig, setLowStockSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'quantity', direction: 'asc' })
 
@@ -301,8 +313,22 @@ export default function Dashboard() {
   const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
 
   const lowStockItems = React.useMemo(() => {
-    if (!isMounted || !products) return [];
-    let filtered = products.filter(p => Number(p.quantity) <= (Number(p.minStockQuantity) || 1));
+    if (!isMounted || !products || !categories) return [];
+    
+    // Create a set of excluded categories for faster lookup
+    const excludedCategoryIds = new Set(categories.filter(c => c.excludeFromLowStock).map(c => c.id));
+
+    let filtered = products.filter(p => {
+      // Basic Low Stock Check
+      const isLow = Number(p.quantity) <= (Number(p.minStockQuantity) || 1);
+      if (!isLow) return false;
+
+      // Exclusion Logic: Product or its Category
+      if (p.excludeFromLowStock) return false;
+      if (excludedCategoryIds.has(p.categoryId)) return false;
+
+      return true;
+    });
     
     if (lowStockFilter && lowStockFilter !== "all") {
       filtered = filtered.filter(p => p.categoryId === lowStockFilter);
@@ -326,7 +352,17 @@ export default function Dashboard() {
     }
     
     return filtered;
-  }, [products, lowStockFilter, lowStockSortConfig, isMounted]);
+  }, [products, categories, lowStockFilter, lowStockSortConfig, isMounted]);
+
+  const excludedProducts = React.useMemo(() => {
+    if (!products) return [];
+    return products.filter(p => p.excludeFromLowStock);
+  }, [products]);
+
+  const excludedCategories = React.useMemo(() => {
+    if (!categories) return [];
+    return categories.filter(c => c.excludeFromLowStock);
+  }, [categories]);
 
   const displayedLowStockItems = React.useMemo(() => {
     if (lowStockLimit === 0) return lowStockItems;
@@ -458,7 +494,7 @@ export default function Dashboard() {
   }, [lowStockItems, toast]);
 
   const stats = React.useMemo(() => {
-    if (!isMounted || !products) return {
+    if (!isMounted || !products || !categories) return {
       todaySales: 0,
       productCount: 0,
       lowStock: 0,
@@ -478,6 +514,12 @@ export default function Dashboard() {
       return date && date >= todayStart && date <= todayEnd;
     }).reduce((acc, inv) => acc + (inv.totalAmount || 0), 0) || 0;
 
+    const excludedCategoryIds = new Set(categories.filter(c => c.excludeFromLowStock).map(c => c.id));
+    const lowStockCount = products.filter(p => {
+      const isLow = Number(p.quantity) <= (Number(p.minStockQuantity) || 1);
+      return isLow && !p.excludeFromLowStock && !excludedCategoryIds.has(p.categoryId);
+    }).length;
+
     const screens = products?.filter(p => {
       const name = (p.name || "").toLowerCase()
       const path = (p.categoryPath || "").toLowerCase()
@@ -487,13 +529,13 @@ export default function Dashboard() {
     return {
       todaySales,
       productCount: products?.length || 0,
-      lowStock: products?.filter(p => Number(p.quantity) <= (Number(p.minStockQuantity) || 1)).length || 0,
+      lowStock: lowStockCount,
       totalDebt: customers?.reduce((acc, c) => acc + (c.debt || 0), 0) || 0,
       screensCount: screens.reduce((acc, p) => acc + (p.quantity || 0), 0),
       screensSaleVal: screens.reduce((acc, p) => acc + (p.salePrice * (p.quantity || 0)), 0),
       screensPurchaseVal: screens.reduce((acc, p) => acc + ((p.purchasePrice || 0) * (p.quantity || 0)), 0)
     }
-  }, [recentInvoices, products, customers, isMounted])
+  }, [recentInvoices, products, customers, categories, isMounted])
 
   const filteredProducts = React.useMemo(() => {
     if (!searchTerm || !products) return []
@@ -545,7 +587,8 @@ export default function Dashboard() {
         minStockQuantity: Number(qaMinStock),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        createdByUserId: user.uid
+        createdByUserId: user.uid,
+        excludeFromLowStock: false
       })
 
       toast({ title: "تمت الإضافة", description: `تم إضافة ${qaName} بنجاح` })
@@ -592,6 +635,30 @@ export default function Dashboard() {
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }))
+  }
+
+  const toggleProductExclusion = (productId: string, currentStatus: boolean) => {
+    if (!isAdmin) return;
+    updateDocumentNonBlocking(doc(db, "products", productId), {
+      excludeFromLowStock: !currentStatus,
+      updatedAt: serverTimestamp()
+    });
+    toast({ 
+      title: !currentStatus ? "تم الاستبعاد" : "تمت الإعادة", 
+      description: !currentStatus ? "لن يظهر هذا المنتج في قائمة النواقص بعد الآن" : "سيعود المنتج للظهور في قائمة النواقص" 
+    });
+  }
+
+  const toggleCategoryExclusion = (categoryId: string, currentStatus: boolean) => {
+    if (!isAdmin) return;
+    updateDocumentNonBlocking(doc(db, "categories", categoryId), {
+      excludeFromLowStock: !currentStatus,
+      updatedAt: serverTimestamp()
+    });
+    toast({ 
+      title: !currentStatus ? "تم استبعاد الصنف" : "تمت إعادة الصنف", 
+      description: !currentStatus ? "تم استبعاد كافة منتجات هذا الصنف من النواقص" : "عادت منتجات هذا الصنف لقائمة النواقص" 
+    });
   }
 
   if (!isMounted) return null;
@@ -809,7 +876,7 @@ export default function Dashboard() {
                    <h3 className="font-black text-xs md:text-sm mb-2">تنبيه المخزون</h3>
                    <p className="text-[10px] md:text-xs text-muted-foreground font-medium leading-relaxed">
                       {stats.lowStock > 0 
-                        ? `لديك ${stats.lowStock} منتجات اقتربت من النفاد. يرجى توريد كميات جديدة.`
+                        ? `لديك ${stats.lowStock} منتجات اقتربت من النفاد (بعد استبعاد المستثنيات). يرجى توريد كميات جديدة.`
                         : "مستوى المخزون لديك مستقر اليوم."
                       }
                    </p>
@@ -863,7 +930,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Low Stock Dialog - Enhanced with Custom View Options */}
+      {/* Low Stock Dialog - Enhanced with Exclusion System */}
       <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
         <DialogContent dir="rtl" className="max-w-6xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[300] max-h-[90vh] flex flex-col">
            <DialogHeader className="p-6 md:p-8 bg-orange-500/5 border-b border-orange-500/10 shrink-0">
@@ -878,7 +945,15 @@ export default function Dashboard() {
                    </div>
                 </div>
                 <div className="flex items-center gap-2">
-                   <div className="flex items-center bg-black/5 p-1 rounded-xl gap-1 mr-4">
+                   <Button 
+                    variant="outline" 
+                    className="h-10 px-4 rounded-xl border-orange-500/20 bg-white/50 text-orange-700 font-black gap-2 shadow-sm"
+                    onClick={() => setIsExclusionsOpen(true)}
+                   >
+                      <EyeOff className="h-4 w-4" /> إدارة المستثنيات
+                   </Button>
+
+                   <div className="flex items-center bg-black/5 p-1 rounded-xl gap-1 mr-2">
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -1010,10 +1085,21 @@ export default function Dashboard() {
                      <div 
                       key={p.id} 
                       className={cn(
-                        "rounded-2xl glass border-orange-500/10 group hover:bg-orange-500/5 transition-all shadow-sm flex",
+                        "rounded-2xl glass border-orange-500/10 group hover:bg-orange-500/5 transition-all shadow-sm flex relative",
                         lowStockViewMode === 'list' ? "p-3 flex-row items-center justify-between" : "p-4 flex-col gap-4"
                       )}
                      >
+                        {/* Exclusion Trigger */}
+                        {isAdmin && (
+                          <button 
+                            onClick={() => toggleProductExclusion(p.id, false)}
+                            className="absolute top-2 left-2 h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-10"
+                            title="استبعاد من النواقص"
+                          >
+                            <EyeOff className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
                         <div className={cn(
                           "flex items-center gap-3 overflow-hidden",
                           lowStockViewMode === 'list' ? "flex-1" : ""
@@ -1062,6 +1148,119 @@ export default function Dashboard() {
            <div className="p-6 bg-black/5 flex justify-center shrink-0">
               <Button onClick={() => setIsLowStockOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق نافذة النواقص</Button>
            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exclusion Management Dialog */}
+      <Dialog open={isExclusionsOpen} onOpenChange={setIsExclusionsOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[400] max-h-[85vh] flex flex-col">
+          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+                <ShieldAlert className="h-7 w-7" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black">إدارة مستثنيات النواقص</DialogTitle>
+                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">التحكم في المنتجات والأصناف الخارجة عن الإحصاء</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-8 pt-6 border-b border-white/5 bg-slate-50">
+              <TabsList className="glass border-none rounded-xl mb-4 bg-slate-200">
+                <TabsTrigger value="products" className="rounded-lg font-black text-xs px-8">المنتجات المستبعدة ({excludedProducts.length})</TabsTrigger>
+                <TabsTrigger value="categories" className="rounded-lg font-black text-xs px-8">الأصناف المستبعدة ({excludedCategories.length})</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <TabsContent value="products" className="mt-0 space-y-4">
+                {excludedProducts.length === 0 ? (
+                  <div className="py-20 text-center flex flex-col items-center gap-4 opacity-30">
+                    <Ghost className="h-16 w-16" />
+                    <p className="font-black italic">لا توجد منتجات مستبعدة حالياً</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {excludedProducts.map(p => (
+                      <div key={p.id} className="p-4 rounded-2xl border border-slate-200 bg-white flex items-center justify-between group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                            {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Package className="h-5 w-5 text-slate-300" />}
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-bold text-sm truncate">{p.name}</span>
+                            <span className="text-[10px] text-muted-foreground">#{p.productCode}</span>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-9 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-black text-xs gap-2"
+                          onClick={() => toggleProductExclusion(p.id, true)}
+                        >
+                          <Eye className="h-4 w-4" /> إعادة للتنبيهات
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="categories" className="mt-0 space-y-6">
+                <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mb-6">
+                  <p className="text-xs font-bold text-primary leading-relaxed">
+                    استبعاد صنف كامل يعني أن كافة المنتجات التابعة له لن تظهر في قائمة النواقص أبداً، حتى لو نفد مخزونها تماماً.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories?.map(cat => (
+                    <div key={cat.id} className={cn(
+                      "p-5 rounded-2xl border transition-all flex flex-col gap-4 group",
+                      cat.excludeFromLowStock 
+                        ? "bg-slate-900 border-slate-800 text-white shadow-xl scale-[1.02]" 
+                        : "bg-white border-slate-200 hover:border-primary/30"
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <div className={cn(
+                          "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner",
+                          cat.excludeFromLowStock ? "bg-white/10" : "bg-primary/5 text-primary"
+                        )}>
+                          <Layers className="h-5 w-5" />
+                        </div>
+                        {cat.excludeFromLowStock && <Badge className="bg-red-500 text-white border-none font-black text-[8px] uppercase">مستبعد حالياً</Badge>}
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-black text-sm">{cat.name}</h4>
+                        <p className={cn("text-[10px] font-bold mt-1", cat.excludeFromLowStock ? "text-white/40" : "text-muted-foreground")}>
+                          {cat.path || "تصنيف أساسي"}
+                        </p>
+                      </div>
+
+                      <Button 
+                        variant={cat.excludeFromLowStock ? "secondary" : "outline"} 
+                        className={cn(
+                          "w-full h-10 rounded-xl font-black text-xs gap-2 transition-all",
+                          cat.excludeFromLowStock ? "bg-white text-slate-900 hover:bg-white/90" : "border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                        )}
+                        onClick={() => toggleCategoryExclusion(cat.id, !!cat.excludeFromLowStock)}
+                      >
+                        {cat.excludeFromLowStock ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        {cat.excludeFromLowStock ? "إعادة الصنف للإحصاء" : "استبعاد الصنف بالكامل"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          <div className="p-6 bg-slate-100 flex justify-center shrink-0 border-t border-slate-200">
+            <Button onClick={() => setIsExclusionsOpen(false)} className="rounded-2xl px-12 h-12 font-black shadow-lg bg-slate-900 text-white">إغلاق نافذة التحكم</Button>
+          </div>
         </DialogContent>
       </Dialog>
 

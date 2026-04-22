@@ -26,6 +26,7 @@
         "parentId": { "type": "string", "description": "The ID of the parent category (null for root)." },
         "path": { "type": "string", "description": "Materialized path for easy querying (e.g., /spare-parts/screens)." },
         "level": { "type": "number", "description": "Nesting level (0 for root)." },
+        "excludeFromLowStock": { "type": "boolean", "description": "Whether to exclude this category from low stock reports." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -49,6 +50,7 @@
         "repairPrice": { "type": "number" },
         "productCode": { "type": "string" },
         "minStockQuantity": { "type": "number" },
+        "excludeFromLowStock": { "type": "boolean", "description": "Whether to exclude this product from low stock alerts." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
