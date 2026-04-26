@@ -326,7 +326,7 @@ export default function SettingsPage() {
                      <Volume2 className="h-6 w-6" />
                   </div>
                   <div>
-                     <CardTitle className="text-xl font-black">مركز التحكم الصوتي</DialogTitle>
+                     <CardTitle className="text-xl font-black">مركز التحكم الصوتي</CardTitle>
                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest mt-1">إدارة التنبيهات والفعاليات الصوتية</CardDescription>
                   </div>
                </div>

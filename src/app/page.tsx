@@ -662,6 +662,21 @@ export default function Dashboard() {
            </div>
         </DialogContent>
       </Dialog>
+
+      {/* Name Preview Dialog */}
+      <Dialog open={!!viewFullName} onOpenChange={() => setViewFullName(null)}>
+         <DialogContent dir="rtl" className="glass border-none rounded-3xl shadow-2xl p-6 z-[600] max-w-sm">
+            <DialogHeader className="pb-4 border-b border-white/10">
+               <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest">الاسم الكامل للمنتج</DialogTitle>
+            </DialogHeader>
+            <div className="py-8">
+               <p className="text-xl font-black text-foreground leading-relaxed text-center">{viewFullName}</p>
+            </div>
+            <DialogFooter>
+               <Button onClick={() => setViewFullName(null)} className="w-full h-12 rounded-xl bg-primary font-black">إغلاق المعاينة</Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
     </div>
   )
 }
