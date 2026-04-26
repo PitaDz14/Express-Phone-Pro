@@ -51,6 +51,7 @@
         "productCode": { "type": "string" },
         "minStockQuantity": { "type": "number" },
         "excludeFromLowStock": { "type": "boolean", "description": "Whether to exclude this product from low stock alerts." },
+        "isPriority": { "type": "boolean", "description": "Whether this product is critical and should trigger audio alerts." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

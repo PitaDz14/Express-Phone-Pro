@@ -55,7 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, setDocumentNonBlocking } from "@/firebase"
-import { collection, doc, serverTimestamp, increment, getDoc, getDocs, deleteDoc, writeBatch } from "firebase/firestore"
+import { collection, doc, serverTimestamp, increment, getDoc, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -64,6 +64,7 @@ import { ar } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 import { SyncReconnectButton } from "@/components/sync-reconnect-button"
+import { playSystemSound } from "@/lib/audio-utils"
 
 interface CartItem {
   id: string
@@ -94,18 +95,10 @@ export default function InvoicesPage() {
   const [isLoadingInvoice, setIsLoadingInvoice] = React.useState(false)
   const [showPreview, setShowPreview] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
-  
-  // Quick Add Customer States
-  const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false)
-  const [qaCustName, setQaCustName] = React.useState("")
-  const [qaCustPhone, setQaCustPhone] = React.useState("")
-
   const [pendingId, setPendingId] = React.useState("")
 
   const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
-  const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
-  
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
 
@@ -115,71 +108,6 @@ export default function InvoicesPage() {
     }
   }, [editId, db, pendingId])
 
-  React.useEffect(() => {
-    if (editId && products) {
-      const loadInvoice = async () => {
-        setIsLoadingInvoice(true)
-        try {
-          const invDoc = await getDoc(doc(db, "invoices", editId))
-          if (invDoc.exists()) {
-            const data = invDoc.data()
-            setSelectedCustomer({ id: data.customerId, name: data.customerName, phone: data.customerPhone || "", debt: 0 }) 
-            setDiscount(data.discount || 0)
-            setPaidAmount(data.paidAmount)
-            
-            const itemsSnap = await getDocs(collection(db, "invoices", editId, "items"))
-            
-            const itemsMap: Record<string, CartItem> = {}
-            const limit = (data.totalAmount || 0) + (data.discount || 0);
-            let runningSubtotal = 0;
-
-            itemsSnap.docs.forEach(d => {
-              const itemData = d.data()
-              const pid = itemData.productId
-              const unitPrice = itemData.unitPrice || 0;
-              const rawQty = itemData.quantity || 1;
-
-              if (unitPrice <= 0) return;
-
-              // Cross-validation logic for legacy correction
-              const remainingBalance = limit - runningSubtotal;
-              const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
-              const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
-              
-              // Fallback for first item corruption
-              const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
-
-              if (finalQty <= 0 && runningSubtotal > 0) return;
-
-              if (itemsMap[pid]) {
-                itemsMap[pid].qty += finalQty
-              } else {
-                itemsMap[pid] = {
-                  id: d.id,
-                  productId: pid,
-                  name: itemData.productName,
-                  price: unitPrice,
-                  qty: finalQty,
-                  categoryPath: itemData.categoryPath
-                }
-              }
-              runningSubtotal += (finalQty * unitPrice);
-            })
-            
-            const items = Object.values(itemsMap)
-            setCart(items)
-            setOriginalCart(items)
-          }
-        } catch (e) {
-          toast({ variant: "destructive", title: "خطأ", description: "فشل تحميل الفاتورة للتعديل" })
-        } finally {
-          setIsLoadingInvoice(false)
-        }
-      }
-      loadInvoice()
-    }
-  }, [editId, products, db, toast])
-
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
   const total = subtotal - discount
   const finalPaid = paidAmount === "" ? total : Number(paidAmount)
@@ -187,688 +115,128 @@ export default function InvoicesPage() {
 
   const filteredProducts = products?.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.categoryPath && p.categoryPath.toLowerCase().includes(searchTerm.toLowerCase()))
+    p.productCode.toLowerCase().includes(searchTerm.toLowerCase())
   ).slice(0, 5) || []
 
   const addToCart = (product: any) => {
     const existing = cart.find(item => item.productId === product.id)
     const currentQtyInCart = existing ? existing.qty : 0
-    
     const originalQtyInInv = originalCart.find(i => i.productId === product.id)?.qty || 0
     const availableStock = product.quantity + originalQtyInInv
 
     if (currentQtyInCart + 1 > availableStock) {
-      toast({ title: "خطأ في المخزون", description: `هذا المنتج لا يتوفر منه سوى ${availableStock} قطع`, variant: "destructive" })
+      toast({ title: "خطأ في المخزون", variant: "destructive" })
+      playSystemSound('failure')
       return
     }
 
     if (existing) {
       setCart(cart.map(item => item.productId === product.id ? { ...item, qty: item.qty + 1 } : item))
     } else {
-      setCart([...cart, { 
-        id: Math.random().toString(36).substring(7),
-        productId: product.id,
-        name: product.name, 
-        price: product.salePrice, 
-        qty: 1,
-        categoryPath: product.categoryPath || product.categoryName 
-      }])
+      setCart([...cart, { id: Math.random().toString(36).substring(7), productId: product.id, name: product.name, price: product.salePrice, qty: 1, categoryPath: product.categoryPath || product.categoryName }])
     }
     setSearchTerm("")
   }
 
-  const handleQRScan = (code: string) => {
-    if (code.includes("/invoices/history")) {
-      const hash = code.split('#')[1];
-      router.push(`/invoices/history${hash ? `#${hash}` : ''}`);
-      return;
-    }
-    const product = products?.find(p => p.productCode === code)
-    if (product) addToCart(product)
-    else toast({ title: "منتج غير مسجل", description: `كود ${code} غير موجود`, variant: "destructive" })
-  }
-
-  const updateQty = (productId: string, delta: number) => {
-    setCart(cart.map(item => {
-      if (item.productId === productId) {
-        const product = products?.find(p => p.id === productId)
-        const originalQtyInInv = originalCart.find(i => i.productId === productId)?.qty || 0
-        const availableStock = (product?.quantity || 0) + originalQtyInInv
-        const newQty = item.qty + delta
-
-        if (delta > 0 && newQty > availableStock) {
-          toast({ title: "تنبيه", description: "الكمية المطلوبة تتجاوز المتاح في المخزون", variant: "destructive" })
-          return item
-        }
-        return { ...item, qty: Math.max(1, newQty) }
-      }
-      return item
-    }))
-  }
-
-  const updatePrice = (productId: string, newPrice: number) => {
-    setCart(cart.map(item => item.productId === productId ? { ...item, price: newPrice } : item))
-  }
-
-  const handleQuickAddCustomer = async () => {
-    if (!qaCustName || !qaCustPhone) {
-      toast({ title: "خطأ", description: "يرجى إدخال بيانات العميل كاملة", variant: "destructive" })
-      return
-    }
-    try {
-      const newCustRef = await addDocumentNonBlocking(collection(db, "customers"), {
-        name: qaCustName,
-        phone: qaCustPhone,
-        debt: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      })
-      
-      const newCustDoc = await getDoc(newCustRef as any)
-      if (newCustDoc.exists()) {
-        const cData = { id: newCustDoc.id, ...newCustDoc.data() }
-        setSelectedCustomer(cData)
-        setCustomerSearch("")
-        setIsQuickAddOpen(false)
-        setQaCustName("")
-        setQaCustPhone("")
-        toast({ title: "تم تسجيل العميل", description: `تمت إضافة ${qaCustName} واختياره للفاتورة` })
-      }
-    } catch (e) {
-      toast({ title: "خطأ", description: "فشل تسجيل العميل الجديد", variant: "destructive" })
-    }
-  }
-
-  const handlePrintInvoice = (invId: string, invoiceData: any, cartItems: CartItem[], customer: any) => {
-    const hasDiscount = (invoiceData.discount || 0) > 0;
-    const customerDisplayName = customer ? customer.name : (customerSearch || "عميل عام");
-    const printContent = `
-      <html dir="rtl">
-        <head>
-          <title>فاتورة - ${invId}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-            @page { margin: 5mm; }
-            body { font-family: 'Almarai', sans-serif; color: #000; background: #fff; line-height: 1.2; padding: 0; margin: 0; }
-            .invoice-box { width: 100%; max-width: 80mm; margin: 0 auto; padding: 5px; }
-            .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-            .header h1 { margin: 0; font-size: 18px; font-weight: 800; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; }
-            th { border-bottom: 1px solid #000; padding: 4px; text-align: right; }
-            td { padding: 4px; border-bottom: 1px dotted #ccc; }
-            .summary { border-top: 1px solid #000; padding-top: 5px; font-size: 12px; }
-            .summary-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-weight: 700; }
-            .total { font-size: 14px; border-top: 1px solid #000; padding-top: 4px; font-weight: 800; }
-            .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; }
-            .qr-img { width: 100px; height: 100px; }
-          </style>
-        </head>
-        <body>
-          <div class="invoice-box">
-            <div class="header">
-              <h1>EXPRESS PHONE</h1>
-              <p style="font-size: 10px; font-weight: 800;">فاتورة مبيعات</p>
-              <p style="font-size: 9px;">#${invId}</p>
-              <p style="font-size: 9px;">التاريخ: ${format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
-            </div>
-
-            <div style="font-size: 10px; margin-bottom: 10px;">
-              <p><strong>العميل:</strong> ${customerDisplayName}</p>
-              <p><strong>الهاتف:</strong> ${customer?.id === 'walk-in' || !customer?.phone ? (customerSearch ? "غير مسجل" : "لا يوجد") : customer.phone}</p>
-              <p><strong>الموظف:</strong> ${username || "غير معرف"}</p>
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>المنتج</th>
-                  <th style="text-align: center">كمية</th>
-                  <th style="text-align: left">الإجمالي</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${cartItems.map(item => `
-                  <tr>
-                    <td>${item.name}</td>
-                    <td style="text-align: center">${item.qty}</td>
-                    <td style="text-align: left">${(item.price * item.qty).toLocaleString()}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-
-            <div class="summary">
-              <div class="summary-row"><span>المجموع:</span> <span dir="ltr">${(subtotal).toLocaleString()} دج</span></div>
-              ${hasDiscount ? `<div class="summary-row"><span>الخصم:</span> <span dir="ltr">-${(invoiceData.discount || 0).toLocaleString()} دج</span></div>` : ''}
-              <div class="summary-row"><span>المدفوع:</span> <span dir="ltr">${invoiceData.paidAmount.toLocaleString()} دج</span></div>
-              <div class="summary-row total"><span>الإجمالي النهائي:</span> <span dir="ltr">${invoiceData.totalAmount.toLocaleString()} دج</span></div>
-            </div>
-
-            <div class="qr-footer">
-              <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invId}" alt="QR" />
-              <p style="font-weight: 800; font-size: 11px; margin-top: 5px;">شكراً لتعاملكم معنا</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.id = 'print-iframe';
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(printContent);
-      iframeDoc.close();
-
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
-    }
-  }
-
   const handleProcessInvoice = async () => {
     if (cart.length === 0 || !user) return
-    
-    // Determine the customer name to be saved
     const finalCustomerName = selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام")
-    
     if (debtAmount > 0 && (!selectedCustomer || selectedCustomer.id === 'walk-in')) {
-      toast({ title: "تنبيه", description: "يجب تحديد عميل مسجل لتسجيل الدين باسمه", variant: "destructive" })
+      toast({ title: "يجب تحديد عميل للمديونية", variant: "destructive" })
+      playSystemSound('failure')
       return
-    }
-
-    for (const item of cart) {
-      const product = products?.find(p => p.id === item.productId)
-      const originalQtyInInv = originalCart.find(i => i.productId === item.productId)?.qty || 0
-      const availableStock = (product?.quantity || 0) + originalQtyInInv
-      
-      if (item.qty > availableStock) {
-        toast({ 
-          title: "خطأ في المخزون", 
-          description: `المنتج "${item.name}" لا يتوفر منه سوى ${availableStock} قطع. يرجى تعديل الكمية.`, 
-          variant: "destructive" 
-        })
-        return
-      }
     }
 
     setIsProcessing(true)
     const batch = writeBatch(db);
-
     try {
       const currentInvoiceId = editId || pendingId;
       const targetDocRef = doc(db, "invoices", currentInvoiceId);
-
-      if (editId) {
-        const oldInvSnap = await getDoc(doc(db, "invoices", editId));
-        if (oldInvSnap.exists()) {
-          const oldData = oldInvSnap.data();
-          
-          const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
-          if (oldDebt > 0 && oldData.customerId && oldData.customerId !== 'walk-in') {
-            batch.update(doc(db, "customers", oldData.customerId), {
-              debt: increment(-oldDebt)
-            });
-          }
-
-          const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
-          for (const d of oldItemsSnap.docs) {
-            const item = d.data();
-            if (item.productId) {
-              batch.update(doc(db, "products", item.productId), {
-                quantity: increment(item.quantity || 0)
-              });
-            }
-            batch.delete(d.ref);
-          }
-        }
-      }
-
-      const invoiceData: any = {
-        customerId: selectedCustomer?.id || "walk-in",
-        customerName: finalCustomerName,
-        totalAmount: total,
-        paidAmount: finalPaid,
-        discount: discount,
-        status: debtAmount > 0 ? "Debt" : "Paid",
-        generatedByUserId: user.uid,
-        generatedByUserName: username || "غير معرف",
-        updatedAt: serverTimestamp()
-      }
-
-      if (!editId) {
-        invoiceData.createdAt = serverTimestamp();
-      }
-
+      const invoiceData: any = { customerId: selectedCustomer?.id || "walk-in", customerName: finalCustomerName, totalAmount: total, paidAmount: finalPaid, discount: discount, status: debtAmount > 0 ? "Debt" : "Paid", generatedByUserId: user.uid, generatedByUserName: username || "غير معرف", updatedAt: serverTimestamp() }
+      if (!editId) invoiceData.createdAt = serverTimestamp();
       batch.set(targetDocRef, invoiceData, { merge: true });
       
-      const itemsRef = collection(db, "invoices", targetDocRef.id, "items")
       cart.forEach(item => {
-        const newItemRef = doc(itemsRef);
-        batch.set(newItemRef, {
-          invoiceId: targetDocRef.id,
-          productId: item.productId,
-          productName: item.name,
-          categoryPath: item.categoryPath || "",
-          quantity: item.qty,
-          unitPrice: item.price,
-          itemTotal: item.price * item.qty,
-          generatedByUserId: user.uid,
-          generatedByUserName: username || "غير معرف",
-          createdAt: serverTimestamp()
-        });
-
-        batch.update(doc(db, "products", item.productId), {
-          quantity: increment(-item.qty),
-          updatedAt: serverTimestamp(),
-          updatedByUserId: user.uid
-        });
+        const newItemRef = doc(collection(db, "invoices", targetDocRef.id, "items"));
+        batch.set(newItemRef, { invoiceId: targetDocRef.id, productId: item.productId, productName: item.name, quantity: item.qty, unitPrice: item.price, itemTotal: item.price * item.qty, generatedByUserId: user.uid, createdAt: serverTimestamp() });
+        batch.update(doc(db, "products", item.productId), { quantity: increment(-item.qty), updatedAt: serverTimestamp() });
       });
 
       if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
-        batch.update(doc(db, "customers", selectedCustomer.id), {
-          debt: increment(debtAmount),
-          updatedAt: serverTimestamp()
-        });
+        batch.update(doc(db, "customers", selectedCustomer.id), { debt: increment(debtAmount), updatedAt: serverTimestamp() });
       }
 
-      batch.commit().catch(e => {
-        console.error("Batch Sync Error:", e);
-        toast({ title: "خطأ في المزامنة", description: "تم الحفظ محلياً وسيتزامن عند توفر الإنترنت", variant: "destructive" });
-      });
-
-      toast({ title: editId ? "تم تحديث الفاتورة" : "تم إصدار الفاتورة", description: "تمت العملية بنجاح (وضع أوفلاين نشط)" })
-      handlePrintInvoice(targetDocRef.id, invoiceData, cart, selectedCustomer)
-
-      setCart([])
-      setOriginalCart([])
-      setSelectedCustomer(null)
-      setCustomerSearch("")
-      setDiscount(0)
-      setPaidAmount("")
-      setShowPreview(false)
-      setPendingId("") 
-      if (editId) router.push('/invoices/history')
+      await batch.commit();
+      toast({ title: "تم إصدار الفاتورة بنجاح" })
+      playSystemSound('success')
+      setCart([]); setSelectedCustomer(null); setCustomerSearch(""); setShowPreview(false); setPendingId(""); 
     } catch (error) {
-      console.error("Save Error:", error);
-      toast({ title: "خطأ", description: "فشل تنفيذ العملية، يرجى المحاولة لاحقاً", variant: "destructive" })
+      toast({ title: "خطأ في الحفظ", variant: "destructive" })
+      playSystemSound('failure')
     } finally {
       setIsProcessing(false)
     }
   }
 
-  if (isLoadingInvoice) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
-  }
-
   return (
-    <div className="min-h-screen bg-transparent pb-32 overflow-x-hidden">
-        <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
-        
-        <header className="flex h-20 shrink-0 items-center justify-between border-b px-4 md:px-8 glass sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:rotate-0 rotate-3 overflow-hidden">
-                 <Smartphone className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col hidden sm:flex">
-                <h1 className="text-sm md:text-lg font-black tracking-tighter text-primary">
-                  {editId ? "تعديل فاتورة" : "نقطة بيع EXPRESS"}
-                </h1>
-                <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Smart Point of Sale</p>
-              </div>
-            </Link>
-
-            <div className="h-8 w-px bg-border mx-1 md:mx-2" />
-
-            <div className="flex items-center gap-2">
-               <SyncReconnectButton />
-               
-               <div className={cn(
-                 "h-8 w-8 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-white shadow-lg border border-white/20",
-                 isAdmin ? "bg-gradient-to-br from-primary to-[#2a4580]" : "bg-gradient-to-br from-emerald-500 to-teal-700"
-               )}>
-                 {isAdmin ? <ShieldCheck className="h-4 w-4 md:h-5 md:w-5" /> : <UserCog className="h-4 w-4 md:h-5 md:w-5" />}
-               </div>
-               <div className="flex flex-col">
-                  <span className="text-[7px] font-black text-muted-foreground uppercase leading-none">بواسطة</span>
-                  <span className="text-[10px] md:text-xs font-black truncate max-w-[70px] md:max-w-[120px]">{username || "..."}</span>
-               </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {editId && (
-              <Button asChild variant="ghost" className="h-9 md:h-10 px-2 md:px-4 rounded-xl font-black text-[10px] md:text-xs gap-1 md:gap-2">
-                 <Link href="/invoices/history"><History className="h-3.5 w-3.5" /> إلغاء</Link>
-              </Button>
-            )}
-            <Button asChild variant="outline" className="h-9 md:h-10 px-2 md:px-4 rounded-xl glass border-white/20 gap-1 md:gap-2 font-black text-[10px] md:text-xs">
-               <Link href="/debts"><Wallet className="h-3.5 w-3.5" /> <span className="hidden sm:inline">إدارة الديون</span></Link>
-            </Button>
-          </div>
+    <div className="min-h-screen bg-transparent pb-32">
+        <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={(c) => {const p = products?.find(x => x.productCode === c); if(p) addToCart(p); else playSystemSound('failure');}} />
+        <header className="flex h-20 items-center justify-between border-b px-8 glass sticky top-0 z-50">
+          <Link href="/" className="flex items-center gap-2"><Smartphone className="h-6 w-6 text-primary" /><h1 className="font-black">نقطة البيع</h1></Link>
+          <SyncReconnectButton />
         </header>
 
-        <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="border-none glass shadow-xl rounded-[2rem]">
-                <CardHeader className="p-6 md:p-8 border-b border-border">
-                   <div className="flex items-center justify-between">
-                     <CardTitle className="text-lg md:text-xl font-black">إضافة المنتجات للسلة</CardTitle>
-                     <Button variant="ghost" size="sm" className="rounded-xl border border-primary/20 gap-2 font-black text-primary" onClick={() => setIsQRScannerOpen(true)}>
-                        <Camera className="h-4 w-4" /> <span className="hidden sm:inline">مسح QR</span>
-                     </Button>
-                   </div>
-                </CardHeader>
-                <CardContent className="p-4 md:p-8 space-y-6">
-                  <div className="relative">
-                    <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="ابحث بالاسم، الكود، أو الفئة..." 
-                        className="pl-12 h-12 glass border-none rounded-2xl font-bold text-sm" 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
+        <main className="max-w-7xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <div className="lg:col-span-2 space-y-6">
+              <Card className="border-none glass rounded-[2rem] p-8">
+                 <div className="relative mb-6">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="ابحث عن منتج..." className="pl-12 h-12 rounded-2xl border-none glass font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     {searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-3 glass-premium rounded-3xl shadow-2xl z-20 overflow-hidden max-h-[300px] overflow-y-auto border border-white/10">
+                      <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-50 overflow-hidden">
                         {filteredProducts.map(p => (
-                          <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer flex justify-between items-center border-b border-border transition-all" onClick={() => addToCart(p)}>
-                            <div className="flex flex-col">
-                               <p className="font-black text-sm text-foreground">{p.name}</p>
-                               <p className="text-[10px] text-muted-foreground font-bold">{p.categoryPath}</p>
-                            </div>
-                            <div className="text-left">
-                               <span className="text-sm font-black text-primary tabular-nums">{p.salePrice.toLocaleString()} دج</span>
-                               <p className="text-[8px] text-muted-foreground font-black">المتوفر: {p.quantity}</p>
-                            </div>
+                          <div key={p.id} className="p-4 hover:bg-primary/5 cursor-pointer border-b last:border-0" onClick={() => addToCart(p)}>
+                            <p className="font-black text-sm">{p.name} {p.isPriority && <Star className="h-3 w-3 inline fill-yellow-400 text-yellow-400" />}</p>
+                            <p className="text-[10px] text-primary font-bold">{p.salePrice} دج - متوفر: {p.quantity}</p>
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {cart.length === 0 ? (
-                      <div className="text-center py-10 opacity-30 italic font-black text-xs">السلة فارغة حالياً</div>
-                    ) : (
-                      <div className="table-container">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="border-b border-white/10 hover:bg-transparent">
-                              <TableHead className="font-black text-foreground">المنتج / السعر</TableHead>
-                              <TableHead className="text-center font-black text-foreground">الكمية</TableHead>
-                              <TableHead className="text-left font-black text-foreground">الإجمالي</TableHead>
-                              <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {cart.map((item) => (
-                              <TableRow key={item.productId} className="border-b border-white/5 hover:bg-white/10 transition-colors">
-                                <TableCell>
-                                  <div className="flex flex-col gap-1">
-                                    <span className="font-black text-sm">{item.name}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-muted-foreground font-bold">سعر الوحدة:</span>
-                                      <Input 
-                                        type="number" 
-                                        className="h-7 w-20 glass border-none font-black text-[11px] tabular-nums text-primary text-center" 
-                                        value={item.price} 
-                                        onChange={(e) => updatePrice(item.productId, Number(e.target.value))} 
-                                      />
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex items-center justify-center gap-2 glass border-border rounded-xl px-2 py-1 mx-auto max-w-fit">
-                                    <button onClick={() => updateQty(item.productId, -1)} className="text-primary font-black hover:scale-125 transition-transform">-</button>
-                                    <span className="w-6 text-center font-black text-xs tabular-nums">{item.qty}</span>
-                                    <button onClick={() => updateQty(item.productId, 1)} className="text-primary font-black hover:scale-125 transition-transform">+</button>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-left font-black text-sm tabular-nums text-primary">
-                                  {(item.price * item.qty).toLocaleString()} دج
-                                </TableCell>
-                                <TableCell>
-                                  <button className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg flex items-center justify-center" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
+                 </div>
+                 <Table>
+                    <TableBody>
+                       {cart.map(item => (
+                         <TableRow key={item.productId}>
+                            <TableCell className="font-black text-sm">{item.name}</TableCell>
+                            <TableCell className="text-center font-black tabular-nums text-primary">{item.qty}</TableCell>
+                            <TableCell className="text-left font-black">{(item.price * item.qty).toLocaleString()} دج</TableCell>
+                            <TableCell><Button variant="ghost" size="icon" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell>
+                         </TableRow>
+                       ))}
+                    </TableBody>
+                 </Table>
               </Card>
-
-              <Card className="border-none glass shadow-xl rounded-[2rem]">
-                <CardHeader className="p-6 md:p-8 border-b border-border">
-                   <CardTitle className="text-lg md:text-xl font-black">العميل والمدفوعات</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 md:p-8 space-y-6">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="space-y-2 relative">
-                        <Label className="text-[10px] font-black text-primary uppercase flex items-center justify-between">
-                           العميل
-                           <span className="text-[8px] opacity-40 font-bold">(يمكنك الكتابة مباشرة للعملاء غير المسجلين)</span>
-                        </Label>
-                        <div className="flex gap-2">
-                           <div className="relative flex-1 group">
-                              <Input 
-                                className="h-12 glass border-none rounded-xl font-bold pr-4" 
-                                placeholder="ابحث أو اكتب اسم العميل..." 
-                                value={selectedCustomer ? selectedCustomer.name : customerSearch} 
-                                onChange={(e) => {
-                                   setCustomerSearch(e.target.value);
-                                   if (selectedCustomer) setSelectedCustomer(null);
-                                }} 
-                              />
-                              <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                 { (selectedCustomer || customerSearch) && (
-                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
-                                      <X className="h-4 w-4" />
-                                   </Button>
-                                 )}
-                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                       <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                                          <ChevronDown className="h-4 w-4" />
-                                       </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="glass border-none rounded-2xl z-[250] w-64 max-h-60 overflow-y-auto shadow-2xl" align="end" dir="rtl">
-                                       <p className="p-2 text-[10px] font-black text-primary border-b border-white/10 uppercase">اختر من القائمة:</p>
-                                       {customers?.sort((a,b) => a.name.localeCompare(b.name, 'ar')).map(c => (
-                                          <DropdownMenuItem key={c.id} className="font-bold py-3 cursor-pointer" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
-                                             <User className="h-3 w-3 ml-2 text-primary" /> {c.name}
-                                          </DropdownMenuItem>
-                                       ))}
-                                    </DropdownMenuContent>
-                                 </DropdownMenu>
-                              </div>
-                           </div>
-                           <Button 
-                              variant="outline" 
-                              className="h-12 w-12 rounded-xl glass border-white/20 text-primary shadow-lg"
-                              onClick={() => setIsQuickAddOpen(true)}
-                              title="إضافة عميل جديد للقاعدة"
-                           >
-                              <UserPlus className="h-5 w-5" />
-                           </Button>
-                        </div>
-
-                        {customerSearch && !selectedCustomer && (
-                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-[150] overflow-hidden max-h-[200px] overflow-y-auto border border-white/10">
-                            {customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
-                              <div key={c.id} className="p-4 hover:bg-primary/5 cursor-pointer border-b border-border font-bold text-xs flex justify-between items-center" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
-                                <span>{c.name}</span>
-                                <span className="text-[10px] opacity-40">{c.phone}</span>
-                              </div>
-                            ))}
-                            <div className="p-3 bg-black/5 text-[9px] font-black text-center text-muted-foreground italic">
-                               سيتم تسجيل الاسم "{customerSearch}" في هذه الفاتورة فقط
-                            </div>
-                          </div>
-                        )}
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-primary uppercase">الخصم</Label>
-                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-orange-600" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black text-emerald-500 uppercase">المدفوع</Label>
-                            <Input type="number" className="h-12 glass border-none rounded-xl font-black text-emerald-600" placeholder={total.toString()} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
-                        </div>
-                     </div>
-                   </div>
-                </CardContent>
+           </div>
+           
+           <div className="lg:col-span-1">
+              <Card className="border-none bg-primary text-white rounded-[3rem] p-8 space-y-6 shadow-2xl">
+                 <div className="space-y-4">
+                    <h3 className="text-xl font-black">الحساب النهائي</h3>
+                    <div className="flex justify-between text-4xl font-black tabular-nums">{total.toLocaleString()} دج</div>
+                    <Separator className="bg-white/20" />
+                    <Button className="w-full h-14 rounded-2xl bg-white text-primary font-black text-lg" onClick={() => cart.length > 0 && setShowPreview(true)} disabled={cart.length === 0}>معاينة وطباعة</Button>
+                 </div>
               </Card>
-            </div>
-
-            <div className="lg:col-span-1">
-              <Card className="border-none shadow-2xl sticky top-24 bg-gradient-to-br from-primary to-[#2a4580] text-white rounded-[2rem] md:rounded-[3rem] p-6 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-black">ملخص الحساب</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between opacity-80"><span>المجموع الفرعي:</span> <span className="tabular-nums">{subtotal.toLocaleString()} دج</span></div>
-                    {discount > 0 && <div className="flex justify-between text-orange-200"><span>الخصم الممنوح:</span> <span className="tabular-nums">-{discount.toLocaleString()} دج</span></div>}
-                    <div className="flex justify-between text-emerald-200"><span>المبلغ المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
-                    {debtAmount > 0 && (
-                      <div className="flex justify-between text-red-200 font-black"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>
-                    )}
-                  </div>
-                  <Separator className="bg-white/10" />
-                  <div className="pt-2">
-                    <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">الموظف الحالي</span>
-                    <p className="text-sm font-bold opacity-90">{username || "..."}</p>
-                  </div>
-                  <Separator className="bg-white/10" />
-                  <div className="pt-2">
-                    <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">الإجمالي النهائي</span>
-                    <p className="text-4xl font-black tabular-nums">{total.toLocaleString()} دج</p>
-                  </div>
-                  <Button 
-                    className="w-full bg-white text-primary font-black hover:bg-white/90 h-14 rounded-2xl text-lg shadow-xl hover:scale-105 transition-transform" 
-                    onClick={() => cart.length > 0 && setShowPreview(true)} 
-                    disabled={cart.length === 0}
-                  >
-                    {editId ? "حفظ التعديلات والمعاينة" : "معاينة الفاتورة للطباعة"}
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          </div>
+           </div>
         </main>
 
-        {/* Quick Add Customer Dialog */}
-        <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
-           <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl p-8 z-[300] max-w-md w-[95%]">
-              <DialogHeader>
-                 <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center gap-3">
-                    <UserPlus className="h-6 w-6 text-primary" /> تسجيل عميل جديد
-                 </DialogTitle>
-                 <DialogDescription className="font-bold text-xs mt-2">أدخل البيانات الأساسية لإضافة العميل للقاعدة بشكل دائم.</DialogDescription>
-              </DialogHeader>
-              <div className="py-6 space-y-6">
-                 <div className="space-y-2">
-                    <Label className="font-black text-xs text-primary uppercase px-1">الاسم الكامل</Label>
-                    <Input value={qaCustName} onChange={(e) => setQaCustName(e.target.value)} className="h-12 glass border-none rounded-xl font-bold" placeholder="اسم العميل الرباعي" />
-                 </div>
-                 <div className="space-y-2">
-                    <Label className="font-black text-xs text-primary uppercase px-1">رقم الهاتف</Label>
-                    <Input value={qaCustPhone} onChange={(e) => setQaCustPhone(e.target.value)} className="h-12 glass border-none rounded-xl font-bold tabular-nums" placeholder="06XXXXXXXX" />
-                 </div>
-              </div>
-              <DialogFooter>
-                 <Button className="w-full h-14 rounded-2xl bg-primary text-white font-black shadow-xl" onClick={handleQuickAddCustomer}>
-                    تأكيد وتسجيل العميل
-                 </Button>
-              </DialogFooter>
-           </DialogContent>
-        </Dialog>
-
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
-             <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
-                <DialogTitle className="text-xl font-black text-center text-primary">معاينة الفاتورة النهائية</DialogTitle>
-             </DialogHeader>
-
-             <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
-                <div className="flex flex-col items-center min-h-full py-4">
-                  <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
-                     <div className="text-center space-y-1 border-b-2 border-black pb-4">
-                        <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
-                        <p className="text-[9px] sm:text-[10px] font-bold">خدمات تصليح وبيع الهواتف</p>
-                        <p className="text-[9px] sm:text-[10px] tabular-nums">{format(new Date(), "yyyy/MM/dd HH:mm", { locale: ar })}</p>
-                     </div>
-
-                     <div className="space-y-1">
-                        <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{editId || pendingId}</span></p>
-                        <p>العميل: {selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام")}</p>
-                        <p>الهاتف: {selectedCustomer?.id === 'walk-in' || (!selectedCustomer?.phone && !customerSearch) ? "لا يوجد" : (selectedCustomer?.phone || "غير مسجل")}</p>
-                        <p>بواسطة: {username || "غير معرف"}</p>
-                     </div>
-
-                     <table className="w-full text-left">
-                        <thead className="border-b border-black">
-                          <tr>
-                             <th className="py-2 text-right">المنتج</th>
-                             <th className="py-2 text-center">كمية</th>
-                             <th className="py-2 text-left">المجموع</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-black/10">
-                          {cart.map((item) => (
-                            <tr key={item.productId}>
-                               <td className="py-2 text-right font-bold break-words">{item.name}</td>
-                               <td className="py-2 text-center tabular-nums">{item.qty}</td>
-                               <td className="py-2 text-left tabular-nums">{(item.price * item.qty).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                     </table>
-
-                     <div className="space-y-1 border-t border-black pt-4">
-                        <div className="flex justify-between"><span>المجموع:</span> <span className="tabular-nums">{(subtotal).toLocaleString()} دج</span></div>
-                        {discount > 0 && <div className="flex justify-between"><span>الخصم:</span> <span className="tabular-nums">-${discount.toLocaleString()} دج</span></div>}
-                        <div className="flex justify-between font-black text-sm sm:text-base border-t-2 border-double border-black pt-2">
-                           <span>الإجمالي النهائي:</span> <span className="tabular-nums">{total.toLocaleString()} دج</span>
-                        </div>
-                        <div className="flex justify-between text-[10px] sm:text-[11px]"><span>المدفوع:</span> <span className="tabular-nums">{finalPaid.toLocaleString()} دج</span></div>
-                        {debtAmount > 0 && <div className="flex justify-between text-red-600 font-bold"><span>المتبقي (دين):</span> <span className="tabular-nums">{debtAmount.toLocaleString()} دج</span></div>}
-                     </div>
-
-                     <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
-                        <img className="w-20 h-20 sm:w-24 sm:h-24" src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${editId || pendingId}`} alt="QR" />
-                        <p className="mt-4 font-black text-xs sm:text-sm">شكراً لزيارتكم</p>
-                     </div>
-                  </div>
-                </div>
+          <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2.5rem] p-8">
+             <DialogHeader><DialogTitle className="text-center font-black">تأكيد العملية</DialogTitle></DialogHeader>
+             <div className="py-6 space-y-4">
+                <div className="p-6 rounded-2xl bg-black/5 text-center font-black text-3xl tabular-nums">{total.toLocaleString()} دج</div>
              </div>
-
-             <div className="p-4 bg-white border-t border-border flex flex-col gap-2 shrink-0">
-                <Button className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2" onClick={handleProcessInvoice} disabled={isProcessing}>
-                   {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} {editId ? "حفظ التعديلات النهائية" : "تأكيد وتنفيذ الطباعة"}
-                </Button>
-                <Button variant="outline" className="w-full h-11 rounded-xl font-bold border-white/20" onClick={() => setShowPreview(false)}>تراجع للتعديل</Button>
-             </div>
+             <DialogFooter><Button onClick={handleProcessInvoice} disabled={isProcessing} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg">تأكيد وحفظ الفاتورة</Button></DialogFooter>
           </DialogContent>
         </Dialog>
     </div>
