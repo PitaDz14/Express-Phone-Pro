@@ -44,7 +44,8 @@ import {
   Ghost,
   History,
   Info,
-  Star
+  Star,
+  Trash2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -80,7 +81,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from "@/firebase"
-import { collection, query, limit, orderBy, doc, serverTimestamp } from "firebase/firestore"
+import { collection, query, limit, orderBy, doc, serverTimestamp, where } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -486,15 +487,6 @@ export default function Dashboard() {
     setQaName(""); setQaCode(""); setQaCat(""); setQaImageUrl(""); setQaQty(0); setQaPurchase(0); setQaSale(0); setQaRepair(0); setQaMinStock(1); setQaIsPriority(false);
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => setQaImageUrl(reader.result as string)
-      reader.readAsDataURL(file)
-    }
-  }
-
   const handleQRScan = (code: string) => {
     if (code.includes("/invoices/history")) {
       const hash = code.split('#')[1];
@@ -509,6 +501,29 @@ export default function Dashboard() {
       toast({ title: "منتج غير معروف", description: `كود ${code} غير موجود في النظام`, variant: "destructive" })
     }
   }
+
+  const toggleProductExclusion = (p: any) => {
+    updateDocumentNonBlocking(doc(db, "products", p.id), {
+      excludeFromLowStock: !p.excludeFromLowStock,
+      updatedAt: serverTimestamp()
+    })
+  }
+
+  const toggleCategoryExclusion = (c: any) => {
+    updateDocumentNonBlocking(doc(db, "categories", c.id), {
+      excludeFromLowStock: !c.excludeFromLowStock,
+      updatedAt: serverTimestamp()
+    })
+  }
+
+  const exclusionSearchResults = React.useMemo(() => {
+    if (exclusionProdSearch.length < 2) return [];
+    return products?.filter(p => 
+      (p.name.toLowerCase().includes(exclusionProdSearch.toLowerCase()) || 
+       p.productCode.toLowerCase().includes(exclusionProdSearch.toLowerCase())) &&
+      !p.excludeFromLowStock
+    ).slice(0, 5) || [];
+  }, [exclusionProdSearch, products]);
 
   if (!isMounted) return null;
 
@@ -661,17 +676,220 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Low Stock Dialog */}
+      <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
+        <DialogContent dir="rtl" className="max-w-5xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210] h-[90vh] flex flex-col">
+          <DialogHeader className="p-4 md:p-6 bg-orange-500/10 border-b border-white/10 shrink-0">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+               <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                     <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div>
+                     <DialogTitle className="text-lg md:text-xl font-black text-orange-700">قائمة النواقص الاحترافية</DialogTitle>
+                     <p className="text-[9px] font-bold text-orange-600/60 uppercase tracking-widest">مراقبة المخزون الحرجة</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setIsExclusionsOpen(true)} className="h-9 px-4 rounded-xl glass border-none font-black text-[10px] gap-2">
+                     <EyeOff className="h-4 w-4 text-primary" /> إدارة المستثنيات
+                  </Button>
+                  <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
+                     <SelectTrigger className="h-9 w-36 md:w-48 glass border-none rounded-xl font-bold text-[10px]">
+                        <SelectValue placeholder="تصفية حسب الصنف" />
+                     </SelectTrigger>
+                     <SelectContent className="glass border-none rounded-xl z-[450]">
+                        <SelectItem value="all">كل الأصناف</SelectItem>
+                        {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                     </SelectContent>
+                  </Select>
+               </div>
+             </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col">
+             <div className="table-container flex-1 overflow-y-auto custom-scrollbar">
+                <table className="w-full text-center">
+                   <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-white/10">
+                      <tr className="text-[10px] font-black text-muted-foreground uppercase">
+                         <th className="p-4">المنتج</th>
+                         <th className="p-4 hidden md:table-cell">الصنف</th>
+                         <th className="p-4">المتوفر</th>
+                         <th className="p-4">الحد الأدنى</th>
+                         <th className="p-4">الإجراءات</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-white/5">
+                      {lowStockItems.length === 0 ? (
+                        <tr><td colSpan={5} className="py-20 text-center opacity-30 italic font-black">لا توجد نواقص في هذا النطاق</td></tr>
+                      ) : lowStockItems.map(p => (
+                        <tr key={p.id} className="group hover:bg-white/40 transition-colors">
+                           <td className="p-4">
+                              <div className="flex items-center justify-center gap-3">
+                                 <div className="h-10 w-10 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                                    {p.imageUrl ? <img src={p.imageUrl} className="h-full w-full object-cover" /> : <Package className="h-4 w-4 opacity-10" />}
+                                 </div>
+                                 <div className="flex flex-col text-right">
+                                    <span onClick={() => setViewFullName(p.name)} className="font-black text-xs cursor-pointer hover:text-primary transition-colors">{p.name}</span>
+                                    <span className="text-[9px] font-bold text-muted-foreground">#{p.productCode}</span>
+                                 </div>
+                              </div>
+                           </td>
+                           <td className="p-4 hidden md:table-cell text-[10px] font-bold text-primary">{p.categoryPath || p.categoryName}</td>
+                           <td className="p-4"><Badge variant="destructive" className="h-6 rounded-lg font-black tabular-nums">{p.quantity}</Badge></td>
+                           <td className="p-4 text-[10px] font-black tabular-nums opacity-60">{p.minStockQuantity || 1}</td>
+                           <td className="p-4">
+                              <Button 
+                                variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white"
+                                onClick={() => toggleProductExclusion(p)}
+                                title="استبعاد من النواقص"
+                              >
+                                 <EyeOff className="h-4 w-4" />
+                              </Button>
+                           </td>
+                        </tr>
+                      ))}
+                   </tbody>
+                </table>
+             </div>
+          </div>
+          <div className="p-4 bg-black/5 text-center shrink-0">
+             <Button className="rounded-2xl px-12 h-11 font-black shadow-lg" onClick={() => setIsLowStockOpen(false)}>إغلاق القائمة</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exclusions Dialog */}
+      <Dialog open={isExclusionsOpen} onOpenChange={setIsExclusionsOpen}>
+         <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[220] h-[85vh] flex flex-col">
+            <DialogHeader className="p-4 md:p-6 bg-primary/10 border-b border-white/10 shrink-0">
+               <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary flex items-center justify-center text-white">
+                     <Settings2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                     <DialogTitle className="text-lg md:text-xl font-black text-primary">مركز إدارة المستثنيات الذكي</DialogTitle>
+                     <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">تخصيص رادار النواقص والإحصائيات</p>
+                  </div>
+               </div>
+            </DialogHeader>
+
+            <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden">
+               <TabsList className="mx-6 mt-4 h-11 rounded-xl bg-black/5 p-1 gap-1 shrink-0">
+                  <TabsTrigger value="products" className="flex-1 rounded-lg font-black text-[10px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Package className="h-4 w-4" /> المنتجات المستبعدة</TabsTrigger>
+                  <TabsTrigger value="categories" className="flex-1 rounded-lg font-black text-[10px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Layers className="h-4 w-4" /> الأصناف المستبعدة</TabsTrigger>
+               </TabsList>
+
+               <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col p-6 space-y-4">
+                  <div className="space-y-4 shrink-0">
+                     <p className="text-[10px] font-black text-primary uppercase px-2">إضافة منتج جديد للاستبعاد</p>
+                     <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                           placeholder="ابحث عن المنتج المراد استبعاده..." 
+                           className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs"
+                           value={exclusionProdSearch}
+                           onChange={(e) => setExclusionProductSearch(e.target.value)}
+                        />
+                        {exclusionSearchResults.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-xl shadow-2xl z-20 border border-white/20 overflow-hidden divide-y divide-white/5">
+                             {exclusionSearchResults.map(p => (
+                               <div key={p.id} className="p-3 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
+                                  <div className="flex flex-col">
+                                     <span className="font-black text-xs">{p.name}</span>
+                                     <span className="text-[9px] font-bold opacity-40">#{p.productCode}</span>
+                                  </div>
+                                  <Button size="sm" onClick={() => { toggleProductExclusion(p); setExclusionProductSearch(""); }} className="h-8 px-4 rounded-lg bg-primary text-white font-black text-[9px]">استبعاد الآن</Button>
+                               </div>
+                             ))}
+                          </div>
+                        )}
+                     </div>
+                  </div>
+
+                  <Separator className="bg-white/10" />
+
+                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                     <p className="text-[10px] font-black text-muted-foreground uppercase px-2 mb-2">قائمة المستثنيات الحالية</p>
+                     {products?.filter(p => p.excludeFromLowStock).length === 0 ? (
+                       <div className="py-20 text-center opacity-30 italic font-black text-xs">لا يوجد منتجات مستبعدة حالياً</div>
+                     ) : products?.filter(p => p.excludeFromLowStock).map(p => (
+                       <div key={p.id} className="p-3 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
+                          <div className="flex items-center gap-3">
+                             <div className="h-8 w-8 rounded-lg bg-card flex items-center justify-center shrink-0">
+                                <Package className="h-4 w-4 opacity-20" />
+                             </div>
+                             <div className="flex flex-col">
+                                <span className="font-bold text-xs">{p.name}</span>
+                                <span className="text-[8px] font-black opacity-40">{p.categoryPath}</span>
+                             </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500 hover:bg-emerald-500/10" onClick={() => toggleProductExclusion(p)}>
+                             <Eye className="h-4 w-4" />
+                          </Button>
+                       </div>
+                     ))}
+                  </div>
+               </TabsContent>
+
+               <TabsContent value="categories" className="flex-1 overflow-hidden flex flex-col p-6 space-y-4">
+                  <div className="space-y-4 shrink-0">
+                     <p className="text-[10px] font-black text-primary uppercase px-2">استبعاد صنف كامل من الإحصائيات</p>
+                     <Select onValueChange={(val) => { const c = categories?.find(x => x.id === val); if(c) toggleCategoryExclusion(c); }}>
+                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-xs">
+                           <SelectValue placeholder="اختر الصنف المراد استبعاده نهائياً..." />
+                        </SelectTrigger>
+                        <SelectContent className="glass border-none rounded-xl z-[450]">
+                           {categories?.filter(c => !c.excludeFromLowStock).map(c => (
+                             <SelectItem key={c.id} value={c.id} className="font-bold text-xs">{c.name}</SelectItem>
+                           ))}
+                        </SelectContent>
+                     </Select>
+                  </div>
+
+                  <Separator className="bg-white/10" />
+
+                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                     <p className="text-[10px] font-black text-muted-foreground uppercase px-2 mb-2">الأصناف المستبعدة حالياً</p>
+                     {categories?.filter(c => c.excludeFromLowStock).length === 0 ? (
+                        <div className="py-20 text-center opacity-30 italic font-black text-xs">لا توجد أصناف مستبعدة حالياً</div>
+                     ) : categories?.filter(c => c.excludeFromLowStock).map(c => (
+                        <div key={c.id} className="p-4 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
+                           <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                 <Layers className="h-5 w-5" />
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="font-black text-sm">{c.name}</span>
+                                 <span className="text-[9px] font-bold text-red-500 uppercase">مستبعد من كافة التقارير</span>
+                              </div>
+                           </div>
+                           <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-500 hover:bg-emerald-500/10" onClick={() => toggleCategoryExclusion(c)}>
+                              <Eye className="h-5 w-5" />
+                           </Button>
+                        </div>
+                     ))}
+                  </div>
+               </TabsContent>
+            </Tabs>
+            
+            <div className="p-4 bg-black/5 text-center">
+               <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setIsExclusionsOpen(false)}>العودة للنواقص</Button>
+            </div>
+         </DialogContent>
+      </Dialog>
+
       {/* Name Preview Dialog */}
       <Dialog open={!!viewFullName} onOpenChange={() => setViewFullName(null)}>
          <DialogContent dir="rtl" className="glass border-none rounded-3xl shadow-2xl p-6 z-[600] max-w-sm">
-            <DialogHeader className="pb-4 border-b border-white/10">
-               <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest">الاسم الكامل للمنتج</DialogTitle>
+            <DialogHeader className="pb-2 border-b border-white/10">
+               <DialogTitle className="text-[10px] font-black text-primary uppercase tracking-widest">الاسم الكامل للمنتج</DialogTitle>
             </DialogHeader>
             <div className="py-8">
                <p className="text-xl font-black text-foreground leading-relaxed text-center">{viewFullName}</p>
             </div>
             <DialogFooter>
-               <Button onClick={() => setViewFullName(null)} className="w-full h-12 rounded-xl bg-primary font-black">إغلاق المعاينة</Button>
+               <Button onClick={() => setViewFullName(null)} className="w-full h-12 rounded-xl bg-primary font-black shadow-xl">إغلاق المعاينة</Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>
