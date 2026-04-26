@@ -20,7 +20,8 @@ import {
   FileJson,
   Volume2,
   VolumeX,
-  BellRing
+  BellRing,
+  Save
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   const [lastSyncTime, setLastSyncTime] = React.useState<string | null>(null)
   const [fileHandle, setFileHandle] = React.useState<any>(null)
   const [isHandleRestored, setIsHandleRestored] = React.useState(false)
+  const [isManualSyncing, setIsManualSyncing] = React.useState(false)
 
   // Sound Settings
   const [isSoundEnabled, setIsSoundEnabled] = React.useState(true)
@@ -143,16 +145,18 @@ export default function SettingsPage() {
       const savedHandle = await getHandleFromIDB();
       if (savedHandle) {
         setFileHandle(savedHandle);
-        setIsHandleRestored(true);
         try {
-          if (await savedHandle.queryPermission({ mode: 'readwrite' }) === 'granted') {
+          const permission = await savedHandle.queryPermission({ mode: 'readwrite' });
+          if (permission === 'granted') {
             setIsSyncActive(true);
             setIsHandleRestored(false);
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-              navigator.serviceWorker.controller.postMessage({ type: 'START_BACKUP' });
-            }
+          } else {
+            setIsHandleRestored(true);
+            setIsSyncActive(false);
           }
-        } catch (e) {}
+        } catch (e) {
+          setIsHandleRestored(true);
+        }
       }
     };
     restore();
@@ -172,9 +176,7 @@ export default function SettingsPage() {
       setFileHandle(handle);
       setIsSyncActive(true);
       setIsHandleRestored(false);
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'START_BACKUP' });
-      }
+      window.dispatchEvent(new CustomEvent('perform-system-backup'));
       toast({ title: "تم تفعيل المزامنة", description: "تم ربط ملف التخزين بنجاح وسيتحدث كل 5 دقائق." });
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -189,15 +191,23 @@ export default function SettingsPage() {
       if (await fileHandle.requestPermission({ mode: 'readwrite' }) === 'granted') {
         setIsSyncActive(true);
         setIsHandleRestored(false);
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'START_BACKUP' });
-        }
+        window.dispatchEvent(new CustomEvent('perform-system-backup'));
         toast({ title: "تمت استعادة الاتصال", description: "النظام سيتابع تحديث الملف المختار تلقائياً." });
       }
     } catch (err) {
       toast({ variant: "destructive", title: "فشلت الاستعادة", description: "يرجى اختيار ملف جديد للمزامنة." });
     }
   }
+
+  const handleForceManualSync = () => {
+    setIsManualSyncing(true);
+    window.dispatchEvent(new CustomEvent('perform-system-backup'));
+    setTimeout(() => {
+      setIsManualSyncing(false);
+      toast({ title: "تم الحفظ الفوري", description: "تم تحديث ملف المزامنة والنسخة الاحتياطية بنجاح." });
+      playSystemSound('success');
+    }, 1500);
+  };
 
   const handleManualMobileExport = async () => {
     setIsExporting(true);
@@ -372,15 +382,25 @@ export default function SettingsPage() {
               <div className="flex items-center gap-5">
                  <div className={cn(
                    "h-16 w-16 rounded-[2rem] flex items-center justify-center shadow-2xl transition-all duration-500",
-                   isSyncActive ? "bg-emerald-500 text-white animate-pulse" : isHandleRestored ? "bg-orange-500 text-white" : "bg-white/10 text-white/50"
+                   isSyncActive ? "bg-emerald-500 text-white shadow-emerald-500/20" : isHandleRestored ? "bg-orange-500 text-white" : "bg-white/10 text-white/50"
                  )}>
-                    <RefreshCw className={cn("h-8 w-8", isSyncActive && "animate-spin")} />
+                    <RefreshCw className={cn("h-8 w-8", (isSyncActive || isManualSyncing) && "animate-spin")} />
                  </div>
                  <div>
                     <CardTitle className="text-2xl md:text-3xl font-black tracking-tight">المزامنة المحلية الذكية</CardTitle>
                     <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">Persistent File Storage</p>
                  </div>
               </div>
+              {isSyncActive && (
+                 <Button 
+                   onClick={handleForceManualSync} 
+                   disabled={isManualSyncing}
+                   className="h-12 px-6 rounded-xl bg-white text-slate-900 font-black gap-2 shadow-xl hover:bg-slate-100 z-20"
+                 >
+                   {isManualSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                   حفظ يدوي للملف الآن
+                 </Button>
+              )}
            </div>
         </CardHeader>
         <CardContent className="p-8 md:p-10 pt-0 relative z-10 space-y-8">
@@ -392,6 +412,9 @@ export default function SettingsPage() {
                       : "نظراً للقيود الأمنية في متصفحات الهاتف، لا يمكن الربط المباشر بملف، ولكن يمكنك تحميل نسخة احتياطية كاملة لجهازك بنقرة واحدة سريعة."
                     }
                  </p>
+                 {isApiSupported && !isSyncActive && !isHandleRestored && (
+                   <Button onClick={handleSetupDeviceSync} className="w-full md:w-auto h-12 px-10 rounded-2xl bg-primary text-white font-black hover:bg-primary/90 shadow-2xl transition-all">إعداد ربط ملف جديد</Button>
+                 )}
               </div>
               
               <div className="glass bg-white/5 rounded-[2rem] p-6 border-white/10 flex flex-col justify-between gap-6">
@@ -409,7 +432,7 @@ export default function SettingsPage() {
                             <FileJson className="h-5 w-5 text-primary shrink-0" />
                             <span className="text-xs font-mono font-bold text-white/80 truncate">{(fileHandle?.name) || "ExpressBackup.json"}</span>
                          </div>
-                         <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:bg-red-500/10" onClick={() => { setIsSyncActive(false); localStorage.removeItem(KEY_NAME); }}>
+                         <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:bg-red-500/10" onClick={() => { setIsSyncActive(false); localStorage.removeItem(KEY_NAME); setFileHandle(null); }}>
                             <X className="h-4 w-4" />
                          </Button>
                       </div>
@@ -419,13 +442,19 @@ export default function SettingsPage() {
                             <span className="text-[10px] font-black text-white/60 tabular-nums">{lastSyncTime || "الآن..."}</span>
                          </div>
                       </div>
+                      <Button variant="outline" onClick={handleSetupDeviceSync} className="w-full h-10 border-white/10 text-white/60 font-bold text-[10px] rounded-xl hover:text-white">تغيير ملف المزامنة</Button>
                    </div>
                  ) : isHandleRestored ? (
                     <div className="flex flex-col items-center justify-center text-center gap-4 py-4">
                        <div className="h-14 w-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 animate-pulse">
                           <Lock className="h-6 w-6" />
                        </div>
+                       <div className="space-y-2">
+                          <p className="text-sm font-black">الاتصال بالملف معلق</p>
+                          <p className="text-[10px] text-white/50">بسبب قيود المتصفح، نحتاج لإذنك مرة أخرى لتحديث الملف.</p>
+                       </div>
                        <Button onClick={handleResumeSync} className="w-full h-12 rounded-2xl bg-orange-500 text-white font-black hover:bg-orange-600 shadow-xl transition-all">تفعيل المزامنة المباشرة</Button>
+                       <Button variant="ghost" onClick={handleSetupDeviceSync} className="text-[10px] text-white/30 hover:text-white">أو اختر ملفاً جديداً</Button>
                     </div>
                  ) : !isApiSupported ? (
                     <div className="flex flex-col items-center justify-center text-center gap-4 py-4">
@@ -433,6 +462,7 @@ export default function SettingsPage() {
                     </div>
                  ) : (
                    <div className="flex flex-col items-center justify-center text-center gap-6 py-4">
+                      <p className="text-xs font-bold text-white/40">لم يتم ربط أي ملف للتخزين المحلي بعد.</p>
                       <Button onClick={handleSetupDeviceSync} className="w-full h-12 rounded-2xl bg-white text-slate-900 font-black hover:bg-white/90 shadow-2xl transition-all">اختيار موقع الملف والبدء</Button>
                    </div>
                  )}
@@ -475,6 +505,7 @@ export default function SettingsPage() {
                   <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 text-emerald-400" />
                   <h2 className="text-2xl md:text-3xl font-black">حماية البيانات المتكاملة</h2>
                </div>
+               <p className="text-white/60 font-medium">نوصي دائماً بحفظ نسخة في ملف خارجي أو فلاش ميموري بانتظام لضمان أمان عملك.</p>
             </div>
             <div className="flex flex-col gap-3 w-full md:w-72">
                <Button variant="destructive" className="h-12 rounded-xl font-black shadow-2xl text-xs" onClick={() => setShowWipeDialog(true)}>مسح كافة البيانات نهائياً</Button>

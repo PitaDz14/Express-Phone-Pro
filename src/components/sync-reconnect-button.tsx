@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from "react"
-import { RefreshCw, ShieldAlert, HardDrive, CheckCircle2, Download } from "lucide-react"
+import { RefreshCw, ShieldAlert, HardDrive, CheckCircle2, Download, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -28,25 +28,15 @@ export function SyncReconnectButton() {
   const [fileHandle, setFileHandle] = React.useState<any>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
 
-  // Detect File System Access API Support
   const isApiSupported = typeof window !== 'undefined' && 'showSaveFilePicker' in window;
 
   const getHandleFromIDB = (): Promise<any> => {
     return new Promise((resolve) => {
       const request = indexedDB.open(STORE_NAME, 1);
-      request.onupgradeneeded = (e: any) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('handles')) {
-          db.createObjectStore('handles');
-        }
-      };
       request.onsuccess = (e: any) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('handles')) {
-          resolve(null);
-          return;
-        }
-        const tx = db.transaction('handles', 'readonly');
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains('handles')) { resolve(null); return; }
+        const tx = idb.transaction('handles', 'readonly');
         const store = tx.objectStore('handles');
         const getRequest = store.get(KEY_NAME);
         getRequest.onsuccess = () => resolve(getRequest.result);
@@ -57,21 +47,14 @@ export function SyncReconnectButton() {
   };
 
   const checkStatus = React.useCallback(async () => {
-    if (!isApiSupported) {
-      setStatus('mobile-fallback');
-      return;
-    }
+    if (!isApiSupported) { setStatus('mobile-fallback'); return; }
 
     const savedHandle = await getHandleFromIDB();
     if (savedHandle) {
       setFileHandle(savedHandle);
       try {
         const permission = await savedHandle.queryPermission({ mode: 'readwrite' });
-        if (permission === 'granted') {
-          setStatus('healthy');
-        } else {
-          setStatus('needs-reconnect');
-        }
+        setStatus(permission === 'granted' ? 'healthy' : 'needs-reconnect');
       } catch (e) {
         setStatus('needs-reconnect');
       }
@@ -83,10 +66,10 @@ export function SyncReconnectButton() {
   React.useEffect(() => {
     checkStatus();
     window.addEventListener('focus', checkStatus);
-    window.addEventListener('perform-system-backup', checkStatus);
+    window.addEventListener('ep-global-backup-updated', checkStatus);
     return () => {
       window.removeEventListener('focus', checkStatus);
-      window.removeEventListener('perform-system-backup', checkStatus);
+      window.removeEventListener('ep-global-backup-updated', checkStatus);
     }
   }, [checkStatus]);
 
@@ -103,7 +86,7 @@ export function SyncReconnectButton() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ExpressPhone_MobileBackup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `ExpressPhone_QuickBackup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       toast({ title: "تم الحفظ بنجاح", description: "تم تحميل النسخة الاحتياطية لجهازك." });
     } catch (err) {
@@ -121,6 +104,17 @@ export function SyncReconnectButton() {
       return;
     }
 
+    if (status === 'healthy') {
+      // In healthy state, act as a Manual Sync Trigger
+      setIsProcessing(true);
+      window.dispatchEvent(new CustomEvent('perform-system-backup'));
+      setTimeout(() => {
+        setIsProcessing(false);
+        toast({ title: "اكتملت المزامنة", description: "تم تحديث الملف والنسخة الاحتياطية بنجاح." });
+      }, 1000);
+      return;
+    }
+
     setIsProcessing(true);
     try {
       if (status === 'none') {
@@ -132,8 +126,8 @@ export function SyncReconnectButton() {
         
         const request = indexedDB.open(STORE_NAME, 1);
         request.onsuccess = (e: any) => {
-          const db = e.target.result;
-          const tx = db.transaction('handles', 'readwrite');
+          const idb = e.target.result;
+          const tx = idb.transaction('handles', 'readwrite');
           tx.objectStore('handles').put(handle, KEY_NAME);
         };
 
@@ -146,7 +140,6 @@ export function SyncReconnectButton() {
           toast({ title: "تمت استعادة الاتصال", description: "المزامنة نشطة الآن." });
         }
       }
-      
       window.dispatchEvent(new CustomEvent('perform-system-backup'));
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -157,7 +150,7 @@ export function SyncReconnectButton() {
     }
   };
 
-  if (!isAdmin || status === 'healthy') return null;
+  if (!isAdmin) return null;
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -171,9 +164,11 @@ export function SyncReconnectButton() {
               "h-9 w-9 md:h-11 md:w-11 rounded-xl transition-all duration-500 shadow-lg border",
               status === 'needs-reconnect' 
                 ? "bg-orange-500/10 text-orange-500 border-orange-500/20 animate-pulse" 
-                : status === 'mobile-fallback'
+                : status === 'healthy'
                   ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                  : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20",
+                  : status === 'mobile-fallback'
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                    : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20",
               isProcessing && "opacity-50"
             )}
           >
@@ -181,6 +176,8 @@ export function SyncReconnectButton() {
               <RefreshCw className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
             ) : status === 'needs-reconnect' ? (
               <ShieldAlert className="h-4 w-4 md:h-5 md:w-5" />
+            ) : status === 'healthy' ? (
+              <Save className="h-4 w-4 md:h-5 md:w-5" />
             ) : status === 'mobile-fallback' ? (
               <Download className="h-4 w-4 md:h-5 md:w-5" />
             ) : (
@@ -188,10 +185,12 @@ export function SyncReconnectButton() {
             )}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className={cn("text-white border-none rounded-xl font-black text-[10px] px-3 py-1.5", 
+        <TooltipContent side="bottom" className={cn("text-white border-none rounded-xl font-black text-[10px] px-3 py-1.5 shadow-2xl", 
           status === 'needs-reconnect' ? "bg-orange-600" : 
+          status === 'healthy' ? "bg-emerald-600" :
           status === 'mobile-fallback' ? "bg-emerald-600" : "bg-primary")}>
           {status === 'needs-reconnect' ? "بانتظار استعادة إذن المزامنة" : 
+           status === 'healthy' ? "مزامنة نشطة: اضغط للحفظ الفوري" :
            status === 'mobile-fallback' ? "تحميل نسخة احتياطية سريعة" : "تأمين البيانات: ربط ملف محلي"}
         </TooltipContent>
       </Tooltip>
