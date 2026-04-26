@@ -133,6 +133,7 @@ export default function ProductsPage() {
   const [open, setOpen] = React.useState(false)
   const [editingProduct, setEditingProduct] = React.useState<any>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
   
   // Form States
   const [productName, setProductName] = React.useState("")
@@ -150,19 +151,45 @@ export default function ProductsPage() {
   const [zoomImg, setZoomImg] = React.useState<{ url: string, name: string } | null>(null)
   const [zoomQR, setZoomQR] = React.useState<string | null>(null)
 
-  const productsRef = useMemoFirebase(() => query(collection(db, "products"), orderBy("name", "asc")), [db])
+  const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
   const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
   const { data: products, isLoading } = useCollection(productsRef)
   const { data: categories } = useCollection(categoriesRef)
 
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
   const filteredProducts = React.useMemo(() => {
     if (!products) return [];
     const term = searchTerm.toLowerCase();
-    return products.filter(p => 
+    let items = products.filter(p => 
       p.name.toLowerCase().includes(term) || 
       (p.productCode && p.productCode.toLowerCase().includes(term))
     );
-  }, [products, searchTerm]);
+
+    if (sortConfig.key) {
+      items.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+        
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+        }
+
+        valA = String(valA || "").toLowerCase();
+        valB = String(valB || "").toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return items;
+  }, [products, searchTerm, sortConfig]);
 
   const handleSaveProduct = () => {
     if (!isAdmin || !productName || !categoryId || !user) return;
@@ -242,6 +269,13 @@ export default function ProductsPage() {
     setTimeout(() => win?.print(), 500);
   }
 
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (sortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (sortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-32">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -271,10 +305,18 @@ export default function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="font-black text-foreground">المنتج</TableHead>
-                <TableHead className="font-black text-foreground hidden md:table-cell">التصنيف</TableHead>
-                <TableHead className="font-black text-foreground text-center">المتوفر</TableHead>
-                <TableHead className="font-black text-foreground text-left">سعر البيع</TableHead>
+                <TableHead className="font-black text-foreground cursor-pointer" onClick={() => handleSort('name')}>
+                   <div className="flex items-center gap-2">المنتج <SortIcon column="name" /></div>
+                </TableHead>
+                <TableHead className="font-black text-foreground hidden md:table-cell cursor-pointer" onClick={() => handleSort('categoryName')}>
+                   <div className="flex items-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
+                </TableHead>
+                <TableHead className="font-black text-foreground text-center cursor-pointer" onClick={() => handleSort('quantity')}>
+                   <div className="flex items-center justify-center gap-2">المتوفر <SortIcon column="quantity" /></div>
+                </TableHead>
+                <TableHead className="font-black text-foreground text-left cursor-pointer" onClick={() => handleSort('salePrice')}>
+                   <div className="flex items-center justify-end gap-2"><SortIcon column="salePrice" /> سعر البيع</div>
+                </TableHead>
                 <TableHead className="font-black text-foreground text-center">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
