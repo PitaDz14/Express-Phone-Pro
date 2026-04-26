@@ -421,7 +421,7 @@ export default function Dashboard() {
     const term = quickEditSearch.toLowerCase()
     return products.filter(p => 
       p.name.toLowerCase().includes(term) || p.productCode?.toLowerCase().includes(term)
-    ).slice(0, 10) 
+    ).slice(0, 15) 
   }, [quickEditSearch, products])
 
   const handleFullAdd = async () => {
@@ -683,12 +683,59 @@ export default function Dashboard() {
       </Dialog>
 
       <Dialog open={isQuickEditOpen} onOpenChange={setIsQuickEditOpen}>
-        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[320] flex flex-col h-[80vh]">
-           <DialogHeader className="p-4 md:p-5 bg-primary/5 border-b border-white/10 shrink-0"><DialogTitle className="text-lg font-black text-primary">التعديل السريع للمخزون</DialogTitle></DialogHeader>
-           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-              {quickEditProducts.map(p => (
+        <DialogContent dir="rtl" className="max-w-2xl w-[95%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[320] flex flex-col h-[85vh]">
+           <DialogHeader className="p-4 md:p-6 bg-primary/5 border-b border-white/10 shrink-0">
+             <DialogTitle className="text-xl font-black text-primary flex items-center justify-center gap-3">
+               <Edit3 className="h-6 w-6" /> التعديل السريع للمخزون
+             </DialogTitle>
+           </DialogHeader>
+
+           {/* Controls Section (Search + Toggles) */}
+           <div className="p-4 md:p-6 space-y-4 bg-card/20 border-b border-white/5 shrink-0">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input 
+                  placeholder="ابحث عن المنتج لتعديله..." 
+                  className="pl-12 h-12 md:h-14 glass border-none rounded-2xl font-bold text-sm shadow-inner" 
+                  value={quickEditSearch}
+                  onChange={(e) => setQuickEditSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center justify-center gap-8">
+                 <div className="flex items-center gap-3">
+                   <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer" htmlFor="show-repair">إظهار سعر التصليح</Label>
+                   <Switch 
+                     id="show-repair"
+                     checked={showRepairInEdit} 
+                     onCheckedChange={(v) => { setShowRepairInEdit(v); localStorage.setItem('setting_showRepairInEdit', String(v)); }} 
+                   />
+                 </div>
+                 {isAdmin && (
+                   <div className="flex items-center gap-3 border-r border-white/10 pr-8">
+                     <Label className="text-[10px] font-black text-orange-600 uppercase tracking-widest cursor-pointer" htmlFor="show-purchase">إظهار سعر الشراء</Label>
+                     <Switch 
+                       id="show-purchase"
+                       checked={showPurchaseInEdit} 
+                       onCheckedChange={(v) => { setShowPurchaseInEdit(v); localStorage.setItem('setting_showPurchaseInEdit', String(v)); }} 
+                     />
+                   </div>
+                 )}
+              </div>
+           </div>
+
+           {/* Results List */}
+           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
+              {quickEditProducts.length === 0 ? (
+                <div className="py-20 text-center opacity-30 italic font-black">لا توجد منتجات تطابق البحث</div>
+              ) : quickEditProducts.map(p => (
                 <QuickEditItem key={p.id} product={p} db={db} showPurchase={showPurchaseInEdit} showRepair={showRepairInEdit} userId={user?.uid || ""} isAdmin={isAdmin} onNameClick={setViewFullName} />
               ))}
+           </div>
+
+           <div className="p-4 bg-black/5 flex justify-center shrink-0">
+             <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setIsQuickEditOpen(false)}>إغلاق النافذة</Button>
            </div>
         </DialogContent>
       </Dialog>
