@@ -497,6 +497,10 @@ export default function Dashboard() {
       excludeFromLowStock: !p.excludeFromLowStock,
       updatedAt: serverTimestamp()
     })
+    toast({ 
+      title: p.excludeFromLowStock ? "تمت الإعادة" : "تم الاستبعاد", 
+      description: p.excludeFromLowStock ? "تمت إعادة المنتج لرادار النواقص" : "لن يظهر هذا المنتج في قوائم النواقص بعد الآن"
+    })
   }
 
   const toggleCategoryExclusion = (c: any) => {
@@ -578,6 +582,15 @@ export default function Dashboard() {
                       </div>
                    </div>
                    <div className="flex items-center gap-4">
+                      {isAdmin && (
+                        <Button 
+                          variant="ghost" size="icon" className={cn("h-8 w-8 rounded-lg transition-colors", p.excludeFromLowStock ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 hover:bg-red-50")}
+                          onClick={(e) => { e.stopPropagation(); toggleProductExclusion(p); }}
+                          title={p.excludeFromLowStock ? "إلغاء الاستبعاد" : "استبعاد من النواقص"}
+                        >
+                          {p.excludeFromLowStock ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        </Button>
+                      )}
                       <div className="flex flex-col items-end">
                         <span className="text-sm md:text-lg font-black text-primary tabular-nums leading-tight">{Number(p.salePrice).toLocaleString()} دج</span>
                         <span className="text-[10px] text-emerald-600 font-black mt-1 bg-emerald-500/5 px-2 py-0.5 rounded-lg">متوفر: {p.quantity}</span>
@@ -751,13 +764,15 @@ export default function Dashboard() {
                            <td className="p-3 md:p-4"><Badge variant="destructive" className="h-6 rounded-lg font-black tabular-nums">{p.quantity}</Badge></td>
                            <td className="p-3 md:p-4 text-[10px] font-black tabular-nums opacity-60">{p.minStockQuantity || 1}</td>
                            <td className="p-3 md:p-4">
-                              <Button 
-                                variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white"
-                                onClick={() => toggleProductExclusion(p)}
-                                title="استبعاد من النواقص"
-                              >
-                                 <EyeOff className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center justify-center gap-2">
+                                <Button 
+                                  variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white"
+                                  onClick={() => toggleProductExclusion(p)}
+                                  title="استبعاد من النواقص"
+                                >
+                                   <EyeOff className="h-4 w-4" />
+                                </Button>
+                              </div>
                            </td>
                         </tr>
                       ))}
@@ -793,7 +808,7 @@ export default function Dashboard() {
                </TabsList>
 
                <TabsContent value="products" className="flex-1 overflow-visible flex flex-col p-4 md:p-6 space-y-3 md:space-y-4">
-                  <div className="space-y-2 shrink-0 relative z-50">
+                  <div className="space-y-2 shrink-0 relative z-[100]">
                      <p className="text-[9px] font-black text-primary uppercase px-2">إضافة منتج جديد للاستبعاد</p>
                      <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -804,7 +819,7 @@ export default function Dashboard() {
                            onChange={(e) => setExclusionProductSearch(e.target.value)}
                         />
                         {exclusionSearchResults.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-[100] border border-white/20 overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
+                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-[110] border border-white/20 overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
                              {exclusionSearchResults.map(p => (
                                <div key={p.id} className="p-3 md:p-4 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
                                   <div className="flex flex-col">
