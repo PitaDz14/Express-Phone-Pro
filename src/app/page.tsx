@@ -525,6 +525,20 @@ export default function Dashboard() {
     ).slice(0, 5) || [];
   }, [exclusionProdSearch, products]);
 
+  const handleLowStockSort = (key: string) => {
+    setLowStockSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const LowStockSortIcon = ({ column }: { column: string }) => {
+    if (lowStockSortConfig.key !== column) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    if (lowStockSortConfig.direction === 'asc') return <ArrowUp className="h-3 w-3 text-primary" />;
+    if (lowStockSortConfig.direction === 'desc') return <ArrowDown className="h-3 w-3 text-primary" />;
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  }
+
   if (!isMounted) return null;
 
   return (
@@ -552,7 +566,7 @@ export default function Dashboard() {
 
         <div className="flex flex-1 w-full md:max-w-xl md:mx-8 relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors" />
-          <Input placeholder="ابحث سريعا عن منتج أو كود..." className="pl-12 h-11 md:h-12 w-full glass border-none rounded-2xl font-bold text-xs md:text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Input placeholder="ابحث سريعا عن منتج أو كود..." className="pl-12 h-11 md:h-12 w-full glass border-none rounded-2xl font-bold text-xs md:sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
              {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10 flex" onClick={() => { setQuickEditSearch(""); setIsQuickEditOpen(true); }}><Edit3 className="h-4 w-4" /></Button>}
           </div>
@@ -712,10 +726,18 @@ export default function Dashboard() {
                 <table className="w-full text-center">
                    <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-white/10">
                       <tr className="text-[10px] font-black text-muted-foreground uppercase">
-                         <th className="p-4">المنتج</th>
-                         <th className="p-4 hidden md:table-cell">الصنف</th>
-                         <th className="p-4">المتوفر</th>
-                         <th className="p-4">الحد الأدنى</th>
+                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('name')}>
+                            <div className="flex items-center justify-center gap-2">المنتج <LowStockSortIcon column="name" /></div>
+                         </th>
+                         <th className="p-4 hidden md:table-cell cursor-pointer" onClick={() => handleLowStockSort('categoryPath')}>
+                            <div className="flex items-center justify-center gap-2">الصنف <LowStockSortIcon column="categoryPath" /></div>
+                         </th>
+                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('quantity')}>
+                            <div className="flex items-center justify-center gap-2">المتوفر <LowStockSortIcon column="quantity" /></div>
+                         </th>
+                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('minStockQuantity')}>
+                            <div className="flex items-center justify-center gap-2">الحد الأدنى <LowStockSortIcon column="minStockQuantity" /></div>
+                         </th>
                          <th className="p-4">الإجراءات</th>
                       </tr>
                    </thead>
