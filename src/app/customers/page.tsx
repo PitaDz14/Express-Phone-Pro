@@ -18,7 +18,8 @@ import {
   ArrowDown,
   Eye,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  UserPlus
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -279,7 +280,7 @@ export default function CustomersPage() {
           <p className="text-[9px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1">تتبع السجلات المالية والديون</p>
         </div>
         <Button onClick={() => { setEditingCustomer(null); setCustomerName(""); setCustomerPhone(""); setOpenAdd(true); }} className="w-full md:w-auto h-12 md:h-14 px-8 rounded-2xl bg-primary text-white shadow-xl gap-2 font-black">
-          <Plus className="h-5 w-5" /> إضافة عميل جديد
+          <UserPlus className="h-5 w-5" /> إضافة عميل جديد
         </Button>
       </header>
 
@@ -298,12 +299,12 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="font-black text-foreground cursor-pointer" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-2">الاسم الكامل <SortIcon column="name" /></div>
+                <TableHead className="font-black text-foreground cursor-pointer text-center" onClick={() => handleSort('name')}>
+                  <div className="flex items-center justify-center gap-2">الاسم الكامل <SortIcon column="name" /></div>
                 </TableHead>
                 <TableHead className="font-black text-foreground text-center">رقم الهاتف</TableHead>
-                <TableHead className="text-left font-black text-foreground cursor-pointer" onClick={() => handleSort('debt')}>
-                  <div className="flex items-center justify-end gap-2">إجمالي الدين <SortIcon column="debt" /></div>
+                <TableHead className="text-center font-black text-foreground cursor-pointer" onClick={() => handleSort('debt')}>
+                  <div className="flex items-center justify-center gap-2">إجمالي الدين <SortIcon column="debt" /></div>
                 </TableHead>
                 <TableHead className="text-center font-black text-foreground">الإجراءات</TableHead>
               </TableRow>
@@ -315,14 +316,14 @@ export default function CustomersPage() {
                 <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-30 italic font-black">لا يوجد عملاء</TableCell></TableRow>
               ) : sortedCustomers.map((c) => (
                 <TableRow key={c.id} className="group border-white/5 hover:bg-white/40 transition-all">
-                  <TableCell className="font-bold text-xs md:text-lg">{c.name}</TableCell>
+                  <TableCell className="font-bold text-xs md:text-lg text-center">{c.name}</TableCell>
                   <TableCell className="font-bold tabular-nums text-center text-[10px] md:text-sm">
                     <div className="flex items-center justify-center gap-2">
                        <Phone className="h-3 w-3 text-primary opacity-50 hidden sm:block" />
                        {c.phone}
                     </div>
                   </TableCell>
-                  <TableCell className={`text-left font-black text-xs md:text-lg tabular-nums ${c.debt > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <TableCell className={`text-center font-black text-xs md:text-lg tabular-nums ${c.debt > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                     {c.debt.toLocaleString()} دج
                   </TableCell>
                   <TableCell className="text-center">
@@ -424,7 +425,7 @@ export default function CustomersPage() {
              <div className="flex items-center gap-2">
                 <Select value={historyFilter} onValueChange={setHistoryFilter}>
                   <SelectTrigger className="flex-1 md:w-40 h-10 md:h-11 glass border-none rounded-xl font-bold text-xs">
-                    <div className="flex items-center gap-2"><Filter className="h-3 w-3" /><SelectValue placeholder="الحالة" /></div>
+                    <div className="flex items-center justify-center gap-2"><Filter className="h-3 w-3" /><SelectValue placeholder="الحالة" /></div>
                   </SelectTrigger>
                   <SelectContent className="glass border-none rounded-xl z-[350]">
                      <SelectItem value="all">الكل</SelectItem>
@@ -434,7 +435,7 @@ export default function CustomersPage() {
                 </Select>
                 <Select value={historySort} onValueChange={setHistorySort}>
                   <SelectTrigger className="flex-1 md:w-40 h-10 md:h-11 glass border-none rounded-xl font-bold text-xs">
-                    <div className="flex items-center gap-2"><ArrowUpDown className="h-3 w-3" /><SelectValue placeholder="الترتيب" /></div>
+                    <div className="flex items-center justify-center gap-2"><ArrowUpDown className="h-3 w-3" /><SelectValue placeholder="الترتيب" /></div>
                   </SelectTrigger>
                   <SelectContent className="glass border-none rounded-xl z-[350]">
                      <SelectItem value="desc">الأحدث</SelectItem>
@@ -454,28 +455,28 @@ export default function CustomersPage() {
                 <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 flex-1">
                    <div className="flex items-center gap-4">
                       <div className="flex flex-col">
-                        <span className="text-[8px] md:text-[10px] font-black text-primary uppercase">رقم الفاتورة</span>
-                        <span className="font-black text-foreground text-xs md:text-sm tabular-nums">#{inv.id.slice(0, 8)}</span>
+                        <span className="text-[8px] md:text-[10px] font-black text-primary uppercase text-center">رقم الفاتورة</span>
+                        <span className="font-black text-foreground text-xs md:text-sm tabular-nums text-center">#{inv.id.slice(0, 8)}</span>
                       </div>
                       <div className="h-8 w-px bg-border mx-1 md:mx-2" />
                       <div className="flex flex-col">
-                        <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">التاريخ</span>
-                        <span className="font-bold text-[10px] md:text-xs text-foreground">
+                        <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase text-center">التاريخ</span>
+                        <span className="font-bold text-[10px] md:text-xs text-foreground text-center">
                           {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}
                         </span>
                       </div>
                    </div>
                    
-                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 md:gap-8 p-3 md:p-0 bg-black/5 md:bg-transparent rounded-xl">
-                      <div className="flex flex-col">
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 md:gap-8 p-3 md:p-0 bg-black/5 md:bg-transparent rounded-xl flex-1">
+                      <div className="flex flex-col items-center">
                          <span className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase">الإجمالي</span>
                          <span className="font-black text-foreground tabular-nums text-xs md:text-sm">{inv.totalAmount.toLocaleString()} دج</span>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col items-center">
                          <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase">المدفوع</span>
                          <span className="font-black text-emerald-600 tabular-nums text-xs md:text-sm">{inv.paidAmount.toLocaleString()} دج</span>
                       </div>
-                      <div className="flex flex-col col-span-2 md:col-span-1 pt-2 md:pt-0 border-t md:border-none border-white/10">
+                      <div className="flex flex-col items-center col-span-2 md:col-span-1 pt-2 md:pt-0 border-t md:border-none border-white/10">
                          <span className="text-[8px] md:text-[9px] font-black text-red-500 uppercase">المتبقي</span>
                          <span className={cn("font-black tabular-nums text-sm md:text-lg", (inv.totalAmount - inv.paidAmount) > 0 ? "text-red-600" : "text-emerald-600")}>
                            {(inv.totalAmount - inv.paidAmount).toLocaleString()} دج
@@ -523,27 +524,27 @@ export default function CustomersPage() {
       <Dialog open={!!selectedInvPreview} onOpenChange={() => setSelectedInvPreview(null)}>
         <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[350]">
            <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
-              <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium flex items-center gap-3">
+              <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium flex items-center justify-center gap-3">
                  <FileText className="h-6 w-6 text-primary" /> تفاصيل الفاتورة #{selectedInvPreview?.id.slice(0, 8)}
               </DialogTitle>
            </DialogHeader>
            <div className="p-6 md:p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4 glass p-4 rounded-xl border-white/5">
-                 <div>
+                 <div className="text-center">
                     <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">الحالة</span>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center justify-center gap-2 mt-1">
                        {selectedInvPreview?.status === "Paid" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
                        <span className="font-bold text-[10px] md:text-sm">{selectedInvPreview?.status === "Paid" ? "مكتملة" : "دين متبقي"}</span>
                     </div>
                  </div>
-                 <div className="text-left">
+                 <div className="text-center border-r border-white/10">
                     <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">المجموع</span>
                     <p className="font-black text-sm md:text-xl text-primary tabular-nums">{selectedInvPreview?.totalAmount.toLocaleString()} دج</p>
                  </div>
               </div>
 
               <div className="space-y-3">
-                 <p className="font-black text-xs text-primary px-1">المنتجات المباعة</p>
+                 <p className="font-black text-xs text-primary px-1 text-center">المنتجات المباعة</p>
                  <div className="space-y-2">
                     {isPreviewLoading ? (
                       <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>

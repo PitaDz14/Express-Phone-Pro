@@ -87,7 +87,7 @@ const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR, onZoomI
           </div>
        </div>
     </TableCell>
-    <TableCell className="hidden md:table-cell">
+    <TableCell className="hidden md:table-cell text-center">
        <span className="text-[10px] font-bold text-muted-foreground">{p.categoryPath || p.categoryName || "عام"}</span>
     </TableCell>
     <TableCell className="text-center">
@@ -305,17 +305,17 @@ export default function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="font-black text-foreground cursor-pointer" onClick={() => handleSort('name')}>
-                   <div className="flex items-center gap-2">المنتج <SortIcon column="name" /></div>
+                <TableHead className="font-black text-foreground cursor-pointer text-center" onClick={() => handleSort('name')}>
+                   <div className="flex items-center justify-center gap-2">المنتج <SortIcon column="name" /></div>
                 </TableHead>
-                <TableHead className="font-black text-foreground hidden md:table-cell cursor-pointer" onClick={() => handleSort('categoryName')}>
-                   <div className="flex items-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
+                <TableHead className="font-black text-foreground hidden md:table-cell cursor-pointer text-center" onClick={() => handleSort('categoryName')}>
+                   <div className="flex items-center justify-center gap-2">التصنيف <SortIcon column="categoryName" /></div>
                 </TableHead>
                 <TableHead className="font-black text-foreground text-center cursor-pointer" onClick={() => handleSort('quantity')}>
                    <div className="flex items-center justify-center gap-2">المتوفر <SortIcon column="quantity" /></div>
                 </TableHead>
-                <TableHead className="font-black text-foreground text-left cursor-pointer" onClick={() => handleSort('salePrice')}>
-                   <div className="flex items-center justify-end gap-2"><SortIcon column="salePrice" /> سعر البيع</div>
+                <TableHead className="font-black text-foreground text-center cursor-pointer" onClick={() => handleSort('salePrice')}>
+                   <div className="flex items-center justify-center gap-2"><SortIcon column="salePrice" /> سعر البيع</div>
                 </TableHead>
                 <TableHead className="font-black text-foreground text-center">الإجراءات</TableHead>
               </TableRow>

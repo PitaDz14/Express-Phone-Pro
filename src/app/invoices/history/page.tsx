@@ -356,24 +356,24 @@ export default function InvoiceHistoryPage() {
                   <TableHeader>
                     <TableRow className="border-b border-white/10 hover:bg-transparent">
                       <TableHead className="font-black text-center w-[80px]">كود QR</TableHead>
-                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('customerName')}>
-                        <div className="flex items-center gap-2">العميل <SortIcon column="customerName" /></div>
+                      <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('customerName')}>
+                        <div className="flex items-center justify-center gap-2">العميل <SortIcon column="customerName" /></div>
                       </TableHead>
                       <TableHead className="font-black text-center">الموظف</TableHead>
-                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('createdAt')}>
-                        <div className="flex items-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
+                      <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('createdAt')}>
+                        <div className="flex items-center justify-center gap-2">التاريخ <SortIcon column="createdAt" /></div>
                       </TableHead>
-                      <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('totalAmount')}>
-                        <div className="flex items-center gap-2 justify-end"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
+                      <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('totalAmount')}>
+                        <div className="flex items-center justify-center gap-2"><SortIcon column="totalAmount" /> المبلغ الإجمالي</div>
                       </TableHead>
-                      <TableHead className="text-left font-black cursor-pointer select-none group" onClick={() => handleSort('remainingDebt')}>
-                        <div className="flex items-center gap-2">المتبقي (الدين) <SortIcon column="remainingDebt" /></div>
+                      <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('remainingDebt')}>
+                        <div className="flex items-center justify-center gap-2">المتبقي (الدين) <SortIcon column="remainingDebt" /></div>
                       </TableHead>
                       <TableHead className="text-center font-black cursor-pointer select-none group" onClick={() => handleSort('status')}>
-                        <div className="flex items-center gap-2 justify-center">الحالة <SortIcon column="status" /></div>
+                        <div className="flex items-center justify-center gap-2 justify-center">الحالة <SortIcon column="status" /></div>
                       </TableHead>
-                      <TableHead className="font-black cursor-pointer select-none group" onClick={() => handleSort('id')}>
-                        <div className="flex items-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
+                      <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('id')}>
+                        <div className="flex items-center justify-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
                       </TableHead>
                       <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
@@ -409,8 +409,8 @@ export default function InvoiceHistoryPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                           <div className="flex items-center gap-3">
+                        <TableCell className="text-center">
+                           <div className="flex items-center justify-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                                  <User className="h-4 w-4 text-primary" />
                               </div>
@@ -426,15 +426,15 @@ export default function InvoiceHistoryPage() {
                               </div>
                            </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-bold text-xs tabular-nums">
+                        <TableCell className="text-muted-foreground font-bold text-xs tabular-nums text-center">
                           {inv.createdAt?.toDate 
                             ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: ar }) 
                             : (inv.createdAt instanceof Date ? format(inv.createdAt, "dd MMMM yyyy - HH:mm", { locale: ar }) : "---")}
                         </TableCell>
-                        <TableCell className="text-left font-black tabular-nums text-lg text-primary">
+                        <TableCell className="text-center font-black tabular-nums text-lg text-primary">
                           {inv.totalAmount.toLocaleString()} دج
                         </TableCell>
-                        <TableCell className="text-left">
+                        <TableCell className="text-center">
                           {inv.totalAmount - inv.paidAmount > 0 ? (
                             <span className="font-black text-red-600 tabular-nums">{(inv.totalAmount - inv.paidAmount).toLocaleString()} دج</span>
                           ) : (
@@ -448,7 +448,7 @@ export default function InvoiceHistoryPage() {
                             <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">كاملة</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-black tabular-nums text-primary">#{inv.id.slice(0, 8)}</TableCell>
+                        <TableCell className="font-black tabular-nums text-primary text-center">#{inv.id.slice(0, 8)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
                              <Button 
@@ -605,7 +605,7 @@ export default function InvoiceHistoryPage() {
                   </div>
                   <div className="flex flex-col items-center">
                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">امسح الكود للانتقال لهذه الفاتورة في السجل</p>
-                     <p className="text-lg font-mono font-black text-primary mt-2">#{zoomQR?.id.slice(0, 15)}</p>
+                     <p className="text-lg font-mono font-black text-primary mt-2 text-center">#{zoomQR?.id.slice(0, 15)}</p>
                   </div>
                </div>
                <div className="p-6 bg-black/5 flex justify-center">

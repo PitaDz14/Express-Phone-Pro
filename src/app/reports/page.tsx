@@ -309,13 +309,13 @@ export default function ReportsPage() {
         <section className="glass p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border-white/10 shadow-xl space-y-6">
            <div className="flex flex-col xl:flex-row md:items-center justify-between gap-6">
               <div className="space-y-1">
-                 <h2 className="text-xl font-black text-foreground flex items-center gap-2">
+                 <h2 className="text-xl font-black text-foreground flex items-center justify-center gap-2">
                     <Filter className="h-5 w-5 text-primary" /> تحديد معايير التحليل
                  </h2>
-                 <p className="text-[10px] font-bold text-muted-foreground uppercase">تحليل زمني وحسب الأصناف المتوفرة</p>
+                 <p className="text-[10px] font-bold text-muted-foreground uppercase text-center">تحليل زمني وحسب الأصناف المتوفرة</p>
               </div>
               
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3">
                  <Popover>
                     <PopoverTrigger asChild>
                        <Button variant="outline" className="h-12 glass border-none rounded-2xl px-6 font-black text-xs gap-2 relative">
@@ -355,7 +355,7 @@ export default function ReportsPage() {
 
                  <Select value={timePreset} onValueChange={handleTimePresetChange}>
                     <SelectTrigger className="w-full md:w-48 h-12 glass border-none rounded-2xl font-black text-xs">
-                       <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /><SelectValue placeholder="الفترة الزمنية" /></div>
+                       <div className="flex items-center justify-center gap-2"><Clock className="h-4 w-4 text-primary" /><SelectValue placeholder="الفترة الزمنية" /></div>
                     </SelectTrigger>
                     <SelectContent className="glass border-none rounded-2xl z-[250]">
                        <SelectItem value="weekly">أسبوعي (آخر 7 أيام)</SelectItem>
@@ -368,13 +368,13 @@ export default function ReportsPage() {
                  
                  <div className="flex items-center gap-2 bg-black/5 p-1.5 rounded-2xl">
                     <div className="space-y-1 px-2">
-                       <Label className="text-[8px] font-black uppercase opacity-50">من</Label>
-                       <Input type="date" className="h-8 border-none bg-transparent font-black text-xs p-0 focus-visible:ring-0" value={startDate} onChange={(e) => { setStartDate(e.target.value); setTimePreset("custom"); }} />
+                       <Label className="text-[8px] font-black uppercase opacity-50 text-center block">من</Label>
+                       <Input type="date" className="h-8 border-none bg-transparent font-black text-xs p-0 focus-visible:ring-0 text-center" value={startDate} onChange={(e) => { setStartDate(e.target.value); setTimePreset("custom"); }} />
                     </div>
                     <ArrowRightLeft className="h-3 w-3 opacity-20" />
                     <div className="space-y-1 px-2">
-                       <Label className="text-[8px] font-black uppercase opacity-50">إلى</Label>
-                       <Input type="date" className="h-8 border-none bg-transparent font-black text-xs p-0 focus-visible:ring-0" value={endDate} onChange={(e) => { setEndDate(e.target.value); setTimePreset("custom"); }} />
+                       <Label className="text-[8px] font-black uppercase opacity-50 text-center block">إلى</Label>
+                       <Input type="date" className="h-8 border-none bg-transparent font-black text-xs p-0 focus-visible:ring-0 text-center" value={endDate} onChange={(e) => { setEndDate(e.target.value); setTimePreset("custom"); }} />
                     </div>
                  </div>
               </div>
@@ -384,8 +384,8 @@ export default function ReportsPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <Card className="border-none glass-premium rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all">
              <div className="absolute top-0 right-0 p-4 opacity-5"><Wallet className="h-20 w-20" /></div>
-             <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">إيرادات الفلتر</CardTitle></CardHeader>
-             <CardContent>
+             <CardHeader className="pb-2 text-center"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">إيرادات الفلتر</CardTitle></CardHeader>
+             <CardContent className="text-center">
                 <p className="text-2xl md:text-3xl font-black tabular-nums text-primary">{totals.revenue.toLocaleString()} دج</p>
                 <Badge variant="success" className="mt-2 rounded-lg font-black text-[9px]">مبيعات محققة</Badge>
              </CardContent>
@@ -393,8 +393,8 @@ export default function ReportsPage() {
 
           <Card className="border-none glass-premium rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all">
              <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingUp className="h-20 w-20" /></div>
-             <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">أرباح الفلتر</CardTitle></CardHeader>
-             <CardContent>
+             <CardHeader className="pb-2 text-center"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">أرباح الفلتر</CardTitle></CardHeader>
+             <CardContent className="text-center">
                 <p className="text-2xl md:text-3xl font-black tabular-nums text-emerald-600">{totals.profit.toLocaleString()} دج</p>
                 <p className="text-[9px] font-bold text-muted-foreground mt-2 italic">الربح = المبيعات - الشراء</p>
              </CardContent>
@@ -402,8 +402,8 @@ export default function ReportsPage() {
 
           <Card className="border-none glass-premium rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all">
              <div className="absolute top-0 right-0 p-4 opacity-5"><ShoppingBag className="h-20 w-20" /></div>
-             <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">تنوع المنتجات</CardTitle></CardHeader>
-             <CardContent>
+             <CardHeader className="pb-2 text-center"><CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">تنوع المنتجات</CardTitle></CardHeader>
+             <CardContent className="text-center">
                 <p className="text-2xl md:text-3xl font-black tabular-nums">{bestSellers.length}</p>
                 <p className="text-[9px] font-bold text-muted-foreground mt-2">منتج فريد تم بيعه</p>
              </CardContent>
@@ -411,8 +411,8 @@ export default function ReportsPage() {
 
           <Card className="border-none bg-gradient-to-br from-primary to-accent text-white rounded-[2rem] shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 p-4 opacity-10"><Zap className="h-20 w-20" /></div>
-             <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black opacity-60 uppercase tracking-widest">تحليل النطاق</CardTitle></CardHeader>
-             <CardContent>
+             <CardHeader className="pb-2 text-center"><CardTitle className="text-[10px] font-black opacity-60 uppercase tracking-widest">تحليل النطاق</CardTitle></CardHeader>
+             <CardContent className="text-center">
                 <p className="text-xl md:text-2xl font-black">
                    {selectedCategoryIds.length === 0 ? "كامل المخزون" : `${selectedCategoryIds.length} أصناف`}
                 </p>
@@ -425,9 +425,9 @@ export default function ReportsPage() {
            <div className="lg:col-span-2 space-y-6 md:space-y-8">
               <Card className="border-none glass rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-xl">
                  <CardHeader className="p-8 border-b border-white/5 bg-primary/5">
-                    <div className="flex items-center justify-between">
-                       <div>
-                          <CardTitle className="text-xl font-black flex items-center gap-3">
+                    <div className="flex items-center justify-center">
+                       <div className="text-center">
+                          <CardTitle className="text-xl font-black flex items-center justify-center gap-3">
                              <Target className="h-6 w-6 text-primary" /> الأكثر مبيعاً حسب الفلتر
                           </CardTitle>
                           <CardDescription className="text-[10px] font-bold mt-1">تحديد المنتجات القائدة لكل صنف</CardDescription>
@@ -436,12 +436,12 @@ export default function ReportsPage() {
                  </CardHeader>
                  <CardContent className="p-0">
                     <div className="table-container">
-                       <table className="w-full text-right">
+                       <table className="w-full text-center">
                           <thead className="bg-black/5 text-[10px] font-black text-muted-foreground">
                              <tr>
                                 <th className="p-6">المنتج</th>
-                                <th className="p-6 text-center">الكمية</th>
-                                <th className="p-6 text-left">الإيراد</th>
+                                <th className="p-6">الكمية</th>
+                                <th className="p-6">الإيراد</th>
                              </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
@@ -452,20 +452,20 @@ export default function ReportsPage() {
                              ) : bestSellers.map((item, i) => (
                                <tr key={item.id} className="group hover:bg-white/40 transition-colors">
                                   <td className="p-6">
-                                     <div className="flex items-center gap-4">
+                                     <div className="flex items-center justify-center gap-4">
                                         <div className="h-10 w-10 rounded-2xl bg-card border border-border flex items-center justify-center font-black text-primary shadow-sm">{i + 1}</div>
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col text-right">
                                            <span className="font-black text-xs md:text-sm">{item.name}</span>
                                            <span className="text-[9px] text-muted-foreground font-bold">{item.categoryPath}</span>
                                         </div>
                                      </div>
                                   </td>
-                                  <td className="p-6 text-center">
+                                  <td className="p-6">
                                      <Badge variant="outline" className="h-8 px-4 rounded-xl border-primary/20 bg-primary/5 text-primary font-black tabular-nums text-xs">
                                         {item.quantitySold} قطعة
                                      </Badge>
                                   </td>
-                                  <td className="p-6 text-left">
+                                  <td className="p-6">
                                      <span className="font-black text-sm md:text-lg tabular-nums text-foreground">{item.revenue.toLocaleString()} دج</span>
                                   </td>
                                </tr>
@@ -477,7 +477,7 @@ export default function ReportsPage() {
               </Card>
 
               <Card className="border-none glass rounded-[2.5rem] md:rounded-[3rem] p-8 shadow-xl">
-                 <CardHeader className="p-0 mb-8">
+                 <CardHeader className="p-0 mb-8 text-center">
                     <CardTitle className="text-xl font-black">مقارنة الإيرادات والتكاليف</CardTitle>
                     <CardDescription className="text-xs font-bold">تحليل بصري للهوامش الربحية للأصناف والمنتجات المختارة</CardDescription>
                  </CardHeader>
@@ -505,8 +505,8 @@ export default function ReportsPage() {
            <div className="space-y-6 md:space-y-8">
               <Card className="border-none glass-premium rounded-[2.5rem] shadow-2xl relative overflow-hidden bg-gradient-to-br from-primary/5 to-accent/5">
                  <div className="absolute -top-10 -left-10 opacity-5"><Lightbulb className="h-40 w-40 rotate-12 text-primary" /></div>
-                 <CardHeader className="p-8 relative z-10">
-                    <CardTitle className="text-xl font-black flex items-center gap-3">
+                 <CardHeader className="p-8 relative z-10 text-center">
+                    <CardTitle className="text-xl font-black flex items-center justify-center gap-3">
                        <Sparkles className="h-6 w-6 text-primary" /> الذكاء التحليلي
                     </CardTitle>
                     <p className="text-[10px] font-bold text-muted-foreground mt-1">نصائح مخصصة بناءً على الفلتر الحالي</p>
@@ -531,8 +531,8 @@ export default function ReportsPage() {
               </Card>
 
               <Card className="border-none glass rounded-[2.5rem] shadow-xl overflow-hidden">
-                 <CardHeader className="p-8 border-b border-white/5 bg-orange-500/5">
-                    <CardTitle className="text-lg font-black flex items-center gap-2 text-orange-700">
+                 <CardHeader className="p-8 border-b border-white/5 bg-orange-500/5 text-center">
+                    <CardTitle className="text-lg font-black flex items-center justify-center gap-2 text-orange-700">
                        <AlertTriangle className="h-5 w-5" /> منتجات راكدة (بالأصناف المختارة)
                     </CardTitle>
                  </CardHeader>
@@ -547,7 +547,7 @@ export default function ReportsPage() {
                             <div className="h-10 w-10 rounded-xl bg-card border border-border flex items-center justify-center shrink-0">
                                {p.imageUrl ? <img src={p.imageUrl} className="h-full w-full object-cover rounded-xl" /> : <Package className="h-5 w-5 opacity-10" />}
                             </div>
-                            <div className="flex flex-col overflow-hidden">
+                            <div className="flex flex-col overflow-hidden text-right">
                                <span className="font-bold text-xs truncate">{p.name}</span>
                                <span className="text-[8px] font-black opacity-50">مخزون: {p.quantity}</span>
                             </div>
