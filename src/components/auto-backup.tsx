@@ -9,7 +9,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 /**
  * AutoBackup Component
  * Periodically saves a snapshot of the Firestore collections to LocalStorage.
- * Listens to global 'perform-system-backup' events from the Service Worker.
+ * Unified to share the same timestamp with the Settings page sync.
  */
 export function AutoBackup() {
   const db = useFirestore();
@@ -44,9 +44,15 @@ export function AutoBackup() {
         localStorage.setItem('ep_emergency_backup', backupStr);
       }
       
-      const time = new Date().toLocaleTimeString('ar-DZ');
+      const time = new Date().toLocaleTimeString('ar-DZ', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      
+      // Unified Timestamp Management
+      localStorage.setItem('ep_global_last_backup_time', time);
       setLastBackup(time);
-      localStorage.setItem('last_backup_time', time);
+      
+      // Trigger global event for other components to sync UI
+      window.dispatchEvent(new CustomEvent('ep-global-backup-updated', { detail: time }));
+      
     } catch (error) {
       console.error("AutoBackup Core Error:", error);
     } finally {
@@ -55,24 +61,26 @@ export function AutoBackup() {
   }, [db, isBackingUp, role]);
 
   React.useEffect(() => {
-    // Respond to Service Worker requests
+    // Listen for system-wide sync pings
     const handleSyncRequest = () => {
-      console.log('[AutoBackup] Responding to background trigger');
       performBackup();
     };
 
+    // Listen for timestamp updates from other components (like SettingsPage)
+    const handleTimestampSync = (e: any) => {
+      if (e.detail) setLastBackup(e.detail);
+    };
+
     window.addEventListener('perform-system-backup', handleSyncRequest);
+    window.addEventListener('ep-global-backup-updated', handleTimestampSync);
     
-    // Initial sync
-    const initialTimer = setTimeout(() => performBackup(), 5000);
-    
-    // Load last time from storage
-    const savedTime = localStorage.getItem('last_backup_time');
+    // Load last global time from storage on mount
+    const savedTime = localStorage.getItem('ep_global_last_backup_time');
     if (savedTime) setLastBackup(savedTime);
 
     return () => {
       window.removeEventListener('perform-system-backup', handleSyncRequest);
-      clearTimeout(initialTimer);
+      window.removeEventListener('ep-global-backup-updated', handleTimestampSync);
     };
   }, [performBackup]);
 

@@ -112,6 +112,20 @@ export default function SettingsPage() {
     });
   };
 
+  // Unified Timestamp Listener
+  React.useEffect(() => {
+    const handleGlobalUpdate = (e: any) => {
+      if (e.detail) setLastSyncTime(e.detail);
+    };
+    window.addEventListener('ep-global-backup-updated', handleGlobalUpdate);
+    
+    // Initial load
+    const savedTime = localStorage.getItem('ep_global_last_backup_time');
+    if (savedTime) setLastSyncTime(savedTime);
+    
+    return () => window.removeEventListener('ep-global-backup-updated', handleGlobalUpdate);
+  }, []);
+
   React.useEffect(() => {
     if (!isApiSupported) return;
     
@@ -134,9 +148,6 @@ export default function SettingsPage() {
       }
     };
     restore();
-    
-    const savedTime = localStorage.getItem('last_device_sync_time');
-    if (savedTime) setLastSyncTime(savedTime);
   }, [isApiSupported]);
 
   const handleSetupDeviceSync = async () => {
@@ -207,9 +218,13 @@ export default function SettingsPage() {
       await writable.write(JSON.stringify(backup, null, 2));
       await writable.close();
       
-      const time = new Date().toLocaleTimeString('ar-DZ');
+      const time = new Date().toLocaleTimeString('ar-DZ', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      
+      // Update global timestamp source of truth
+      localStorage.setItem('ep_global_last_backup_time', time);
       setLastSyncTime(time);
-      localStorage.setItem('last_device_sync_time', time);
+      window.dispatchEvent(new CustomEvent('ep-global-backup-updated', { detail: time }));
+
     } catch (err) {
       console.error("[Device Sync Error]", err);
       setIsSyncActive(false);
@@ -231,6 +246,12 @@ export default function SettingsPage() {
       a.href = url;
       a.download = `ExpressPhone_Mobile_QuickBackup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
+      
+      const time = new Date().toLocaleTimeString('ar-DZ', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      localStorage.setItem('ep_global_last_backup_time', time);
+      setLastSyncTime(time);
+      window.dispatchEvent(new CustomEvent('ep-global-backup-updated', { detail: time }));
+
       toast({ title: "تم الحفظ", description: "تم تحميل نسخة احتياطية فورية على هاتفك." });
     } catch (err) {
       toast({ variant: "destructive", title: "فشل الحفظ", description: "حدث خطأ أثناء جمع البيانات." });
@@ -421,9 +442,12 @@ export default function SettingsPage() {
                             <X className="h-4 w-4" />
                          </Button>
                       </div>
-                      <div className="flex items-center justify-between pt-2">
-                         <span className="text-[9px] font-bold text-white/30">آخر مزامنة:</span>
-                         <span className="text-[10px] font-black text-white/60 tabular-nums">{lastSyncTime || "الآن..."}</span>
+                      <div className="flex flex-col gap-2 pt-2">
+                         <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-white/30">آخر مزامنة حقيقية:</span>
+                            <span className="text-[10px] font-black text-white/60 tabular-nums">{lastSyncTime || "الآن..."}</span>
+                         </div>
+                         <p className="text-[8px] text-white/20 italic">توقيت موحد مع نسخة الطوارئ لضمان الدقة</p>
                       </div>
                       <Button onClick={handleManualSync} variant="outline" className="w-full h-10 rounded-xl border-white/10 font-black text-xs gap-2">
                          <RefreshCw className="h-3 w-3" /> مزامنة يدوية فورية
