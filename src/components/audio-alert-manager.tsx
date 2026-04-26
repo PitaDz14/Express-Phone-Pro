@@ -19,6 +19,7 @@ import { AlertTriangle, ShieldAlert, PackageSearch } from 'lucide-react';
 /**
  * AudioAlertManager Component
  * Checks for critical priority products that are low on stock and triggers audio alerts on load.
+ * Mounted in layout.tsx to ensure it only runs once per app session and survives navigation.
  */
 export function AudioAlertManager() {
   const db = useFirestore();
@@ -30,7 +31,8 @@ export function AudioAlertManager() {
   const [hasAlerted, setHasAlerted] = React.useState(false);
 
   React.useEffect(() => {
-    if (products && !hasAlerted) {
+    // Only fire if we have data and haven't alerted in this component lifetime
+    if (products && products.length > 0 && !hasAlerted) {
       const critical = products.filter(p => 
         p.isPriority === true && 
         Number(p.quantity) <= (Number(p.minStockQuantity) || 1)

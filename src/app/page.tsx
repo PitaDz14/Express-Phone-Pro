@@ -87,7 +87,6 @@ import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 import { useRouter } from "next/navigation"
 import { SyncReconnectButton } from "@/components/sync-reconnect-button"
-import { AudioAlertManager } from "@/components/audio-alert-manager"
 
 // --- Helper Functions ---
 
@@ -515,7 +514,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-transparent pb-32 overflow-x-hidden">
-      <AudioAlertManager />
       <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={handleQRScan} />
 
       <header className="flex flex-col md:flex-row h-auto md:h-20 shrink-0 items-center justify-between p-4 md:px-10 glass sticky top-0 z-50 gap-4">
