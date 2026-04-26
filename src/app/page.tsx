@@ -299,16 +299,6 @@ export default function Dashboard() {
     }
   }, [isMounted])
 
-  const handleToggleSetting = (key: string, val: boolean, setter: (v: boolean) => void) => {
-    setter(val)
-    localStorage.setItem(`setting_${key}`, String(val))
-  }
-
-  const handleUpdateLowStockPref = (key: string, val: any, setter: any) => {
-    setter(val)
-    localStorage.setItem(`lowStock_${key}`, String(val))
-  }
-
   const [isQuickEditOpen, setIsQuickEditOpen] = React.useState(false)
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
@@ -335,12 +325,12 @@ export default function Dashboard() {
   const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
   const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
   
-  const { data: products, isLoading: isProductsLoading } = useCollection(productsRef)
+  const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
   const { data: categories } = useCollection(categoriesRef)
   
   const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
-  const { data: recentInvoices, isLoading: isInvoicesLoading } = useCollection(recentInvoicesQuery)
+  const { data: recentInvoices } = useCollection(recentInvoicesQuery)
 
   const lowStockItems = React.useMemo(() => {
     if (!isMounted || !products || !categories) return [];
@@ -434,13 +424,6 @@ export default function Dashboard() {
     ).slice(0, 10) 
   }, [quickEditSearch, products])
 
-  const getFullCategoryPath = (catId: string, allCats: any[]): string => {
-    const cat = allCats.find(c => c.id === catId);
-    if (!cat) return "";
-    if (!cat.parentId) return cat.name;
-    return `${getFullCategoryPath(cat.parentId, allCats)} > ${cat.name}`;
-  }
-
   const handleFullAdd = async () => {
     if (!isAdmin) return;
     if (!qaName || !qaCat || qaSale <= 0 || !user) {
@@ -481,6 +464,13 @@ export default function Dashboard() {
     } finally {
       setIsAdding(false)
     }
+  }
+
+  const getFullCategoryPath = (catId: string, allCats: any[]): string => {
+    const cat = allCats.find(c => c.id === catId);
+    if (!cat) return "";
+    if (!cat.parentId) return cat.name;
+    return `${getFullCategoryPath(cat.parentId, allCats)} > ${cat.name}`;
   }
 
   const resetQaForm = () => {
@@ -726,19 +716,19 @@ export default function Dashboard() {
                 <table className="w-full text-center">
                    <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-white/10">
                       <tr className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase">
-                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('name')}>
+                         <th className="p-3 md:p-4 cursor-pointer text-center" onClick={() => handleLowStockSort('name')}>
                             <div className="flex items-center justify-center gap-2">المنتج <LowStockSortIcon column="name" /></div>
                          </th>
-                         <th className="p-3 md:p-4 hidden md:table-cell cursor-pointer" onClick={() => handleLowStockSort('categoryPath')}>
+                         <th className="p-3 md:p-4 hidden md:table-cell cursor-pointer text-center" onClick={() => handleLowStockSort('categoryPath')}>
                             <div className="flex items-center justify-center gap-2">الصنف <LowStockSortIcon column="categoryPath" /></div>
                          </th>
-                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('quantity')}>
+                         <th className="p-3 md:p-4 cursor-pointer text-center" onClick={() => handleLowStockSort('quantity')}>
                             <div className="flex items-center justify-center gap-2">المتوفر <LowStockSortIcon column="quantity" /></div>
                          </th>
-                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('minStockQuantity')}>
+                         <th className="p-3 md:p-4 cursor-pointer text-center" onClick={() => handleLowStockSort('minStockQuantity')}>
                             <div className="flex items-center justify-center gap-2">الحد الأدنى <LowStockSortIcon column="minStockQuantity" /></div>
                          </th>
-                         <th className="p-3 md:p-4">الإجراءات</th>
+                         <th className="p-3 md:p-4 text-center">الإجراءات</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-white/5">
@@ -786,7 +776,7 @@ export default function Dashboard() {
          <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[220] h-[85vh] flex flex-col">
             <DialogHeader className="p-3 md:p-4 bg-primary/10 border-b border-white/10 shrink-0">
                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 md:h-11 md:w-11 rounded-xl bg-primary flex items-center justify-center text-white">
+                  <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-primary flex items-center justify-center text-white">
                      <Settings2 className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
@@ -796,14 +786,14 @@ export default function Dashboard() {
                </div>
             </DialogHeader>
 
-            <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden">
-               <TabsList className="mx-4 mt-2 h-10 rounded-xl bg-black/5 p-1 gap-1 shrink-0">
+            <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-visible">
+               <TabsList className="mx-4 mt-2 h-9 rounded-xl bg-black/5 p-1 gap-1 shrink-0">
                   <TabsTrigger value="products" className="flex-1 rounded-lg font-black text-[9px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Package className="h-3.5 w-3.5" /> المنتجات المستبعدة</TabsTrigger>
                   <TabsTrigger value="categories" className="flex-1 rounded-lg font-black text-[9px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Layers className="h-3.5 w-3.5" /> الأصناف المستبعدة</TabsTrigger>
                </TabsList>
 
-               <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 space-y-3 md:space-y-4">
-                  <div className="space-y-3 shrink-0">
+               <TabsContent value="products" className="flex-1 overflow-visible flex flex-col p-4 md:p-6 space-y-3 md:space-y-4">
+                  <div className="space-y-2 shrink-0 relative z-50">
                      <p className="text-[9px] font-black text-primary uppercase px-2">إضافة منتج جديد للاستبعاد</p>
                      <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -814,14 +804,14 @@ export default function Dashboard() {
                            onChange={(e) => setExclusionProductSearch(e.target.value)}
                         />
                         {exclusionSearchResults.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 glass-premium rounded-xl shadow-2xl z-20 border border-white/20 overflow-hidden divide-y divide-white/5">
+                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-2xl shadow-2xl z-[100] border border-white/20 overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
                              {exclusionSearchResults.map(p => (
-                               <div key={p.id} className="p-2 md:p-3 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
+                               <div key={p.id} className="p-3 md:p-4 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
                                   <div className="flex flex-col">
-                                     <span className="font-black text-xs">{p.name}</span>
+                                     <span onClick={() => setViewFullName(p.name)} className="font-black text-xs cursor-pointer hover:text-primary transition-colors">{p.name}</span>
                                      <span className="text-[8px] font-bold opacity-40">#{p.productCode}</span>
                                   </div>
-                                  <Button size="sm" onClick={() => { toggleProductExclusion(p); setExclusionProductSearch(""); }} className="h-7 px-3 rounded-lg bg-primary text-white font-black text-[8px]">استبعاد</Button>
+                                  <Button size="sm" onClick={() => { toggleProductExclusion(p); setExclusionProductSearch(""); }} className="h-8 px-4 rounded-lg bg-primary text-white font-black text-[9px]">إدراج في المستثنيات</Button>
                                </div>
                              ))}
                           </div>
@@ -842,7 +832,7 @@ export default function Dashboard() {
                                 <Package className="h-3.5 w-3.5 opacity-20" />
                              </div>
                              <div className="flex flex-col overflow-hidden text-right">
-                                <span className="font-bold text-[11px] truncate">{p.name}</span>
+                                <span onClick={() => setViewFullName(p.name)} className="font-bold text-[11px] truncate cursor-pointer hover:text-primary transition-colors">{p.name}</span>
                                 <span className="text-[8px] font-black opacity-40 truncate">{p.categoryPath}</span>
                              </div>
                           </div>
@@ -854,7 +844,7 @@ export default function Dashboard() {
                   </div>
                </TabsContent>
 
-               <TabsContent value="categories" className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 space-y-4">
+               <TabsContent value="categories" className="flex-1 overflow-visible flex flex-col p-4 md:p-6 space-y-4">
                   <div className="space-y-3 shrink-0">
                      <p className="text-[9px] font-black text-primary uppercase px-2">استبعاد صنف كامل من الإحصائيات</p>
                      <Select onValueChange={(val) => { const c = categories?.find(x => x.id === val); if(c) toggleCategoryExclusion(c); }}>
@@ -895,8 +885,8 @@ export default function Dashboard() {
                </TabsContent>
             </Tabs>
             
-            <div className="p-3 md:p-4 bg-black/5 text-center">
-               <Button variant="outline" className="rounded-xl px-12 h-10 font-black" onClick={() => setIsExclusionsOpen(false)}>العودة للنواقص</Button>
+            <div className="p-3 md:p-4 bg-black/5 text-center shrink-0">
+               <Button variant="outline" className="rounded-xl px-12 h-10 font-black shadow-lg" onClick={() => setIsExclusionsOpen(false)}>إغلاق النافذة</Button>
             </div>
          </DialogContent>
       </Dialog>
