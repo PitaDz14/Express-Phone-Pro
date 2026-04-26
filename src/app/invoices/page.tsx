@@ -399,7 +399,7 @@ export default function InvoicesPage() {
                                      <button className="h-7 w-7 rounded-lg bg-black/5 hover:bg-primary hover:text-white transition-colors flex items-center justify-center font-black" onClick={() => {
                                         if(item.qty > 1) setCart(cart.map(i => i.productId === item.productId ? {...i, qty: i.qty - 1} : i))
                                      }}>-</button>
-                                     <span className="w-8 font-black tabular-nums">{item.qty}</span>
+                                     <span className="w-8 font-black tabular-nums text-center">{item.qty}</span>
                                      <button className="h-7 w-7 rounded-lg bg-black/5 hover:bg-primary hover:text-white transition-colors flex items-center justify-center font-black" onClick={() => {
                                         const p = products?.find(x => x.id === item.productId);
                                         const originalQty = originalCart.find(o => o.productId === item.productId)?.qty || 0;
@@ -411,7 +411,20 @@ export default function InvoicesPage() {
                                      }}>+</button>
                                   </div>
                                </TableCell>
-                               <TableCell className="text-center font-black tabular-nums">{item.price.toLocaleString()} دج</TableCell>
+                               <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-1 group/price">
+                                    <Input 
+                                      type="number" 
+                                      className="h-9 w-24 glass border-none text-center font-black tabular-nums text-primary focus:ring-1 focus:ring-primary transition-all" 
+                                      value={item.price} 
+                                      onChange={(e) => {
+                                        const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                        setCart(cart.map(i => i.productId === item.productId ? { ...i, price: val } : i))
+                                      }} 
+                                    />
+                                    <span className="text-[8px] font-black opacity-30 group-hover/price:opacity-100 transition-opacity">دج</span>
+                                  </div>
+                               </TableCell>
                                <TableCell className="text-center font-black text-primary tabular-nums">{(item.price * item.qty).toLocaleString()} دج</TableCell>
                                <TableCell>
                                   <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}>
