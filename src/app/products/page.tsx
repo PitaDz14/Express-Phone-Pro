@@ -24,7 +24,8 @@ import {
   X,
   AlertCircle,
   Star,
-  QrCode
+  QrCode,
+  FolderTree
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
@@ -60,8 +67,24 @@ import { collection, doc, serverTimestamp, query, orderBy } from "firebase/fires
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { playSystemSound } from "@/lib/audio-utils"
+import Link from "next/link"
 
-// --- Components ---
+// --- Helper Functions ---
+
+const getCategoryAndDescendantsSet = (selectedIds: string[], allCats: any[]) => {
+  const result = new Set<string>(selectedIds);
+  const stack = [...selectedIds];
+  while (stack.length > 0) {
+    const parentId = stack.pop();
+    allCats.filter(c => c.parentId === parentId).forEach(child => {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        stack.push(child.id);
+      }
+    });
+  }
+  return result;
+};
 
 const ProductRow = React.memo(({ p, onEdit, onDelete, onPrint, onZoomQR, onZoomImage, isAdmin }: { p: any, onEdit: any, onDelete: any, onPrint: any, onZoomQR: any, onZoomImage: any, isAdmin: boolean }) => (
   <TableRow className="group border-white/5 hover:bg-muted/30 transition-colors duration-200">
@@ -133,6 +156,7 @@ export default function ProductsPage() {
   const [open, setOpen] = React.useState(false)
   const [editingProduct, setEditingProduct] = React.useState<any>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([])
   const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
   
   // Form States
@@ -163,14 +187,30 @@ export default function ProductsPage() {
     }))
   }
 
+  const handleCategoryToggle = (id: string) => {
+    setSelectedCategoryIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const filteredProducts = React.useMemo(() => {
     if (!products) return [];
     const term = searchTerm.toLowerCase();
-    let items = products.filter(p => 
+    
+    // 1. Filter by Hierarchical Categories
+    let items = products;
+    if (selectedCategoryIds.length > 0 && categories) {
+      const allowedSet = getCategoryAndDescendantsSet(selectedCategoryIds, categories);
+      items = items.filter(p => allowedSet.has(p.categoryId));
+    }
+
+    // 2. Filter by Search Term
+    items = items.filter(p => 
       p.name.toLowerCase().includes(term) || 
       (p.productCode && p.productCode.toLowerCase().includes(term))
     );
 
+    // 3. Sorting
     if (sortConfig.key) {
       items.sort((a, b) => {
         let valA = a[sortConfig.key];
@@ -189,7 +229,7 @@ export default function ProductsPage() {
     }
 
     return items;
-  }, [products, searchTerm, sortConfig]);
+  }, [products, searchTerm, sortConfig, selectedCategoryIds, categories]);
 
   const handleSaveProduct = () => {
     if (!isAdmin || !productName || !categoryId || !user) return;
@@ -203,6 +243,7 @@ export default function ProductsPage() {
       imageUrl,
       categoryId,
       categoryName: selectedCat?.name || "بدون تصنيف",
+      categoryPath: selectedCat?.path || selectedCat?.name || "بدون تصنيف",
       quantity: Number(quantity),
       minStockQuantity: Number(minStock),
       purchasePrice: Number(purchasePrice),
@@ -283,21 +324,66 @@ export default function ProductsPage() {
           <h1 className="text-3xl md:text-4xl font-black text-gradient-premium tracking-tighter">إدارة المخزون</h1>
           <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">تتبع القطع، الأسعار، وحركات التوريد</p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => { setEditingProduct(null); setProductName(""); setProductCode(""); setImageUrl(""); setOpen(true); }} className="h-12 md:h-14 px-8 rounded-2xl bg-primary text-white shadow-xl gap-2 font-black">
-            <Plus className="h-5 w-5" /> إضافة منتج جديد
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {isAdmin && (
+            <>
+              <Button asChild variant="outline" className="h-12 md:h-14 px-6 rounded-2xl glass border-white/20 gap-2 font-black">
+                <Link href="/categories">
+                   <FolderTree className="h-5 w-5 text-primary" /> إدارة التصنيفات
+                </Link>
+              </Button>
+              <Button onClick={() => { setEditingProduct(null); setProductName(""); setProductCode(""); setImageUrl(""); setOpen(true); }} className="h-12 md:h-14 px-8 rounded-2xl bg-primary text-white shadow-xl gap-2 font-black">
+                <Plus className="h-5 w-5" /> إضافة منتج جديد
+              </Button>
+            </>
+          )}
+        </div>
       </header>
 
-      <div className="max-w-md relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-        <Input 
-          placeholder="ابحث بالاسم أو الباركود..." 
-          className="pl-12 h-12 md:h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm" 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row gap-4 items-center">
+        <div className="flex-1 relative group w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Input 
+            placeholder="ابحث بالاسم أو الباركود..." 
+            className="pl-12 h-12 md:h-14 glass rounded-2xl border-none shadow-sm font-bold text-sm" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-12 md:h-14 glass border-none rounded-2xl px-6 font-black text-xs gap-2 relative min-w-[180px]">
+              <Layers className="h-5 w-5 text-primary" />
+              <span>تصفية الأصناف</span>
+              {selectedCategoryIds.length > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center bg-primary text-white shadow-lg">
+                  {selectedCategoryIds.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 glass border-none rounded-[2rem] shadow-2xl p-6 z-[250]" dir="rtl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="font-black text-xs text-primary uppercase">الأصناف (فرز هرمي)</p>
+                <button onClick={() => setSelectedCategoryIds([])} className="text-[10px] font-black text-muted-foreground hover:text-primary">مسح الكل</button>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar pr-1">
+                <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setSelectedCategoryIds([])}>
+                  <Checkbox checked={selectedCategoryIds.length === 0} className="rounded-md" />
+                  <Label className="text-sm font-bold cursor-pointer group-hover:text-primary transition-colors">عرض الكل</Label>
+                </div>
+                {categories?.map((cat) => (
+                  <div key={cat.id} className="flex items-center gap-3 group cursor-pointer" onClick={() => handleCategoryToggle(cat.id)}>
+                    <Checkbox checked={selectedCategoryIds.includes(cat.id)} className="rounded-md" />
+                    <Label className="text-sm font-bold cursor-pointer group-hover:text-primary transition-colors">{cat.name}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <Card className="border-none glass rounded-[2.5rem] overflow-hidden shadow-xl">
