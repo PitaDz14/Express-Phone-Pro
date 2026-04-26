@@ -693,23 +693,23 @@ export default function Dashboard() {
       {/* Low Stock Dialog */}
       <Dialog open={isLowStockOpen} onOpenChange={setIsLowStockOpen}>
         <DialogContent dir="rtl" className="max-w-5xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[210] h-[90vh] flex flex-col">
-          <DialogHeader className="p-4 md:p-6 bg-orange-500/10 border-b border-white/10 shrink-0">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <DialogHeader className="p-3 md:p-4 bg-orange-500/10 border-b border-white/10 shrink-0">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
-                     <AlertTriangle className="h-6 w-6" />
+                  <div className="h-9 w-9 md:h-11 md:w-11 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg">
+                     <AlertTriangle className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
-                     <DialogTitle className="text-lg md:text-xl font-black text-orange-700">قائمة النواقص الاحترافية</DialogTitle>
-                     <p className="text-[9px] font-bold text-orange-600/60 uppercase tracking-widest">مراقبة المخزون الحرجة</p>
+                     <DialogTitle className="text-md md:text-lg font-black text-orange-700">قائمة النواقص الاحترافية</DialogTitle>
+                     <p className="text-[8px] font-bold text-orange-600/60 uppercase tracking-widest">مراقبة المخزون الحرجة</p>
                   </div>
                </div>
                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => setIsExclusionsOpen(true)} className="h-9 px-4 rounded-xl glass border-none font-black text-[10px] gap-2">
+                  <Button variant="outline" onClick={() => setIsExclusionsOpen(true)} className="h-8 px-3 rounded-lg glass border-none font-black text-[9px] gap-1">
                      <EyeOff className="h-4 w-4 text-primary" /> إدارة المستثنيات
                   </Button>
                   <Select value={lowStockFilter} onValueChange={setLowStockFilter}>
-                     <SelectTrigger className="h-9 w-36 md:w-48 glass border-none rounded-xl font-bold text-[10px]">
+                     <SelectTrigger className="h-8 w-32 md:w-44 glass border-none rounded-lg font-bold text-[9px]">
                         <SelectValue placeholder="تصفية حسب الصنف" />
                      </SelectTrigger>
                      <SelectContent className="glass border-none rounded-xl z-[450]">
@@ -725,20 +725,20 @@ export default function Dashboard() {
              <div className="table-container flex-1 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-center">
                    <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-white/10">
-                      <tr className="text-[10px] font-black text-muted-foreground uppercase">
-                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('name')}>
+                      <tr className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase">
+                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('name')}>
                             <div className="flex items-center justify-center gap-2">المنتج <LowStockSortIcon column="name" /></div>
                          </th>
-                         <th className="p-4 hidden md:table-cell cursor-pointer" onClick={() => handleLowStockSort('categoryPath')}>
+                         <th className="p-3 md:p-4 hidden md:table-cell cursor-pointer" onClick={() => handleLowStockSort('categoryPath')}>
                             <div className="flex items-center justify-center gap-2">الصنف <LowStockSortIcon column="categoryPath" /></div>
                          </th>
-                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('quantity')}>
+                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('quantity')}>
                             <div className="flex items-center justify-center gap-2">المتوفر <LowStockSortIcon column="quantity" /></div>
                          </th>
-                         <th className="p-4 cursor-pointer" onClick={() => handleLowStockSort('minStockQuantity')}>
+                         <th className="p-3 md:p-4 cursor-pointer" onClick={() => handleLowStockSort('minStockQuantity')}>
                             <div className="flex items-center justify-center gap-2">الحد الأدنى <LowStockSortIcon column="minStockQuantity" /></div>
                          </th>
-                         <th className="p-4">الإجراءات</th>
+                         <th className="p-3 md:p-4">الإجراءات</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-white/5">
@@ -746,9 +746,9 @@ export default function Dashboard() {
                         <tr><td colSpan={5} className="py-20 text-center opacity-30 italic font-black">لا توجد نواقص في هذا النطاق</td></tr>
                       ) : lowStockItems.map(p => (
                         <tr key={p.id} className="group hover:bg-white/40 transition-colors">
-                           <td className="p-4">
+                           <td className="p-3 md:p-4">
                               <div className="flex items-center justify-center gap-3">
-                                 <div className="h-10 w-10 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                                 <div className="h-9 w-9 rounded-lg bg-card border border-border flex items-center justify-center shrink-0 overflow-hidden">
                                     {p.imageUrl ? <img src={p.imageUrl} className="h-full w-full object-cover" /> : <Package className="h-4 w-4 opacity-10" />}
                                  </div>
                                  <div className="flex flex-col text-right">
@@ -757,10 +757,10 @@ export default function Dashboard() {
                                  </div>
                               </div>
                            </td>
-                           <td className="p-4 hidden md:table-cell text-[10px] font-bold text-primary">{p.categoryPath || p.categoryName}</td>
-                           <td className="p-4"><Badge variant="destructive" className="h-6 rounded-lg font-black tabular-nums">{p.quantity}</Badge></td>
-                           <td className="p-4 text-[10px] font-black tabular-nums opacity-60">{p.minStockQuantity || 1}</td>
-                           <td className="p-4">
+                           <td className="p-3 md:p-4 hidden md:table-cell text-[10px] font-bold text-primary">{p.categoryPath || p.categoryName}</td>
+                           <td className="p-3 md:p-4"><Badge variant="destructive" className="h-6 rounded-lg font-black tabular-nums">{p.quantity}</Badge></td>
+                           <td className="p-3 md:p-4 text-[10px] font-black tabular-nums opacity-60">{p.minStockQuantity || 1}</td>
+                           <td className="p-3 md:p-4">
                               <Button 
                                 variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white"
                                 onClick={() => toggleProductExclusion(p)}
@@ -775,8 +775,8 @@ export default function Dashboard() {
                 </table>
              </div>
           </div>
-          <div className="p-4 bg-black/5 text-center shrink-0">
-             <Button className="rounded-2xl px-12 h-11 font-black shadow-lg" onClick={() => setIsLowStockOpen(false)}>إغلاق القائمة</Button>
+          <div className="p-3 md:p-4 bg-black/5 text-center shrink-0">
+             <Button className="rounded-xl px-12 h-10 font-black shadow-lg" onClick={() => setIsLowStockOpen(false)}>العودة للرئيسية</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -784,44 +784,44 @@ export default function Dashboard() {
       {/* Exclusions Dialog */}
       <Dialog open={isExclusionsOpen} onOpenChange={setIsExclusionsOpen}>
          <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3rem] shadow-2xl p-0 overflow-hidden z-[220] h-[85vh] flex flex-col">
-            <DialogHeader className="p-4 md:p-6 bg-primary/10 border-b border-white/10 shrink-0">
+            <DialogHeader className="p-3 md:p-4 bg-primary/10 border-b border-white/10 shrink-0">
                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary flex items-center justify-center text-white">
-                     <Settings2 className="h-6 w-6" />
+                  <div className="h-9 w-9 md:h-11 md:w-11 rounded-xl bg-primary flex items-center justify-center text-white">
+                     <Settings2 className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
-                     <DialogTitle className="text-lg md:text-xl font-black text-primary">مركز إدارة المستثنيات الذكي</DialogTitle>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">تخصيص رادار النواقص والإحصائيات</p>
+                     <DialogTitle className="text-md md:text-lg font-black text-primary">مركز إدارة المستثنيات الذكي</DialogTitle>
+                     <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">تخصيص رادار النواقص والإحصائيات</p>
                   </div>
                </div>
             </DialogHeader>
 
             <Tabs defaultValue="products" className="flex-1 flex flex-col overflow-hidden">
-               <TabsList className="mx-6 mt-4 h-11 rounded-xl bg-black/5 p-1 gap-1 shrink-0">
-                  <TabsTrigger value="products" className="flex-1 rounded-lg font-black text-[10px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Package className="h-4 w-4" /> المنتجات المستبعدة</TabsTrigger>
-                  <TabsTrigger value="categories" className="flex-1 rounded-lg font-black text-[10px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Layers className="h-4 w-4" /> الأصناف المستبعدة</TabsTrigger>
+               <TabsList className="mx-4 mt-2 h-10 rounded-xl bg-black/5 p-1 gap-1 shrink-0">
+                  <TabsTrigger value="products" className="flex-1 rounded-lg font-black text-[9px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Package className="h-3.5 w-3.5" /> المنتجات المستبعدة</TabsTrigger>
+                  <TabsTrigger value="categories" className="flex-1 rounded-lg font-black text-[9px] gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Layers className="h-3.5 w-3.5" /> الأصناف المستبعدة</TabsTrigger>
                </TabsList>
 
-               <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col p-6 space-y-4">
-                  <div className="space-y-4 shrink-0">
-                     <p className="text-[10px] font-black text-primary uppercase px-2">إضافة منتج جديد للاستبعاد</p>
+               <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 space-y-3 md:space-y-4">
+                  <div className="space-y-3 shrink-0">
+                     <p className="text-[9px] font-black text-primary uppercase px-2">إضافة منتج جديد للاستبعاد</p>
                      <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
-                           placeholder="ابحث عن المنتج المراد استبعاده..." 
-                           className="pl-10 h-11 glass border-none rounded-xl font-bold text-xs"
+                           placeholder="ابحث عن المنتج بالاسم أو الباركود..." 
+                           className="pl-10 h-10 glass border-none rounded-xl font-bold text-xs"
                            value={exclusionProdSearch}
                            onChange={(e) => setExclusionProductSearch(e.target.value)}
                         />
                         {exclusionSearchResults.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-2 glass-premium rounded-xl shadow-2xl z-20 border border-white/20 overflow-hidden divide-y divide-white/5">
+                          <div className="absolute top-full left-0 right-0 mt-1 glass-premium rounded-xl shadow-2xl z-20 border border-white/20 overflow-hidden divide-y divide-white/5">
                              {exclusionSearchResults.map(p => (
-                               <div key={p.id} className="p-3 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
+                               <div key={p.id} className="p-2 md:p-3 hover:bg-primary/5 flex items-center justify-between group/item transition-colors">
                                   <div className="flex flex-col">
                                      <span className="font-black text-xs">{p.name}</span>
-                                     <span className="text-[9px] font-bold opacity-40">#{p.productCode}</span>
+                                     <span className="text-[8px] font-bold opacity-40">#{p.productCode}</span>
                                   </div>
-                                  <Button size="sm" onClick={() => { toggleProductExclusion(p); setExclusionProductSearch(""); }} className="h-8 px-4 rounded-lg bg-primary text-white font-black text-[9px]">استبعاد الآن</Button>
+                                  <Button size="sm" onClick={() => { toggleProductExclusion(p); setExclusionProductSearch(""); }} className="h-7 px-3 rounded-lg bg-primary text-white font-black text-[8px]">استبعاد</Button>
                                </div>
                              ))}
                           </div>
@@ -832,21 +832,21 @@ export default function Dashboard() {
                   <Separator className="bg-white/10" />
 
                   <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase px-2 mb-2">قائمة المستثنيات الحالية</p>
+                     <p className="text-[9px] font-black text-muted-foreground uppercase px-2 mb-1">قائمة المستثنيات الحالية</p>
                      {products?.filter(p => p.excludeFromLowStock).length === 0 ? (
-                       <div className="py-20 text-center opacity-30 italic font-black text-xs">لا يوجد منتجات مستبعدة حالياً</div>
+                       <div className="py-14 text-center opacity-30 italic font-black text-[10px]">لا يوجد منتجات مستبعدة حالياً</div>
                      ) : products?.filter(p => p.excludeFromLowStock).map(p => (
-                       <div key={p.id} className="p-3 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
-                          <div className="flex items-center gap-3">
+                       <div key={p.id} className="p-2 md:p-3 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
+                          <div className="flex items-center gap-3 overflow-hidden">
                              <div className="h-8 w-8 rounded-lg bg-card flex items-center justify-center shrink-0">
-                                <Package className="h-4 w-4 opacity-20" />
+                                <Package className="h-3.5 w-3.5 opacity-20" />
                              </div>
-                             <div className="flex flex-col">
-                                <span className="font-bold text-xs">{p.name}</span>
-                                <span className="text-[8px] font-black opacity-40">{p.categoryPath}</span>
+                             <div className="flex flex-col overflow-hidden text-right">
+                                <span className="font-bold text-[11px] truncate">{p.name}</span>
+                                <span className="text-[8px] font-black opacity-40 truncate">{p.categoryPath}</span>
                              </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500 hover:bg-emerald-500/10" onClick={() => toggleProductExclusion(p)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10 shrink-0" onClick={() => toggleProductExclusion(p)}>
                              <Eye className="h-4 w-4" />
                           </Button>
                        </div>
@@ -854,12 +854,12 @@ export default function Dashboard() {
                   </div>
                </TabsContent>
 
-               <TabsContent value="categories" className="flex-1 overflow-hidden flex flex-col p-6 space-y-4">
-                  <div className="space-y-4 shrink-0">
-                     <p className="text-[10px] font-black text-primary uppercase px-2">استبعاد صنف كامل من الإحصائيات</p>
+               <TabsContent value="categories" className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 space-y-4">
+                  <div className="space-y-3 shrink-0">
+                     <p className="text-[9px] font-black text-primary uppercase px-2">استبعاد صنف كامل من الإحصائيات</p>
                      <Select onValueChange={(val) => { const c = categories?.find(x => x.id === val); if(c) toggleCategoryExclusion(c); }}>
-                        <SelectTrigger className="h-11 glass border-none rounded-xl font-bold text-xs">
-                           <SelectValue placeholder="اختر الصنف المراد استبعاده نهائياً..." />
+                        <SelectTrigger className="h-10 glass border-none rounded-xl font-bold text-xs">
+                           <SelectValue placeholder="اختر الصنف المراد استبعاده..." />
                         </SelectTrigger>
                         <SelectContent className="glass border-none rounded-xl z-[450]">
                            {categories?.filter(c => !c.excludeFromLowStock).map(c => (
@@ -872,22 +872,22 @@ export default function Dashboard() {
                   <Separator className="bg-white/10" />
 
                   <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase px-2 mb-2">الأصناف المستبعدة حالياً</p>
+                     <p className="text-[9px] font-black text-muted-foreground uppercase px-2 mb-1">الأصناف المستبعدة حالياً</p>
                      {categories?.filter(c => c.excludeFromLowStock).length === 0 ? (
-                        <div className="py-20 text-center opacity-30 italic font-black text-xs">لا توجد أصناف مستبعدة حالياً</div>
+                        <div className="py-14 text-center opacity-30 italic font-black text-[10px]">لا توجد أصناف مستبعدة حالياً</div>
                      ) : categories?.filter(c => c.excludeFromLowStock).map(c => (
-                        <div key={c.id} className="p-4 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
+                        <div key={c.id} className="p-3 rounded-xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                                 <Layers className="h-5 w-5" />
+                              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                 <Layers className="h-4 w-4" />
                               </div>
-                              <div className="flex flex-col">
+                              <div className="flex flex-col text-right">
                                  <span className="font-black text-sm">{c.name}</span>
-                                 <span className="text-[9px] font-bold text-red-500 uppercase">مستبعد من كافة التقارير</span>
+                                 <span className="text-[8px] font-bold text-red-500 uppercase">مستبعد نهائياً</span>
                               </div>
                            </div>
-                           <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-500 hover:bg-emerald-500/10" onClick={() => toggleCategoryExclusion(c)}>
-                              <Eye className="h-5 w-5" />
+                           <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500 hover:bg-emerald-500/10" onClick={() => toggleCategoryExclusion(c)}>
+                              <Eye className="h-4 w-4" />
                            </Button>
                         </div>
                      ))}
@@ -895,8 +895,8 @@ export default function Dashboard() {
                </TabsContent>
             </Tabs>
             
-            <div className="p-4 bg-black/5 text-center">
-               <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setIsExclusionsOpen(false)}>العودة للنواقص</Button>
+            <div className="p-3 md:p-4 bg-black/5 text-center">
+               <Button variant="outline" className="rounded-xl px-12 h-10 font-black" onClick={() => setIsExclusionsOpen(false)}>العودة للنواقص</Button>
             </div>
          </DialogContent>
       </Dialog>
