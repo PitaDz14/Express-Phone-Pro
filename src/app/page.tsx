@@ -409,25 +409,28 @@ export default function Dashboard() {
       return isLow && !p.excludeFromLowStock && !excludedCategoryIds.has(p.categoryId);
     }).length;
 
-    // REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD)
+    // REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD) - CRITICAL FIX APPLIED
     const screens = products?.filter(p => {
       const name = (p.name || "").toLowerCase()
       const path = (p.categoryPath || p.categoryName || "").toLowerCase()
       
-      // Keywords that definitely imply a real screen hardware piece
+      // Keywords for real hardware pieces
       const isScreenKeyword = name.includes("lcd") || name.includes("afficheur") || name.includes("oled") || name.includes("screen");
-      const isArabicScreenKeyword = name.includes("شاشة");
+      const isArabicScreenKeyword = name.includes("شاشة") || name.includes("افيشور");
       
-      // Keywords that imply an accessory (MUST EXCLUDE)
-      const isAccessory = name.includes("protector") || name.includes("حماية") || name.includes("واقي") || name.includes("لاصق") || name.includes("لصقة") || name.includes("sticker") || name.includes("glass") || name.includes("cover");
+      // Keywords for accessories (STRICT EXCLUSION)
+      const isAccessory = name.includes("protector") || name.includes("حماية") || name.includes("واقي") || 
+                          name.includes("لاصق") || name.includes("لصقة") || name.includes("sticker") || 
+                          name.includes("glass") || name.includes("cover") || name.includes("بصمة") || 
+                          name.includes("انتي") || name.includes("shock") || name.includes("film") || 
+                          name.includes("ceramik") || name.includes("9d") || name.includes("11d") || 
+                          name.includes("21d") || name.includes("كفر") || name.includes("جراب");
       
       // Explicit Category Path check
       const isInScreenCategory = path.includes("شاشات") || path.includes("afficheur") || path.includes("lcd");
       
-      // A product is a screen if:
-      // 1. It's in a screen category
-      // 2. OR it has screen keywords and is NOT an accessory
-      return isInScreenCategory || ((isScreenKeyword || isArabicScreenKeyword) && !isAccessory);
+      // LOGIC: A product is a screen only if it's NOT an accessory AND (In screen category OR has screen keywords)
+      return !isAccessory && (isInScreenCategory || isScreenKeyword || isArabicScreenKeyword);
     }) || []
 
     return {
