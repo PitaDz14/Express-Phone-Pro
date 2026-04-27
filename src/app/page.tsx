@@ -409,10 +409,25 @@ export default function Dashboard() {
       return isLow && !p.excludeFromLowStock && !excludedCategoryIds.has(p.categoryId);
     }).length;
 
+    // REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD)
     const screens = products?.filter(p => {
       const name = (p.name || "").toLowerCase()
-      const path = (p.categoryPath || "").toLowerCase()
-      return name.includes("lcd") || name.includes("screen") || name.includes("شاشة") || name.includes("afficheur") || path.includes("شاشات")
+      const path = (p.categoryPath || p.categoryName || "").toLowerCase()
+      
+      // Keywords that definitely imply a real screen hardware piece
+      const isScreenKeyword = name.includes("lcd") || name.includes("afficheur") || name.includes("oled") || name.includes("screen");
+      const isArabicScreenKeyword = name.includes("شاشة");
+      
+      // Keywords that imply an accessory (MUST EXCLUDE)
+      const isAccessory = name.includes("protector") || name.includes("حماية") || name.includes("واقي") || name.includes("لاصق") || name.includes("لصقة") || name.includes("sticker") || name.includes("glass") || name.includes("cover");
+      
+      // Explicit Category Path check
+      const isInScreenCategory = path.includes("شاشات") || path.includes("afficheur") || path.includes("lcd");
+      
+      // A product is a screen if:
+      // 1. It's in a screen category
+      // 2. OR it has screen keywords and is NOT an accessory
+      return isInScreenCategory || ((isScreenKeyword || isArabicScreenKeyword) && !isAccessory);
     }) || []
 
     return {
@@ -420,9 +435,9 @@ export default function Dashboard() {
       productCount: products?.length || 0,
       lowStock: lowStockCount,
       totalDebt: customers?.reduce((acc, c) => acc + (c.debt || 0), 0) || 0,
-      screensCount: screens.reduce((acc, p) => acc + (p.quantity || 0), 0),
-      screensSaleVal: screens.reduce((acc, p) => acc + (p.salePrice * (p.quantity || 0)), 0),
-      screensPurchaseVal: screens.reduce((acc, p) => acc + ((p.purchasePrice || 0) * (p.quantity || 0)), 0)
+      screensCount: screens.reduce((acc, p) => acc + Number(p.quantity || 0), 0),
+      screensSaleVal: screens.reduce((acc, p) => acc + (Number(p.salePrice || 0) * Number(p.quantity || 0)), 0),
+      screensPurchaseVal: screens.reduce((acc, p) => acc + (Number(p.purchasePrice || 0) * Number(p.quantity || 0)), 0)
     }
   }, [recentInvoices, products, customers, categories, isMounted])
 
@@ -645,7 +660,11 @@ export default function Dashboard() {
                      <div className="flex items-center gap-3 mb-2"><CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات</CardTitle></div>
                   </CardHeader>
                   <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                     <div className="glass bg-white/5 p-4 rounded-2xl"><span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span><p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount}</p></div>
+                     <div className="glass bg-white/5 p-4 rounded-2xl">
+                        <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
+                        <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount}</p>
+                        <p className="text-[7px] text-white/40 mt-1 font-bold italic">مخزون حقيقي (باستبعاد الملحقات)</p>
+                     </div>
                      <div className="glass bg-white/5 p-4 rounded-2xl"><span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع</span><p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} دج</p></div>
                      <div className="glass bg-white/5 p-4 rounded-2xl"><span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span><p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} دج</p></div>
                   </CardContent>
