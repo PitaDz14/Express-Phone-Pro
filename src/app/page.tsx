@@ -409,14 +409,18 @@ export default function Dashboard() {
       return isLow && !p.excludeFromLowStock && !excludedCategoryIds.has(p.categoryId);
     }).length;
 
-    // REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD) - CRITICAL FIX APPLIED
+    // --- REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD) ---
+    // Rule: Must be in "Screens" category classification AND NOT be an accessory
+    const screenCategoryIds = new Set(categories.filter(c => 
+      c.name.toLowerCase().includes("شاشات") || 
+      c.name.toLowerCase().includes("afficheur") ||
+      c.name.toLowerCase().includes("lcd") ||
+      (c.path && (c.path.toLowerCase().includes("شاشات") || c.path.toLowerCase().includes("afficheur")))
+    ).map(c => c.id));
+
     const screens = products?.filter(p => {
       const name = (p.name || "").toLowerCase()
       const path = (p.categoryPath || p.categoryName || "").toLowerCase()
-      
-      // Keywords for real hardware pieces
-      const isScreenKeyword = name.includes("lcd") || name.includes("afficheur") || name.includes("oled") || name.includes("screen");
-      const isArabicScreenKeyword = name.includes("شاشة") || name.includes("افيشور");
       
       // Keywords for accessories (STRICT EXCLUSION)
       const isAccessory = name.includes("protector") || name.includes("حماية") || name.includes("واقي") || 
@@ -426,11 +430,13 @@ export default function Dashboard() {
                           name.includes("ceramik") || name.includes("9d") || name.includes("11d") || 
                           name.includes("21d") || name.includes("كفر") || name.includes("جراب");
       
-      // Explicit Category Path check
-      const isInScreenCategory = path.includes("شاشات") || path.includes("afficheur") || path.includes("lcd");
-      
-      // LOGIC: A product is a screen only if it's NOT an accessory AND (In screen category OR has screen keywords)
-      return !isAccessory && (isInScreenCategory || isScreenKeyword || isArabicScreenKeyword);
+      // Logic: A product is a screen ONLY if it's in a screen category classification AND it's NOT an accessory
+      const isInScreenHierarchy = screenCategoryIds.has(p.categoryId) || 
+                                 path.includes("شاشات") || 
+                                 path.includes("afficheur") || 
+                                 path.includes("lcd");
+                                 
+      return isInScreenHierarchy && !isAccessory;
     }) || []
 
     return {
