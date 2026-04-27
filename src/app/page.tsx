@@ -44,7 +44,10 @@ import {
   History,
   Info,
   Star,
-  Trash2
+  Trash2,
+  ChevronRight,
+  FolderTree,
+  Monitor
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -303,6 +306,7 @@ export default function Dashboard() {
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   const [isLowStockOpen, setIsLowStockOpen] = React.useState(false)
   const [isExclusionsOpen, setIsExclusionsOpen] = React.useState(false)
+  const [isScreensBreakdownOpen, setIsScreensBreakdownOpen] = React.useState(false)
   const [lowStockFilter, setLowStockFilter] = React.useState("all")
   const [lowStockSortConfig, setLowStockSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'quantity', direction: 'asc' })
 
@@ -390,7 +394,8 @@ export default function Dashboard() {
       totalDebt: 0,
       screensCount: 0,
       screensSaleVal: 0,
-      screensPurchaseVal: 0
+      screensPurchaseVal: 0,
+      screensProducts: []
     };
 
     const todayStart = new Date();
@@ -410,7 +415,6 @@ export default function Dashboard() {
     }).length;
 
     // --- REFINED INTELLIGENT FILTERING FOR SCREENS (Afficheur/LCD) ---
-    // Rule: Must be in "Screens" category classification AND NOT be an accessory
     const screenCategoryIds = new Set(categories.filter(c => 
       c.name.toLowerCase().includes("شاشات") || 
       c.name.toLowerCase().includes("afficheur") ||
@@ -422,7 +426,6 @@ export default function Dashboard() {
       const name = (p.name || "").toLowerCase()
       const path = (p.categoryPath || p.categoryName || "").toLowerCase()
       
-      // Keywords for accessories (STRICT EXCLUSION)
       const isAccessory = name.includes("protector") || name.includes("حماية") || name.includes("واقي") || 
                           name.includes("لاصق") || name.includes("لصقة") || name.includes("sticker") || 
                           name.includes("glass") || name.includes("cover") || name.includes("بصمة") || 
@@ -430,7 +433,6 @@ export default function Dashboard() {
                           name.includes("ceramik") || name.includes("9d") || name.includes("11d") || 
                           name.includes("21d") || name.includes("كفر") || name.includes("جراب");
       
-      // Logic: A product is a screen ONLY if it's in a screen category classification AND it's NOT an accessory
       const isInScreenHierarchy = screenCategoryIds.has(p.categoryId) || 
                                  path.includes("شاشات") || 
                                  path.includes("afficheur") || 
@@ -446,7 +448,8 @@ export default function Dashboard() {
       totalDebt: customers?.reduce((acc, c) => acc + (c.debt || 0), 0) || 0,
       screensCount: screens.reduce((acc, p) => acc + Number(p.quantity || 0), 0),
       screensSaleVal: screens.reduce((acc, p) => acc + (Number(p.salePrice || 0) * Number(p.quantity || 0)), 0),
-      screensPurchaseVal: screens.reduce((acc, p) => acc + (Number(p.purchasePrice || 0) * Number(p.quantity || 0)), 0)
+      screensPurchaseVal: screens.reduce((acc, p) => acc + (Number(p.purchasePrice || 0) * Number(p.quantity || 0)), 0),
+      screensProducts: screens
     }
   }, [recentInvoices, products, customers, categories, isMounted])
 
@@ -575,6 +578,117 @@ export default function Dashboard() {
     return <ArrowUpDown className="h-3 w-3 opacity-30" />;
   }
 
+  // --- Screens Breakdown Components ---
+
+  const buildHierarchy = (cats: any[], prods: any[]) => {
+    const screenCatIds = new Set(cats.filter(c => 
+      c.name.toLowerCase().includes("شاشات") || 
+      c.name.toLowerCase().includes("afficheur") ||
+      c.name.toLowerCase().includes("lcd") ||
+      (c.path && (c.path.toLowerCase().includes("شاشات") || c.path.toLowerCase().includes("afficheur")))
+    ).map(c => c.id));
+
+    const screenCats = cats.filter(c => screenCatIds.has(c.id));
+    
+    const buildNode = (parentId: string | null = null) => {
+      return screenCats
+        .filter(c => c.parentId === parentId)
+        .map(c => {
+          const children = buildNode(c.id);
+          const directProducts = prods.filter(p => p.categoryId === c.id);
+          const totalQty = directProducts.reduce((sum, p) => sum + Number(p.quantity || 0), 0) +
+                           children.reduce((sum, child) => sum + child.totalQty, 0);
+          
+          return {
+            ...c,
+            children,
+            products: directProducts,
+            totalQty
+          };
+        })
+        .sort((a, b) => b.totalQty - a.totalQty);
+    };
+
+    // Find Root Screen Categories (those whose parent is NOT a screen category)
+    const rootScreenCats = screenCats.filter(c => !c.parentId || !screenCatIds.has(c.parentId));
+    
+    return rootScreenCats.map(c => {
+      const children = buildNode(c.id);
+      const directProducts = prods.filter(p => p.categoryId === c.id);
+      const totalQty = directProducts.reduce((sum, p) => sum + Number(p.quantity || 0), 0) +
+                       children.reduce((sum, child) => sum + child.totalQty, 0);
+      return {
+        ...c,
+        children,
+        products: directProducts,
+        totalQty
+      };
+    }).sort((a, b) => b.totalQty - a.totalQty);
+  };
+
+  const ScreenNode = ({ node, level = 0 }: { node: any, level: number }) => {
+    const [isExpanded, setIsExpanded] = React.useState(level < 1);
+    if (node.totalQty <= 0 && node.products.length === 0 && node.children.length === 0) return null;
+
+    return (
+      <div className="space-y-2">
+        <div 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={cn(
+            "flex items-center justify-between p-4 rounded-2xl glass border-white/10 cursor-pointer group transition-all hover:bg-white/40",
+            level === 0 ? "bg-primary/5" : "bg-transparent"
+          )}
+        >
+          <div className="flex items-center gap-3">
+             <div className={cn("p-1.5 rounded-lg transition-transform", isExpanded ? "rotate-90" : "rotate-0")}>
+                <ChevronRight className="h-4 w-4 opacity-40" />
+             </div>
+             <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                   {level === 0 ? <Monitor className="h-4 w-4 text-primary" /> : <Layers className="h-3.5 w-3.5 text-muted-foreground" />}
+                   <span className={cn("font-black", level === 0 ? "text-sm md:text-base text-primary" : "text-xs md:text-sm")}>{node.name}</span>
+                </div>
+                {level === 0 && <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mr-6">تصنيف رئيسي</span>}
+             </div>
+          </div>
+          <Badge variant="outline" className="h-8 px-4 rounded-xl font-black text-xs tabular-nums bg-white shadow-sm border-none text-primary">
+            {node.totalQty} قطعة
+          </Badge>
+        </div>
+
+        {isExpanded && (
+          <div className={cn("mr-6 space-y-2 border-r-2 border-primary/5 pr-4 mt-2 animate-in slide-in-from-right-2 duration-300")}>
+             {/* Render Sub-Categories */}
+             {node.children.map((child: any) => (
+               <ScreenNode key={child.id} node={child} level={level + 1} />
+             ))}
+
+             {/* Render Direct Products */}
+             {node.products.sort((a: any, b: any) => b.quantity - a.quantity).map((p: any) => (
+               <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-black/5 border border-white/5 hover:bg-white/20 transition-all group">
+                  <div className="flex items-center gap-3">
+                     <div className="h-8 w-8 rounded-lg bg-card flex items-center justify-center shrink-0">
+                        {p.imageUrl ? <img src={p.imageUrl} className="h-full w-full object-cover rounded-lg" /> : <Package className="h-4 w-4 opacity-20" />}
+                     </div>
+                     <div className="flex flex-col">
+                        <span onClick={() => setViewFullName(p.name)} className="font-bold text-xs md:text-sm cursor-pointer hover:text-primary transition-colors">{p.name}</span>
+                        <span className="text-[9px] font-bold text-muted-foreground">#{p.productCode}</span>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <div className="flex flex-col items-end">
+                        <span className="font-black text-xs tabular-nums text-slate-800">{p.quantity}</span>
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase">قطعة</span>
+                     </div>
+                  </div>
+               </div>
+             ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (!isMounted) return null;
 
   return (
@@ -669,10 +783,16 @@ export default function Dashboard() {
                      <div className="flex items-center gap-3 mb-2"><CardTitle className="text-lg md:text-xl font-black">إحصائيات الشاشات</CardTitle></div>
                   </CardHeader>
                   <CardContent className="px-6 md:px-8 pb-6 md:pb-8 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                     <div className="glass bg-white/5 p-4 rounded-2xl">
-                        <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
+                     <div 
+                        onClick={() => setIsScreensBreakdownOpen(true)}
+                        className="glass bg-white/5 p-4 rounded-2xl cursor-pointer hover:bg-white/10 transition-all hover:scale-[1.02] active:scale-95 group"
+                     >
+                        <div className="flex items-center justify-between">
+                           <span className="text-[8px] md:text-[9px] font-black uppercase text-emerald-400">إجمالي القطع</span>
+                           <FolderTree className="h-3 w-3 text-emerald-400/40 group-hover:text-emerald-400 transition-colors" />
+                        </div>
                         <p className="text-2xl md:text-3xl font-black tabular-nums">{stats.screensCount}</p>
-                        <p className="text-[7px] text-white/40 mt-1 font-bold italic">مخزون حقيقي (باستبعاد الملحقات)</p>
+                        <p className="text-[7px] text-white/40 mt-1 font-bold italic">مخزون حقيقي (انقر للتفصيل)</p>
                      </div>
                      <div className="glass bg-white/5 p-4 rounded-2xl"><span className="text-[8px] md:text-[9px] font-black uppercase text-primary">قيمة البيع</span><p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensSaleVal.toLocaleString()} دج</p></div>
                      <div className="glass bg-white/5 p-4 rounded-2xl"><span className="text-[8px] md:text-[9px] font-black uppercase text-orange-400">قيمة الشراء</span><p className="text-xl md:text-2xl font-black tabular-nums">{stats.screensPurchaseVal.toLocaleString()} دج</p></div>
@@ -875,6 +995,44 @@ export default function Dashboard() {
           </div>
           <div className="p-3 md:p-4 bg-black/5 text-center shrink-0">
              <Button className="rounded-xl px-12 h-10 font-black shadow-lg" onClick={() => setIsLowStockOpen(false)}>العودة للرئيسية</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Screens Breakdown Dialog */}
+      <Dialog open={isScreensBreakdownOpen} onOpenChange={setIsScreensBreakdownOpen}>
+        <DialogContent dir="rtl" className="max-w-4xl w-[95%] glass border-none rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl p-0 overflow-hidden z-[210] h-[85vh] flex flex-col">
+          <DialogHeader className="p-6 bg-gradient-to-r from-primary to-accent text-white relative shrink-0">
+             <div className="absolute top-0 left-0 p-8 opacity-10"><Monitor className="h-24 w-24 -rotate-12" /></div>
+             <div className="flex items-center gap-4 relative z-10">
+                <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/20">
+                   <FolderTree className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                   <DialogTitle className="text-2xl font-black">الجرد الهرمي للشاشات</DialogTitle>
+                   <p className="text-xs font-bold text-white/70 uppercase tracking-widest mt-1">توزيع المخزون حسب الأصناف والمنتجات</p>
+                </div>
+             </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar bg-black/5">
+             {categories && stats.screensProducts.length > 0 ? (
+               <div className="space-y-4">
+                  {buildHierarchy(categories, stats.screensProducts).map(rootNode => (
+                    <ScreenNode key={rootNode.id} node={rootNode} level={0} />
+                  ))}
+               </div>
+             ) : (
+               <div className="py-20 text-center opacity-30 italic font-black">لا توجد بيانات شاشات متاحة حالياً</div>
+             )}
+          </div>
+
+          <div className="p-6 bg-white border-t border-black/5 text-center shrink-0 flex items-center justify-between px-10">
+             <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">إجمالي مخزون الشاشات:</span>
+                <Badge className="h-9 px-6 rounded-xl font-black text-lg bg-primary text-white shadow-xl shadow-primary/20">{stats.screensCount}</Badge>
+             </div>
+             <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setIsScreensBreakdownOpen(false)}>إغلاق الجرد</Button>
           </div>
         </DialogContent>
       </Dialog>
