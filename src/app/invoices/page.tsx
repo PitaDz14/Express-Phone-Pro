@@ -22,7 +22,8 @@ import {
   Star,
   Info,
   X,
-  ShoppingBag
+  ShoppingBag,
+  UserPlus
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -552,14 +553,24 @@ export default function InvoicesPage() {
                                    <p className="text-[9px] font-bold text-slate-400 px-2 mt-2 italic">(يمكنك الكتابة مباشرة للعملاء غير المسجلين)</p>
                                 </div>
                                 <Separator className="mb-4 opacity-50" />
-                                <DropdownMenuItem className="rounded-xl font-black h-12 gap-3" onClick={() => setSelectedCustomer(null)}>
-                                   <UserCog className="h-5 w-5 text-slate-400" /> عميل عام (نقدي)
-                                </DropdownMenuItem>
-                                {customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).slice(0, 5).map(c => (
-                                  <DropdownMenuItem key={c.id} className="rounded-xl font-black h-12 gap-3 text-blue-600 bg-blue-50/30 mb-1" onClick={() => setSelectedCustomer(c)}>
-                                     <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {c.name}
-                                  </DropdownMenuItem>
-                                ))}
+                                <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1">
+                                   <DropdownMenuItem className="rounded-xl font-black h-12 gap-3" onClick={() => setSelectedCustomer(null)}>
+                                      <UserCog className="h-5 w-5 text-slate-400" /> عميل عام (نقدي)
+                                   </DropdownMenuItem>
+                                   
+                                   {/* Add New Customer Shortcut */}
+                                   <Link href="/customers" className="block">
+                                      <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 text-primary bg-primary/5 hover:bg-primary/10 mb-2 cursor-pointer border border-primary/10">
+                                         <UserPlus className="h-5 w-5" /> إضافة عميل جديد للنظام
+                                      </DropdownMenuItem>
+                                   </Link>
+
+                                   {customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                                     <DropdownMenuItem key={c.id} className="rounded-xl font-black h-12 gap-3 text-blue-600 bg-blue-50/30 mb-1" onClick={() => setSelectedCustomer(c)}>
+                                        <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {c.name}
+                                     </DropdownMenuItem>
+                                   ))}
+                                </div>
                              </DropdownMenuContent>
                           </DropdownMenu>
                        </div>
