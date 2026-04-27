@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -320,16 +319,35 @@ export default function Dashboard() {
   const [qaIsPriority, setQaIsPriority] = React.useState(false)
   const [isAdding, setIsAdding] = React.useState(false)
 
-  const productsRef = useMemoFirebase(() => collection(db, "products"), [db])
-  const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
-  const invoicesRef = useMemoFirebase(() => collection(db, "invoices"), [db])
-  const categoriesRef = useMemoFirebase(() => collection(db, "categories"), [db])
+  // CRITICAL FIX: Only run queries when user and role are available
+  const productsRef = useMemoFirebase(() => {
+    if (!user || !role) return null;
+    return collection(db, "products");
+  }, [db, user, role]);
+
+  const customersRef = useMemoFirebase(() => {
+    if (!user || !role) return null;
+    return collection(db, "customers");
+  }, [db, user, role]);
+
+  const invoicesRef = useMemoFirebase(() => {
+    if (!user || !role) return null;
+    return collection(db, "invoices");
+  }, [db, user, role]);
+
+  const categoriesRef = useMemoFirebase(() => {
+    if (!user || !role) return null;
+    return collection(db, "categories");
+  }, [db, user, role]);
   
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
   const { data: categories } = useCollection(categoriesRef)
   
-  const recentInvoicesQuery = useMemoFirebase(() => query(invoicesRef, orderBy("createdAt", "desc"), limit(5)), [invoicesRef])
+  const recentInvoicesQuery = useMemoFirebase(() => {
+    if (!invoicesRef) return null;
+    return query(invoicesRef, orderBy("createdAt", "desc"), limit(5));
+  }, [invoicesRef])
   const { data: recentInvoices } = useCollection(recentInvoicesQuery)
 
   const lowStockItems = React.useMemo(() => {
@@ -437,7 +455,7 @@ export default function Dashboard() {
     const categoryPath = categories ? getFullCategoryPath(qaCat, categories) : (selectedCat?.name || "بدون تصنيف");
 
     try {
-      await addDocumentNonBlocking(productsRef, {
+      await addDocumentNonBlocking(productsRef!, {
         name: qaName,
         productCode: finalCode,
         imageUrl: qaImageUrl,
@@ -675,7 +693,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
                  <div className="space-y-1.5"><Label className="font-black text-[9px] text-primary">الكمية</Label><Input type="number" value={qaQty} onChange={(e) => setQaQty(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center" /></div>
                  <div className="space-y-1.5"><Label className="font-black text-[9px] text-emerald-600">سعر البيع</Label><Input type="number" value={qaSale} onChange={(e) => setQaSale(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-emerald-600" /></div>
-                 <div className="space-y-1.5"><Label className="font-black text-[9px] text-red-500">تنبيه عند</Label><Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-red-600" /></div>
+                 <div className="space-y-1.5"><Label className="font-black text-[9px] text-red-500">تنبيه عند نقص</Label><Input type="number" value={qaMinStock} onChange={(e) => setQaMinStock(Number(e.target.value))} className="h-10 glass border-none rounded-xl font-black text-center text-red-600" /></div>
               </div>
            </div>
            <DialogFooter className="mt-6"><Button onClick={handleFullAdd} disabled={isAdding} className="w-full h-12 rounded-xl bg-primary text-white font-black text-lg">تأكيد الإضافة</Button></DialogFooter>

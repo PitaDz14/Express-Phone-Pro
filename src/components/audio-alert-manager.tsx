@@ -1,8 +1,7 @@
-
 'use client';
 
 import * as React from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { playSystemSound } from '@/lib/audio-utils';
 import {
@@ -22,8 +21,15 @@ import { AlertTriangle, ShieldAlert, PackageSearch } from 'lucide-react';
  * Mounted in layout.tsx to ensure it only runs once per app session and survives navigation.
  */
 export function AudioAlertManager() {
+  const { user, role } = useUser();
   const db = useFirestore();
-  const productsRef = useMemoFirebase(() => collection(db, "products"), [db]);
+  
+  // CRITICAL FIX: Only create reference if user and role are available to avoid permission errors
+  const productsRef = useMemoFirebase(() => {
+    if (!user || !role) return null;
+    return collection(db, "products");
+  }, [db, user, role]);
+
   const { data: products } = useCollection(productsRef);
   
   const [criticalItems, setCriticalItems] = React.useState<any[]>([]);
