@@ -128,7 +128,6 @@ export default function InvoicesPage() {
             const custDoc = await getDoc(doc(db, "customers", data.customerId));
             if (custDoc.exists()) {
               setSelectedCustomer({ id: custDoc.id, ...custDoc.data() });
-              // Initialize customer search to customer name to avoid empty list issues
               setCustomerSearch(""); 
             }
           } else {
@@ -367,73 +366,8 @@ export default function InvoicesPage() {
 
         <main className="max-w-[1600px] mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
            
-           {/* Sidebar: Account Summary */}
-           <div className="lg:col-span-1">
-              <div className="sticky top-28 space-y-6">
-                 <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
-                    <div className="absolute -top-10 -right-10 opacity-5"><Smartphone className="h-64 w-64 rotate-12" /></div>
-                    
-                    <div className="relative z-10 space-y-8">
-                       <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                          <h2 className="text-xl md:text-2xl font-black">الحساب النهائي</h2>
-                          <Badge className="bg-white/20 text-white border-none font-black text-[10px]">REAL-TIME</Badge>
-                       </div>
-
-                       <div className="space-y-5">
-                          <div className="flex justify-between items-center text-white/80">
-                             <span className="text-xs md:text-sm font-bold">المجموع الفرعي:</span>
-                             <span className="font-black tabular-nums">{subtotal.toLocaleString()} دج</span>
-                          </div>
-                          <div className="flex justify-between items-center text-white/80">
-                             <span className="text-xs md:text-sm font-bold">المبلغ المدفوع:</span>
-                             <span className="font-black tabular-nums">{finalPaid.toLocaleString()} دج</span>
-                          </div>
-                          {discount > 0 && (
-                            <div className="flex justify-between items-center text-red-200">
-                               <span className="text-xs md:text-sm font-bold">الخصم الممنوح:</span>
-                               <span className="font-black tabular-nums">-{discount.toLocaleString()} دج</span>
-                            </div>
-                          )}
-                          <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                             <span className="text-xs font-bold text-white/60">الموظف:</span>
-                             <span className="font-black text-sm">{username || "غير معرف"}</span>
-                          </div>
-                       </div>
-                    </div>
-
-                    <div className="relative z-10 space-y-8 mt-12">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">الإجمالي المطلوب</p>
-                          <div className="flex items-baseline gap-2">
-                             <span className="text-5xl md:text-6xl font-black tabular-nums leading-none">{total.toLocaleString()}</span>
-                             <span className="text-lg md:text-xl font-bold opacity-60">دج</span>
-                          </div>
-                       </div>
-
-                       <Button 
-                          onClick={() => setShowPreview(true)}
-                          disabled={cart.length === 0}
-                          className="w-full h-14 md:h-16 rounded-[1.5rem] md:rounded-3xl bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30 text-base md:text-lg font-black shadow-inner gap-3 transition-all"
-                       >
-                          معاينة وتأكيد الحفظ
-                       </Button>
-                    </div>
-                 </Card>
-
-                 <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-xl flex items-start gap-4 border border-slate-100">
-                    <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                       <Info className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-1">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إرشادات</p>
-                       <p className="text-[10px] font-bold text-slate-500 leading-relaxed italic">يمكنك تعديل أسعار بيع القطع يدوياً في السلة لكل فاتورة على حدة دون تغيير السعر الأصلي.</p>
-                    </div>
-                 </div>
-              </div>
-           </div>
-
-           {/* Main Column */}
-           <div className="lg:col-span-3 space-y-8">
+           {/* Main Column - Products & Customer */}
+           <div className="lg:col-span-3 space-y-8 order-1 lg:order-2">
               
               {/* Product Selection */}
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
@@ -625,6 +559,71 @@ export default function InvoicesPage() {
                     </div>
                  </CardContent>
               </Card>
+           </div>
+
+           {/* Sidebar: Account Summary - Order 2 on mobile, Order 1 on Desktop */}
+           <div className="lg:col-span-1 order-2 lg:order-1">
+              <div className="sticky top-28 space-y-6">
+                 <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
+                    <div className="absolute -top-10 -right-10 opacity-5"><Smartphone className="h-64 w-64 rotate-12" /></div>
+                    
+                    <div className="relative z-10 space-y-8">
+                       <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                          <h2 className="text-xl md:text-2xl font-black">الحساب النهائي</h2>
+                          <Badge className="bg-white/20 text-white border-none font-black text-[10px]">REAL-TIME</Badge>
+                       </div>
+
+                       <div className="space-y-5">
+                          <div className="flex justify-between items-center text-white/80">
+                             <span className="text-xs md:text-sm font-bold">المجموع الفرعي:</span>
+                             <span className="font-black tabular-nums">{subtotal.toLocaleString()} دج</span>
+                          </div>
+                          <div className="flex justify-between items-center text-white/80">
+                             <span className="text-xs md:text-sm font-bold">المبلغ المدفوع:</span>
+                             <span className="font-black tabular-nums">{finalPaid.toLocaleString()} دج</span>
+                          </div>
+                          {discount > 0 && (
+                            <div className="flex justify-between items-center text-red-200">
+                               <span className="text-xs md:text-sm font-bold">الخصم الممنوح:</span>
+                               <span className="font-black tabular-nums">-{discount.toLocaleString()} دج</span>
+                            </div>
+                          )}
+                          <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+                             <span className="text-xs font-bold text-white/60">الموظف:</span>
+                             <span className="font-black text-sm">{username || "غير معرف"}</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="relative z-10 space-y-8 mt-12">
+                       <div className="space-y-1">
+                          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">الإجمالي المطلوب</p>
+                          <div className="flex items-baseline gap-2">
+                             <span className="text-5xl md:text-6xl font-black tabular-nums leading-none">{total.toLocaleString()}</span>
+                             <span className="text-lg md:text-xl font-bold opacity-60">دج</span>
+                          </div>
+                       </div>
+
+                       <Button 
+                          onClick={() => setShowPreview(true)}
+                          disabled={cart.length === 0}
+                          className="w-full h-14 md:h-16 rounded-[1.5rem] md:rounded-3xl bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30 text-base md:text-lg font-black shadow-inner gap-3 transition-all"
+                       >
+                          معاينة وتأكيد الحفظ
+                       </Button>
+                    </div>
+                 </Card>
+
+                 <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-xl flex items-start gap-4 border border-slate-100">
+                    <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                       <Info className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إرشادات</p>
+                       <p className="text-[10px] font-bold text-slate-500 leading-relaxed italic">يمكنك تعديل أسعار بيع القطع يدوياً في السلة لكل فاتورة على حدة دون تغيير السعر الأصلي.</p>
+                    </div>
+                 </div>
+              </div>
            </div>
         </main>
 
