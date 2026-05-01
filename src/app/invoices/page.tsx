@@ -25,7 +25,8 @@ import {
   ShoppingBag,
   UserPlus,
   AlertCircle,
-  Save
+  Save,
+  Minus
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -125,10 +126,10 @@ export default function InvoicesPage() {
           setPaidAmount(data.paidAmount ?? "");
           
           if (data.customerId && data.customerId !== 'walk-in') {
+            // Priority: Fetch selected customer first
             const custDoc = await getDoc(doc(db, "customers", data.customerId));
             if (custDoc.exists()) {
               setSelectedCustomer({ id: custDoc.id, ...custDoc.data() });
-              setCustomerSearch(""); 
             }
           } else {
             setSelectedCustomer(null);
@@ -366,8 +367,8 @@ export default function InvoicesPage() {
 
         <main className="max-w-[1600px] mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
            
-           {/* Main Column - Products & Customer */}
-           <div className="lg:col-span-3 space-y-8 order-1 lg:order-2">
+           {/* Main Column - Products & Customer (Order 1 for Mobile/Desktop RTL) */}
+           <div className="lg:col-span-3 space-y-8 order-1">
               
               {/* Product Selection */}
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
@@ -406,7 +407,7 @@ export default function InvoicesPage() {
                                  </div>
                               </div>
                               <div className="text-left">
-                                 <p className="font-black text-base md:text-lg text-blue-600 tabular-nums">{p.salePrice.toLocaleString()} دج</p>
+                                 <p className="font-black text-base md:text-lg text-blue-600 tabular-nums">{Number(p.salePrice).toLocaleString()} دج</p>
                                  <p className={cn("text-[9px] font-black px-2 py-0.5 rounded-lg inline-block mt-1", p.quantity > 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>المخزن: {p.quantity}</p>
                               </div>
                             </div>
@@ -444,14 +445,14 @@ export default function InvoicesPage() {
                                  </TableCell>
                                  <TableCell className="text-center">
                                     <div className="flex items-center justify-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                       <button className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-red-500 hover:text-white transition-all flex items-center justify-center font-black" onClick={() => handleUpdateQty(item.productId, item.qty - 1)}>-</button>
+                                       <button className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-red-500 hover:text-white transition-all flex items-center justify-center font-black" onClick={() => handleUpdateQty(item.productId, item.qty - 1)}><Minus className="h-3 w-3" /></button>
                                        <Input 
                                           type="number" 
                                           className="h-7 w-12 border-none bg-transparent text-center font-black text-sm tabular-nums p-0 focus-visible:ring-0"
                                           value={item.qty}
                                           onChange={(e) => handleUpdateQty(item.productId, Number(e.target.value))}
                                        />
-                                       <button className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center font-black" onClick={() => handleUpdateQty(item.productId, item.qty + 1)}>+</button>
+                                       <button className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center font-black" onClick={() => handleUpdateQty(item.productId, item.qty + 1)}><Plus className="h-3 w-3" /></button>
                                     </div>
                                  </TableCell>
                                  <TableCell className="text-center">
@@ -526,7 +527,7 @@ export default function InvoicesPage() {
                                       </DropdownMenuItem>
                                    </Link>
 
-                                   {customers?.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                                   {(customers || []).filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
                                      <DropdownMenuItem key={c.id} className={cn("rounded-xl font-black h-12 gap-3 mb-1 cursor-pointer transition-colors", selectedCustomer?.id === c.id ? "bg-blue-600 text-white" : "text-blue-600 bg-blue-50/30 hover:bg-blue-100")} onClick={() => setSelectedCustomer(c)}>
                                         <CheckCircle2 className={cn("h-5 w-5", selectedCustomer?.id === c.id ? "text-white" : "text-emerald-500")} /> {c.name}
                                      </DropdownMenuItem>
@@ -561,9 +562,9 @@ export default function InvoicesPage() {
               </Card>
            </div>
 
-           {/* Sidebar: Account Summary - Order 2 on mobile, Order 1 on Desktop */}
-           <div className="lg:col-span-1 order-2 lg:order-1">
-              <div className="sticky top-28 space-y-6">
+           {/* Sidebar: Account Summary - Order 2 on mobile/Desktop RTL */}
+           <div className="lg:col-span-1 order-2">
+              <div className="lg:sticky lg:top-28 space-y-6">
                  <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
                     <div className="absolute -top-10 -right-10 opacity-5"><Smartphone className="h-64 w-64 rotate-12" /></div>
                     
