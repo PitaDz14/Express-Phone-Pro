@@ -87,7 +87,8 @@ export default function InvoicesPage() {
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [originalCart, setOriginalCart] = React.useState<CartItem[]>([]) 
   const [searchTerm, setSearchTerm] = React.useState("")
-  const [customerSearch, setCustomerSearch] = React.useState("")
+  const [customerSearch, setCustomerSearch] = React.useState("") // For typed walk-in name
+  const [listFilter, setListFilter] = React.useState("") // Dedicated for dropdown filtering
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
   const [discount, setDiscount] = React.useState(0)
   const [paidAmount, setPaidAmount] = React.useState<number | "">("")
@@ -126,7 +127,6 @@ export default function InvoicesPage() {
           setPaidAmount(data.paidAmount ?? "");
           
           if (data.customerId && data.customerId !== 'walk-in') {
-            // Priority: Fetch selected customer first
             const custDoc = await getDoc(doc(db, "customers", data.customerId));
             if (custDoc.exists()) {
               setSelectedCustomer({ id: custDoc.id, ...custDoc.data() });
@@ -296,6 +296,7 @@ export default function InvoicesPage() {
       setCart([]); 
       setSelectedCustomer(null); 
       setCustomerSearch(""); 
+      setListFilter("");
       setShowPreview(false); 
       setPendingId(""); 
       if (editId) router.push('/invoices/history');
@@ -324,7 +325,6 @@ export default function InvoicesPage() {
     <div className="min-h-screen bg-[#f8fafc] pb-32" dir="rtl">
         <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} onScan={(c) => {const p = products?.find(x => x.productCode === c); if(p) addToCart(p); else playSystemSound('failure');}} />
         
-        {/* Modern SaaS Header */}
         <header className="flex h-20 items-center justify-between px-6 md:px-10 bg-[#1e293b] text-white sticky top-0 z-[100] shadow-xl">
           <div className="flex items-center gap-4">
              {editId ? (
@@ -367,10 +367,8 @@ export default function InvoicesPage() {
 
         <main className="max-w-[1600px] mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
            
-           {/* Main Column - Products & Customer (Order 1 for Mobile/Desktop RTL) */}
            <div className="lg:col-span-3 space-y-8 order-1">
               
-              {/* Product Selection */}
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
                  <div className="p-6 md:p-8 bg-[#334155] text-white flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -483,7 +481,6 @@ export default function InvoicesPage() {
                  </CardContent>
               </Card>
 
-              {/* Customer and Payments Section */}
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
                  <div className="p-6 md:p-8 bg-[#334155] text-white">
                     <div className="flex items-center gap-3">
@@ -495,7 +492,7 @@ export default function InvoicesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                        <div className="md:col-span-1 space-y-3">
                           <Label className="font-black text-[10px] text-slate-400 uppercase tracking-widest px-2">اختيار العميل</Label>
-                          <DropdownMenu>
+                          <DropdownMenu onOpenChange={(open) => { if(open) setListFilter(""); }}>
                              <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="w-full h-14 rounded-2xl bg-slate-50 border-none font-black justify-between px-5 text-slate-700 shadow-inner group">
                                    <div className="flex items-center gap-3">
@@ -508,30 +505,57 @@ export default function InvoicesPage() {
                              <DropdownMenuContent align="end" className="w-[300px] md:w-[400px] bg-white rounded-2xl p-4 shadow-3xl z-[300] border border-slate-100">
                                 <div className="p-2 pb-4">
                                    <Input 
-                                      placeholder="ابحث عن اسم العميل..." 
-                                      className="h-12 mb-2 rounded-xl border-none bg-slate-50 font-bold focus:ring-2 focus:ring-blue-500" 
-                                      value={customerSearch} 
-                                      onChange={e => setCustomerSearch(e.target.value)} 
+                                      placeholder="ابحث عن اسم العميل في القائمة..." 
+                                      className="h-12 mb-2 rounded-xl border-none bg-slate-100 font-bold focus:ring-2 focus:ring-blue-500" 
+                                      value={listFilter} 
+                                      onChange={e => setListFilter(e.target.value)} 
                                    />
-                                   <p className="text-[9px] font-bold text-slate-400 px-2 mt-2 italic">(يمكنك الكتابة مباشرة للعملاء غير المسجلين)</p>
+                                   <p className="text-[9px] font-bold text-slate-400 px-2 mt-2 italic">(استخدم البحث للعثور على العملاء المسجلين)</p>
                                 </div>
                                 <Separator className="mb-4 opacity-50" />
+                                
                                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1">
-                                   <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 cursor-pointer" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
+                                   <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
                                       <UserCog className="h-5 w-5 text-slate-400" /> عميل عام (نقدي)
                                    </DropdownMenuItem>
                                    
                                    <Link href="/customers" className="block">
-                                      <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 text-primary bg-primary/5 hover:bg-primary/10 mb-2 cursor-pointer border border-primary/10">
+                                      <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 text-primary bg-primary/5 hover:bg-primary/10 mb-2 cursor-pointer border border-primary/10 transition-all">
                                          <UserPlus className="h-5 w-5" /> إضافة عميل جديد للنظام
                                       </DropdownMenuItem>
                                    </Link>
 
-                                   {(customers || []).filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
-                                     <DropdownMenuItem key={c.id} className={cn("rounded-xl font-black h-12 gap-3 mb-1 cursor-pointer transition-colors", selectedCustomer?.id === c.id ? "bg-blue-600 text-white" : "text-blue-600 bg-blue-50/30 hover:bg-blue-100")} onClick={() => setSelectedCustomer(c)}>
-                                        <CheckCircle2 className={cn("h-5 w-5", selectedCustomer?.id === c.id ? "text-white" : "text-emerald-500")} /> {c.name}
-                                     </DropdownMenuItem>
+                                   <Separator className="my-2 opacity-30" />
+
+                                   {(customers || [])
+                                     .filter(c => c.name.toLowerCase().includes(listFilter.toLowerCase()))
+                                     .map(c => (
+                                       <DropdownMenuItem 
+                                          key={c.id} 
+                                          className={cn(
+                                            "rounded-xl font-black h-12 gap-3 mb-1 cursor-pointer transition-colors", 
+                                            selectedCustomer?.id === c.id ? "bg-blue-600 text-white" : "text-blue-600 bg-blue-50/30 hover:bg-blue-100"
+                                          )} 
+                                          onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}
+                                       >
+                                          <CheckCircle2 className={cn("h-5 w-5", selectedCustomer?.id === c.id ? "text-white" : "text-emerald-500")} /> 
+                                          <span className="truncate">{c.name}</span>
+                                       </DropdownMenuItem>
                                    ))}
+
+                                   {(customers || []).length === 0 && (
+                                      <div className="py-10 text-center opacity-30 italic font-black text-xs">لا يوجد عملاء مسجلين</div>
+                                   )}
+                                </div>
+                                
+                                <div className="p-3 mt-2 bg-slate-50 rounded-xl border border-slate-100">
+                                   <Label className="text-[8px] font-black uppercase text-slate-400 mb-2 block">أو اكتب اسماً يدوياً للفاتورة:</Label>
+                                   <Input 
+                                      placeholder="اسم العميل اليدوي..." 
+                                      className="h-10 rounded-lg border-none bg-white font-bold text-xs" 
+                                      value={customerSearch} 
+                                      onChange={e => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }} 
+                                   />
                                 </div>
                              </DropdownMenuContent>
                           </DropdownMenu>
@@ -562,7 +586,6 @@ export default function InvoicesPage() {
               </Card>
            </div>
 
-           {/* Sidebar: Account Summary - Order 2 on mobile/Desktop RTL */}
            <div className="lg:col-span-1 order-2">
               <div className="lg:sticky lg:top-28 space-y-6">
                  <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
@@ -628,7 +651,6 @@ export default function InvoicesPage() {
            </div>
         </main>
 
-        {/* Professional Preview & Confirmation Modal */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-3xl z-[350]">
              <DialogHeader>
