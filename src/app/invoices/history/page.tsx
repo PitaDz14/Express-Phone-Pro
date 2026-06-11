@@ -21,7 +21,9 @@ import {
   Smartphone,
   QrCode,
   Maximize2,
-  UserCog
+  UserCog,
+  MessageCircle,
+  Send
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -159,7 +161,6 @@ export default function InvoiceHistoryPage() {
       const snapshot = await getDocs(itemsRef)
       
       const itemsMap: Record<string, any> = {}
-      // Legacy Fix: Use subtotal (total + discount) as a limit for validation
       const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
       let runningSubtotal = 0;
 
@@ -170,7 +171,6 @@ export default function InvoiceHistoryPage() {
 
         if (unitPrice <= 0) return;
 
-        // Validation against Grand Total
         const remainingBalance = limit - runningSubtotal;
         const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
         const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
@@ -202,6 +202,60 @@ export default function InvoiceHistoryPage() {
     } finally {
       setIsLoadingItems(false)
     }
+  }
+
+  const handleSendWhatsApp = async (invoice: any) => {
+    // Fetch items first if not available
+    let items = invoiceItems;
+    if (selectedInvoice?.id !== invoice.id) {
+      items = await handleViewDetails(invoice);
+    }
+    
+    // Get phone number from invoice or ask if walk-in
+    let phone = "";
+    if (invoice.customerId && invoice.customerId !== 'walk-in') {
+      try {
+        const custDoc = await getDoc(doc(db, "customers", invoice.customerId));
+        if (custDoc.exists()) phone = custDoc.data().phone || "";
+      } catch (e) {}
+    }
+
+    if (!phone) {
+      phone = prompt("أدخل رقم هاتف العميل (06XXXXXXXX):", "") || "";
+    }
+
+    if (!phone) {
+      toast({ title: "لم يتم تحديد رقم هاتف", variant: "destructive" });
+      return;
+    }
+
+    const dateStr = invoice.createdAt?.toDate 
+      ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) 
+      : (invoice.createdAt instanceof Date ? format(invoice.createdAt, "yyyy/MM/dd", { locale: ar }) : "---");
+
+    let message = `*فاتورة مبيعات - EXPRESS PHONE*\n`;
+    message += `--------------------------\n`;
+    message += `*رقم الفاتورة:* #${invoice.id.slice(0, 8)}\n`;
+    message += `*العميل:* ${invoice.customerName}\n`;
+    message += `*التاريخ:* ${dateStr}\n`;
+    message += `--------------------------\n`;
+    message += `*المنتجات:*\n`;
+    
+    items.forEach((item: any) => {
+      message += `- ${item.productName} (${item.quantity} × ${item.unitPrice} دج)\n`;
+    });
+    
+    message += `--------------------------\n`;
+    message += `*المجموع النهائي:* ${invoice.totalAmount.toLocaleString()} دج\n`;
+    if (invoice.totalAmount > invoice.paidAmount) {
+      message += `*الحالة:* دين متبقي (${(invoice.totalAmount - invoice.paidAmount).toLocaleString()} دج)\n`;
+    } else {
+      message += `*الحالة:* مدفوعة بالكامل\n`;
+    }
+    message += `--------------------------\n`;
+    message += `شكراً لتعاملكم معنا! ✨`;
+    
+    window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
   }
 
   const handlePrintInvoice = (invoice: any, items: any[]) => {
@@ -370,12 +424,12 @@ export default function InvoiceHistoryPage() {
                         <div className="flex items-center justify-center gap-2">المتبقي (الدين) <SortIcon column="remainingDebt" /></div>
                       </TableHead>
                       <TableHead className="text-center font-black cursor-pointer select-none group" onClick={() => handleSort('status')}>
-                        <div className="flex items-center justify-center gap-2 justify-center">الحالة <SortIcon column="status" /></div>
+                        <div className="flex items-center justify-center gap-2">الحالة <SortIcon column="status" /></div>
                       </TableHead>
                       <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('id')}>
                         <div className="flex items-center justify-center gap-2">رقم الفاتورة <SortIcon column="id" /></div>
                       </TableHead>
-                      <TableHead className="w-[180px] font-black text-center">الإجراءات</TableHead>
+                      <TableHead className="w-[220px] font-black text-center">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -451,6 +505,15 @@ export default function InvoiceHistoryPage() {
                         <TableCell className="font-black tabular-nums text-primary text-center">#{inv.id.slice(0, 8)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-emerald-500 hover:text-white text-emerald-600"
+                              onClick={() => handleSendWhatsApp(inv)}
+                              title="إرسال عبر واتساب"
+                             >
+                               <MessageCircle className="h-4 w-4" />
+                             </Button>
                              <Button 
                               variant="ghost" 
                               size="icon" 
@@ -584,7 +647,13 @@ export default function InvoiceHistoryPage() {
 
                <div className="p-4 bg-white border-t border-border flex flex-col gap-2 shrink-0">
                   <Button 
-                    className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2" 
+                    className="w-full h-12 rounded-xl bg-emerald-600 text-white font-black shadow-lg flex gap-2 justify-center" 
+                    onClick={() => handleSendWhatsApp(selectedInvoice)}
+                  >
+                     <MessageCircle className="h-5 w-5" /> إرسال عبر واتساب
+                  </Button>
+                  <Button 
+                    className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2 justify-center" 
                     onClick={() => handlePrintInvoice(selectedInvoice, invoiceItems)}
                   >
                      <Printer className="h-5 w-5" /> إعادة طباعة الفاتورة
