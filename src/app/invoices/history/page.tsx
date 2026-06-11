@@ -23,7 +23,6 @@ import {
   Maximize2,
   UserCog,
   MessageCircle,
-  Send
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -205,10 +204,15 @@ export default function InvoiceHistoryPage() {
     let items = await handleViewDetails(invoice);
     
     let phone = "";
+    let totalCurrentDebt = 0;
     if (invoice.customerId && invoice.customerId !== 'walk-in') {
       try {
         const custDoc = await getDoc(doc(db, "customers", invoice.customerId));
-        if (custDoc.exists()) phone = custDoc.data().phone || "";
+        if (custDoc.exists()) {
+          const cData = custDoc.data();
+          phone = cData.phone || "";
+          totalCurrentDebt = cData.debt || 0;
+        }
       } catch (e) {}
     }
 
@@ -249,6 +253,15 @@ export default function InvoiceHistoryPage() {
       message += `*المتبقي (دين):* ${remaining.toLocaleString()} دج\n`;
     } else {
       message += `*الحالة:* مدفوعة بالكامل ✅\n`;
+    }
+
+    // Comprehensive Debt Report Section
+    if (invoice.customerId !== 'walk-in' && totalCurrentDebt > 0) {
+      message += `*--------------------------*\n`;
+      message += `*    كشف الحساب الإجمالي     *\n`;
+      message += `*--------------------------*\n`;
+      message += `*إجمالي الديون التاريخية:* ${totalCurrentDebt.toLocaleString()} دج\n`;
+      message += `*حالة الحساب:* بذمته مستحقات معلقة\n`;
     }
     
     message += `*--------------------------*\n`;

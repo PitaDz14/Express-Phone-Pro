@@ -3,7 +3,6 @@
 
 import * as React from "react"
 import { 
-  FileText, 
   Plus, 
   Search, 
   Printer, 
@@ -20,7 +19,6 @@ import {
   ChevronDown, 
   User, 
   Star,
-  Info,
   X,
   ShoppingBag,
   UserPlus,
@@ -28,7 +26,6 @@ import {
   Save,
   Minus,
   MessageCircle,
-  Send
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -81,7 +78,7 @@ interface CartItem {
 export default function InvoicesPage() {
   const { toast } = useToast()
   const db = useFirestore()
-  const { user, username, role } = useUser()
+  const { user, username } = useUser()
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('editId')
@@ -89,8 +86,7 @@ export default function InvoicesPage() {
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [originalCart, setOriginalCart] = React.useState<CartItem[]>([]) 
   const [searchTerm, setSearchTerm] = React.useState("")
-  const [customerSearch, setCustomerSearch] = React.useState("") 
-  const [listFilter, setListFilter] = React.useState("") 
+  const [searchFilter, setSearchFilter] = React.useState("") 
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
   const [discount, setDiscount] = React.useState(0)
   const [paidAmount, setPaidAmount] = React.useState<number | "">("")
@@ -105,6 +101,7 @@ export default function InvoicesPage() {
   const [showSuccessDialog, setShowSuccessDialog] = React.useState(false)
   const [lastSavedInvoice, setLastSavedInvoice] = React.useState<any>(null)
   const [whatsappPhone, setWhatsappPhone] = React.useState("")
+  const [currentTotalDebt, setCurrentTotalDebt] = React.useState(0)
 
   const productsRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -141,7 +138,6 @@ export default function InvoicesPage() {
             }
           } else {
             setSelectedCustomer(null);
-            setCustomerSearch(data.customerName || "");
           }
 
           const itemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
@@ -228,7 +224,7 @@ export default function InvoicesPage() {
 
   const handlePreviewClick = () => {
     if (cart.length === 0) return;
-    if (!selectedCustomer && !customerSearch) {
+    if (!selectedCustomer) {
       setShowWalkinWarning(true);
       return;
     }
@@ -237,7 +233,7 @@ export default function InvoicesPage() {
 
   const handleProcessInvoice = async () => {
     if (cart.length === 0 || !user) return
-    const finalCustomerName = selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام")
+    const finalCustomerName = selectedCustomer ? selectedCustomer.name : "عميل عام"
     
     if (debtAmount > 0 && (!selectedCustomer || selectedCustomer.id === 'walk-in')) {
       toast({ title: "يجب تحديد عميل للمديونية", variant: "destructive" })
@@ -303,8 +299,12 @@ export default function InvoicesPage() {
         batch.update(doc(db, "products", item.productId), { quantity: increment(-item.qty), updatedAt: serverTimestamp() });
       });
 
-      if (debtAmount > 0 && selectedCustomer && selectedCustomer.id !== 'walk-in') {
+      if (selectedCustomer && selectedCustomer.id !== 'walk-in') {
+        const newTotalDebt = (selectedCustomer.debt || 0) + (debtAmount || 0);
+        setCurrentTotalDebt(newTotalDebt);
         batch.update(doc(db, "customers", selectedCustomer.id), { debt: increment(debtAmount), updatedAt: serverTimestamp() });
+      } else {
+        setCurrentTotalDebt(0);
       }
 
       await batch.commit();
@@ -323,8 +323,7 @@ export default function InvoicesPage() {
       
       setCart([]); 
       setSelectedCustomer(null); 
-      setCustomerSearch(""); 
-      setListFilter("");
+      setSearchFilter("");
       setShowPreview(false); 
       setPendingId(""); 
       
@@ -368,6 +367,15 @@ export default function InvoicesPage() {
       message += `*المتبقي (دين):* ${remaining.toLocaleString()} دج\n`;
     } else {
       message += `*الحالة:* مدفوعة بالكامل ✅\n`;
+    }
+
+    // Debt Report Section
+    if (lastSavedInvoice.customerId !== 'walk-in' && currentTotalDebt > 0) {
+      message += `*--------------------------*\n`;
+      message += `*    كشف الحساب الإجمالي     *\n`;
+      message += `*--------------------------*\n`;
+      message += `*إجمالي المستحقات السابقة:* ${(currentTotalDebt - remaining).toLocaleString()} دج\n`;
+      message += `*إجمالي الديون الحالية:* ${currentTotalDebt.toLocaleString()} دج\n`;
     }
     
     message += `*--------------------------*\n`;
@@ -427,7 +435,7 @@ export default function InvoicesPage() {
                  EXPRESS نقطة بيع
               </h1>
             </div>
-            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl rotate-3">
+            <div className="h-10 h-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl rotate-3">
               <Smartphone className="h-6 w-6 md:h-7 md:w-7" />
             </div>
           </div>
@@ -552,12 +560,12 @@ export default function InvoicesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                        <div className="md:col-span-1 space-y-3">
                           <Label className="font-black text-[10px] text-slate-400 uppercase tracking-widest px-2">اختيار العميل</Label>
-                          <DropdownMenu onOpenChange={(open) => { if(open) setListFilter(""); }}>
+                          <DropdownMenu onOpenChange={(open) => { if(open) setSearchFilter(""); }}>
                              <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="w-full h-14 rounded-2xl bg-slate-50 border-none font-black justify-between px-5 text-slate-700 shadow-inner group">
                                    <div className="flex items-center gap-3">
                                       <User className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
-                                      <span className="truncate max-w-[200px]">{selectedCustomer ? selectedCustomer.name : (customerSearch || "عميل عام (نقدي)")}</span>
+                                      <span className="truncate max-w-[200px]">{selectedCustomer ? selectedCustomer.name : "عميل عام (نقدي)"}</span>
                                    </div>
                                    <ChevronDown className="h-4 w-4 opacity-30" />
                                 </Button>
@@ -567,12 +575,12 @@ export default function InvoicesPage() {
                                    <Input 
                                       placeholder="ابحث عن اسم العميل في القائمة..." 
                                       className="h-12 mb-2 rounded-xl border-none bg-slate-100 font-bold focus:ring-2 focus:ring-blue-500" 
-                                      value={listFilter} 
-                                      onChange={e => setListFilter(e.target.value)} 
+                                      value={searchFilter} 
+                                      onChange={e => setSearchFilter(e.target.value)} 
                                    />
                                 </div>
                                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1">
-                                   <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
+                                   <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 cursor-pointer hover:bg-slate-50" onClick={() => setSelectedCustomer(null)}>
                                       <UserCog className="h-5 w-5 text-slate-400" /> عميل عام (نقدي)
                                    </DropdownMenuItem>
                                    
@@ -585,7 +593,7 @@ export default function InvoicesPage() {
                                    <Separator className="my-2 opacity-30" />
 
                                    {(customers || [])
-                                     .filter(c => c.name.toLowerCase().includes(listFilter.toLowerCase()))
+                                     .filter(c => c.name.toLowerCase().includes(searchFilter.toLowerCase()))
                                      .map(c => (
                                        <DropdownMenuItem 
                                           key={c.id} 
@@ -593,7 +601,7 @@ export default function InvoicesPage() {
                                             "rounded-xl font-black h-12 gap-3 mb-1 cursor-pointer transition-colors", 
                                             selectedCustomer?.id === c.id ? "bg-blue-600 text-white" : "text-blue-600 bg-blue-50/30 hover:bg-blue-100"
                                           )} 
-                                          onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}
+                                          onClick={() => setSelectedCustomer(c)}
                                        >
                                           <CheckCircle2 className={cn("h-5 w-5", selectedCustomer?.id === c.id ? "text-white" : "text-emerald-500")} /> 
                                           <span className="truncate">{c.name}</span>
@@ -700,8 +708,8 @@ export default function InvoicesPage() {
              </div>
              <DialogFooter className="flex flex-col gap-4">
                 <Button onClick={handleProcessInvoice} disabled={isProcessing} className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-lg shadow-xl">
-                   {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6" />}
-                   تأكيد وطباعة الفاتورة
+                   {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Save className="h-6 w-6" />}
+                   تأكيد وإصدار الفاتورة
                 </Button>
                 <Button variant="ghost" className="w-full h-12 rounded-xl font-bold" onClick={() => setShowPreview(false)}>إلغاء</Button>
              </DialogFooter>
