@@ -19,7 +19,8 @@ import {
   FileText,
   Plus,
   Coins,
-  CheckCircle2
+  CheckCircle2,
+  MessageCircle
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, query, where, doc, increment, getDocs, writeBatch, serverTimestamp } from "firebase/firestore"
+import { collection, query, where, doc, increment, getDocs, writeBatch, serverTimestamp, getDoc } from "firebase/firestore"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -65,6 +66,7 @@ export default function DebtsPage() {
   const [selectedInvoiceForItems, setSelectedInvoiceForItems] = React.useState<any>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
   const [isLoadingItems, setIsLoadingItems] = React.useState(false)
+  const [isSendingReport, setIsSendingReport] = React.useState<string | null>(null)
 
   const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
   const { data: allCustomers, isLoading: isCustomersLoading } = useCollection(customersRef)
@@ -89,6 +91,69 @@ export default function DebtsPage() {
   const totalGlobalDebt = React.useMemo(() => {
     return allCustomers?.reduce((sum, c) => sum + (c.debt || 0), 0) || 0
   }, [allCustomers])
+
+  const handleSendDebtReport = async (customer: any) => {
+    setIsSendingReport(customer.id);
+    try {
+      // 1. Fetch all debt invoices
+      const q = query(
+        collection(db, "invoices"), 
+        where("customerId", "==", customer.id),
+        where("status", "==", "Debt")
+      );
+      const snapshot = await getDocs(q);
+      const invoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      if (invoices.length === 0) {
+        toast({ title: "لا توجد فواتير", description: "هذا العميل ليس لديه فواتير مديونية مسجلة حالياً." });
+        return;
+      }
+
+      // 2. Build the message
+      let message = `*==========================*\n`;
+      message += `*    EXPRESS PHONE PRO     *\n`;
+      message += `*    كشف حساب المديونية     *\n`;
+      message += `*==========================*\n`;
+      message += `*العميل:* ${customer.name}\n`;
+      message += `*التاريخ:* ${format(new Date(), "yyyy/MM/dd", { locale: ar })}\n`;
+      message += `*إجمالي الدين الحالي:* ${customer.debt.toLocaleString()} دج\n`;
+      message += `*==========================*\n\n`;
+      message += `*التفاصيل حسب الفواتير:*\n`;
+
+      // 3. For each invoice, get items
+      for (const inv of invoices) {
+        const itemsRef = collection(db, "invoices", inv.id, "items");
+        const itemsSnap = await getDocs(itemsRef);
+        const dateStr = inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---";
+        
+        message += `*الفاتورة:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
+        
+        itemsSnap.docs.forEach(d => {
+          const item = d.data();
+          message += `- ${item.productName} (${item.quantity} قطعة)\n`;
+        });
+
+        const unpaid = inv.totalAmount - inv.paidAmount;
+        message += `*مبلغ الفاتورة:* ${inv.totalAmount.toLocaleString()} دج\n`;
+        message += `*المسدد:* ${inv.paidAmount.toLocaleString()} دج\n`;
+        message += `*المتبقي من هذه الفاتورة:* ${unpaid.toLocaleString()} دج\n`;
+        message += `*--------------------------*\n`;
+      }
+
+      message += `\n*ملاحظة:* يرجى مراجعة المحل لتسوية الوضعية المالية في أقرب وقت.\n`;
+      message += `شكراً لتعاملكم معنا! ✨\n`;
+      message += `*==========================*`;
+
+      const phone = customer.phone || "";
+      window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
+      
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إنشاء تقرير الواتساب" });
+    } finally {
+      setIsSendingReport(null);
+    }
+  }
 
   const fetchCustomerInvoices = async (customer: any) => {
     setSelectedCustomer(customer)
@@ -186,7 +251,6 @@ export default function DebtsPage() {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      // Smart Grouping & Legacy Corruption Fix
       const itemsMap: Record<string, any> = {}
       const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
       let runningSubtotal = 0;
@@ -198,7 +262,6 @@ export default function DebtsPage() {
 
         if (unitPrice <= 0) return;
 
-        // Cross-validation logic
         const remainingBalance = limit - runningSubtotal;
         const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
         const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
@@ -297,7 +360,7 @@ export default function DebtsPage() {
       <header className="flex flex-col md:flex-row md:h-20 shrink-0 md:items-center justify-between glass p-6 md:px-8 rounded-[2rem] gap-4">
         <div className="flex items-center gap-4 md:gap-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
+            <div className="h-10 h-10 md:h-12 md:w-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
               <Wallet className="h-6 w-6" />
             </div>
             <div className="flex flex-col">
@@ -363,14 +426,26 @@ export default function DebtsPage() {
                     {c.debt.toLocaleString()} دج
                   </TableCell>
                   <TableCell className="text-center">
-                    <Button 
-                      variant="ghost" 
-                      className="h-9 md:h-10 px-3 md:px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-black text-[10px] md:text-xs gap-1 md:gap-2 transition-all"
-                      onClick={() => fetchCustomerInvoices(c)}
-                    >
-                      <span className="hidden sm:inline">عرض الفواتير</span>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all"
+                        onClick={() => handleSendDebtReport(c)}
+                        disabled={isSendingReport === c.id}
+                        title="إرسال كشف حساب واتساب تفصيلي"
+                      >
+                        {isSendingReport === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="h-9 md:h-10 px-3 md:px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-black text-[10px] md:text-xs gap-1 md:gap-2 transition-all"
+                        onClick={() => fetchCustomerInvoices(c)}
+                      >
+                        <span className="hidden sm:inline">عرض الفواتير</span>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
