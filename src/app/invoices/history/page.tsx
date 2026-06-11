@@ -44,7 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
-import { collection, query, orderBy, getDocs, doc, increment } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, doc, increment, getDoc } from "firebase/firestore"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
@@ -143,11 +143,7 @@ export default function InvoiceHistoryPage() {
         })
       } catch (error) {
         console.error("Error deleting invoice:", error)
-        toast({ 
-          variant: "destructive", 
-          title: "خطأ في العملية", 
-          description: "لم نتمكن من إتمام عملية الحذف، يرجى المحاولة لاحقاً" 
-        })
+        toast({ variant: "destructive", title: "خطأ في العملية" })
       }
     }
   }
@@ -185,8 +181,9 @@ export default function InvoiceHistoryPage() {
         } else {
           itemsMap[key] = { 
             id: d.id, 
-            ...item, 
+            productName: item.productName,
             quantity: finalQty, 
+            unitPrice: unitPrice,
             itemTotal: finalQty * unitPrice 
           }
         }
@@ -205,13 +202,8 @@ export default function InvoiceHistoryPage() {
   }
 
   const handleSendWhatsApp = async (invoice: any) => {
-    // Fetch items first if not available
-    let items = invoiceItems;
-    if (selectedInvoice?.id !== invoice.id) {
-      items = await handleViewDetails(invoice);
-    }
+    let items = await handleViewDetails(invoice);
     
-    // Get phone number from invoice or ask if walk-in
     let phone = "";
     if (invoice.customerId && invoice.customerId !== 'walk-in') {
       try {
@@ -233,27 +225,35 @@ export default function InvoiceHistoryPage() {
       ? format(invoice.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) 
       : (invoice.createdAt instanceof Date ? format(invoice.createdAt, "yyyy/MM/dd", { locale: ar }) : "---");
 
-    let message = `*فاتورة مبيعات - EXPRESS PHONE*\n`;
-    message += `--------------------------\n`;
+    const remaining = invoice.totalAmount - invoice.paidAmount;
+
+    let message = `*==========================*\n`;
+    message += `*    EXPRESS PHONE PRO     *\n`;
+    message += `*==========================*\n`;
     message += `*رقم الفاتورة:* #${invoice.id.slice(0, 8)}\n`;
     message += `*العميل:* ${invoice.customerName}\n`;
     message += `*التاريخ:* ${dateStr}\n`;
-    message += `--------------------------\n`;
-    message += `*المنتجات:*\n`;
+    message += `*--------------------------*\n`;
+    message += `*المنتجات المشتراة:*\n`;
     
     items.forEach((item: any) => {
-      message += `- ${item.productName} (${item.quantity} × ${item.unitPrice} دج)\n`;
+      message += `- ${item.productName} (${item.quantity} × ${item.unitPrice.toLocaleString()} دج)\n`;
     });
     
-    message += `--------------------------\n`;
-    message += `*المجموع النهائي:* ${invoice.totalAmount.toLocaleString()} دج\n`;
-    if (invoice.totalAmount > invoice.paidAmount) {
-      message += `*الحالة:* دين متبقي (${(invoice.totalAmount - invoice.paidAmount).toLocaleString()} دج)\n`;
+    message += `*--------------------------*\n`;
+    message += `*المجموع:* ${invoice.totalAmount.toLocaleString()} دج\n`;
+    if (invoice.discount > 0) message += `*الخصم:* -${invoice.discount.toLocaleString()} دج\n`;
+    message += `*المدفوع:* ${invoice.paidAmount.toLocaleString()} دج\n`;
+    
+    if (remaining > 0) {
+      message += `*المتبقي (دين):* ${remaining.toLocaleString()} دج\n`;
     } else {
-      message += `*الحالة:* مدفوعة بالكامل\n`;
+      message += `*الحالة:* مدفوعة بالكامل ✅\n`;
     }
-    message += `--------------------------\n`;
-    message += `شكراً لتعاملكم معنا! ✨`;
+    
+    message += `*--------------------------*\n`;
+    message += `شكراً لتعاملكم معنا! ✨\n`;
+    message += `*==========================*`;
     
     window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
   }
@@ -580,7 +580,7 @@ export default function InvoiceHistoryPage() {
                        </div>
 
                        <div className="space-y-1">
-                          <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{selectedInvoice?.id}</span></p>
+                          <p className="font-bold">رقم الفاتورة: <span className="tabular-nums">#{selectedInvoice?.id.slice(0, 8)}</span></p>
                           <p>العميل: {selectedInvoice?.customerName || "عميل عام"}</p>
                           <p>الموظف: {selectedInvoice?.generatedByUserName || "غير معرف"}</p>
                           <p>الحالة: {selectedInvoice?.status === 'Paid' ? 'مدفوعة' : 'دين متبقي'}</p>
@@ -650,7 +650,7 @@ export default function InvoiceHistoryPage() {
                     className="w-full h-12 rounded-xl bg-emerald-600 text-white font-black shadow-lg flex gap-2 justify-center" 
                     onClick={() => handleSendWhatsApp(selectedInvoice)}
                   >
-                     <MessageCircle className="h-5 w-5" /> إرسال عبر واتساب
+                     <MessageCircle className="h-5 w-5" /> إرسال الإيصال الرقمي عبر واتساب
                   </Button>
                   <Button 
                     className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2 justify-center" 

@@ -228,13 +228,10 @@ export default function InvoicesPage() {
 
   const handlePreviewClick = () => {
     if (cart.length === 0) return;
-    
-    // Check if customer is selected
     if (!selectedCustomer && !customerSearch) {
       setShowWalkinWarning(true);
       return;
     }
-    
     setShowPreview(true);
   }
 
@@ -312,12 +309,17 @@ export default function InvoicesPage() {
 
       await batch.commit();
       
-      // Keep data for WhatsApp success screen
-      setLastSavedInvoice({ ...invoiceData, items: cart });
+      setLastSavedInvoice({ ...invoiceData, items: [...cart] });
       setWhatsappPhone(selectedCustomer?.phone || "");
       
       toast({ title: editId ? "تم تحديث الفاتورة بنجاح" : "تم إصدار الفاتورة بنجاح" })
       playSystemSound('success')
+      
+      if (editId) {
+        router.push('/invoices/history');
+      } else {
+        setShowSuccessDialog(true);
+      }
       
       setCart([]); 
       setSelectedCustomer(null); 
@@ -325,12 +327,6 @@ export default function InvoicesPage() {
       setListFilter("");
       setShowPreview(false); 
       setPendingId(""); 
-      
-      if (editId) {
-        router.push('/invoices/history');
-      } else {
-        setShowSuccessDialog(true);
-      }
       
     } catch (error) {
       console.error("Save Error:", error);
@@ -341,41 +337,45 @@ export default function InvoicesPage() {
     }
   }
 
-  const generateWhatsAppMessage = () => {
-    if (!lastSavedInvoice) return "";
-    
-    let message = `*فاتورة مبيعات - EXPRESS PHONE*\n`;
-    message += `--------------------------\n`;
-    message += `*رقم الفاتورة:* #${lastSavedInvoice.id.slice(0, 8)}\n`;
-    message += `*العميل:* ${lastSavedInvoice.customerName}\n`;
-    message += `*التاريخ:* ${new Date().toLocaleDateString('ar-DZ')}\n`;
-    message += `--------------------------\n`;
-    message += `*المنتجات:*\n`;
-    
-    lastSavedInvoice.items.forEach((item: any) => {
-      message += `- ${item.name} (${item.qty} × ${item.price} دج)\n`;
-    });
-    
-    message += `--------------------------\n`;
-    message += `*المجموع النهائي:* ${lastSavedInvoice.totalAmount.toLocaleString()} دج\n`;
-    if (lastSavedInvoice.status === 'Debt') {
-      message += `*الحالة:* دين متبقي (${(lastSavedInvoice.totalAmount - lastSavedInvoice.paidAmount).toLocaleString()} دج)\n`;
-    } else {
-      message += `*الحالة:* مدفوعة بالكامل\n`;
-    }
-    message += `--------------------------\n`;
-    message += `شكراً لتعاملكم معنا! ✨`;
-    
-    return encodeURIComponent(message);
-  }
-
   const handleSendWhatsApp = () => {
-    if (!whatsappPhone) {
-      toast({ title: "يرجى إدخال رقم هاتف", variant: "destructive" });
+    if (!lastSavedInvoice || !lastSavedInvoice.items) {
+      toast({ title: "خطأ في البيانات", variant: "destructive" });
       return;
     }
-    const msg = generateWhatsAppMessage();
-    window.open(`https://wa.me/${whatsappPhone.startsWith('0') ? '213' + whatsappPhone.slice(1) : whatsappPhone}?text=${msg}`, '_blank');
+
+    const dateStr = new Date().toLocaleDateString('ar-DZ');
+    const remaining = lastSavedInvoice.totalAmount - lastSavedInvoice.paidAmount;
+
+    let message = `*==========================*\n`;
+    message += `*    EXPRESS PHONE PRO     *\n`;
+    message += `*==========================*\n`;
+    message += `*رقم الفاتورة:* #${lastSavedInvoice.id.slice(0, 8)}\n`;
+    message += `*العميل:* ${lastSavedInvoice.customerName}\n`;
+    message += `*التاريخ:* ${dateStr}\n`;
+    message += `*--------------------------*\n`;
+    message += `*المنتجات المشتراة:*\n`;
+    
+    lastSavedInvoice.items.forEach((item: any) => {
+      message += `- ${item.name} (${item.qty} × ${item.price.toLocaleString()} دج)\n`;
+    });
+    
+    message += `*--------------------------*\n`;
+    message += `*المجموع:* ${lastSavedInvoice.totalAmount.toLocaleString()} دج\n`;
+    if (lastSavedInvoice.discount > 0) message += `*الخصم:* -${lastSavedInvoice.discount.toLocaleString()} دج\n`;
+    message += `*المدفوع:* ${lastSavedInvoice.paidAmount.toLocaleString()} دج\n`;
+    
+    if (remaining > 0) {
+      message += `*المتبقي (دين):* ${remaining.toLocaleString()} دج\n`;
+    } else {
+      message += `*الحالة:* مدفوعة بالكامل ✅\n`;
+    }
+    
+    message += `*--------------------------*\n`;
+    message += `شكراً لتعاملكم معنا! ✨\n`;
+    message += `*==========================*`;
+    
+    const phone = whatsappPhone || "";
+    window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
   }
 
   if (isLoadingInvoice) {
@@ -434,9 +434,7 @@ export default function InvoicesPage() {
         </header>
 
         <main className="max-w-[1600px] mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
-           
            <div className="lg:col-span-3 space-y-8 order-1">
-              
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
                  <div className="p-6 md:p-8 bg-[#334155] text-white flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -488,7 +486,7 @@ export default function InvoicesPage() {
                             <TableRow className="border-slate-100 hover:bg-transparent">
                                <TableHead className="font-black text-slate-500 text-center uppercase tracking-widest text-[9px] md:text-[10px]">المنتج</TableHead>
                                <TableHead className="font-black text-slate-500 text-center uppercase tracking-widest text-[9px] md:text-[10px]">الكمية</TableHead>
-                               <TableHead className="font-black text-slate-500 text-center uppercase tracking-widest text-[9px] md:text-[10px]">سعر البيع المخصص</TableHead>
+                               <TableHead className="font-black text-slate-500 text-center uppercase tracking-widest text-[9px] md:text-[10px]">سعر البيع</TableHead>
                                <TableHead className="font-black text-slate-500 text-center uppercase tracking-widest text-[9px] md:text-[10px]">المجموع</TableHead>
                                <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -498,7 +496,7 @@ export default function InvoicesPage() {
                               <TableRow>
                                  <TableCell colSpan={5} className="py-32 text-center">
                                     <ShoppingBag className="h-16 w-16 mx-auto text-slate-100 mb-4" />
-                                    <p className="text-sm font-black text-slate-300 italic uppercase tracking-widest">السلة فارغة، ابدأ بإضافة المنتجات</p>
+                                    <p className="text-sm font-black text-slate-300 italic uppercase tracking-widest">السلة فارغة</p>
                                  </TableCell>
                               </TableRow>
                             ) : cart.map(item => (
@@ -522,22 +520,16 @@ export default function InvoicesPage() {
                                     </div>
                                  </TableCell>
                                  <TableCell className="text-center">
-                                    <div className="flex items-center justify-center gap-2 group/price">
-                                      <Input 
-                                        type="number" 
-                                        className="h-9 w-24 bg-slate-50 border-none text-center font-black tabular-nums text-blue-600 focus:ring-1 focus:ring-blue-500 rounded-xl" 
-                                        value={item.price} 
-                                        onChange={(e) => {
-                                          const val = e.target.value === "" ? 0 : Number(e.target.value);
-                                          setCart(cart.map(i => i.productId === item.productId ? { ...i, price: val } : i))
-                                        }} 
-                                      />
-                                      <span className="text-[10px] font-black opacity-20 group-hover/price:opacity-100 transition-opacity">دج</span>
-                                    </div>
+                                    <Input 
+                                      type="number" 
+                                      className="h-9 w-24 mx-auto bg-slate-50 border-none text-center font-black tabular-nums text-blue-600 rounded-xl" 
+                                      value={item.price} 
+                                      onChange={(e) => setCart(cart.map(i => i.productId === item.productId ? { ...i, price: Number(e.target.value) } : i))} 
+                                    />
                                  </TableCell>
                                  <TableCell className="text-center font-black text-slate-900 text-base md:text-lg tabular-nums">{(item.price * item.qty).toLocaleString()} دج</TableCell>
                                  <TableCell>
-                                    <Button variant="ghost" size="icon" className="text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}>
+                                    <Button variant="ghost" size="icon" className="text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => setCart(cart.filter(i => i.productId !== item.productId))}>
                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                  </TableCell>
@@ -578,17 +570,14 @@ export default function InvoicesPage() {
                                       value={listFilter} 
                                       onChange={e => setListFilter(e.target.value)} 
                                    />
-                                   <p className="text-[9px] font-bold text-slate-400 px-2 mt-2 italic">(استخدم البحث للعثور على العملاء المسجلين)</p>
                                 </div>
-                                <Separator className="mb-4 opacity-50" />
-                                
                                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1">
                                    <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }}>
                                       <UserCog className="h-5 w-5 text-slate-400" /> عميل عام (نقدي)
                                    </DropdownMenuItem>
                                    
                                    <Link href="/customers" className="block">
-                                      <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 text-primary bg-primary/5 hover:bg-primary/10 mb-2 cursor-pointer border border-primary/10 transition-all">
+                                      <DropdownMenuItem className="rounded-xl font-black h-12 gap-3 text-primary bg-primary/5 hover:bg-primary/10 mb-2 cursor-pointer border border-primary/10">
                                          <UserPlus className="h-5 w-5" /> إضافة عميل جديد للنظام
                                       </DropdownMenuItem>
                                    </Link>
@@ -610,20 +599,6 @@ export default function InvoicesPage() {
                                           <span className="truncate">{c.name}</span>
                                        </DropdownMenuItem>
                                    ))}
-
-                                   {(customers || []).length === 0 && (
-                                      <div className="py-10 text-center opacity-30 italic font-black text-xs">لا يوجد عملاء مسجلين</div>
-                                   )}
-                                </div>
-                                
-                                <div className="p-3 mt-2 bg-slate-50 rounded-xl border border-slate-100">
-                                   <Label className="text-[8px] font-black uppercase text-slate-400 mb-2 block">أو اكتب اسماً يدوياً للفاتورة:</Label>
-                                   <Input 
-                                      placeholder="اسم العميل اليدوي..." 
-                                      className="h-10 rounded-lg border-none bg-white font-bold text-xs" 
-                                      value={customerSearch} 
-                                      onChange={e => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }} 
-                                   />
                                 </div>
                              </DropdownMenuContent>
                           </DropdownMenu>
@@ -633,7 +608,7 @@ export default function InvoicesPage() {
                           <Label className="font-black text-[10px] text-blue-500 uppercase tracking-widest px-2">قيمة الخصم (دج)</Label>
                           <Input 
                              type="number" 
-                             className="h-14 bg-slate-50 border-none rounded-2xl text-center font-black text-red-500 text-xl shadow-inner focus:ring-2 focus:ring-red-500" 
+                             className="h-14 bg-slate-50 border-none rounded-2xl text-center font-black text-red-500 text-xl shadow-inner" 
                              value={discount} 
                              onChange={e => setDiscount(Number(e.target.value))} 
                           />
@@ -643,7 +618,7 @@ export default function InvoicesPage() {
                           <Label className="font-black text-[10px] text-emerald-600 uppercase tracking-widest px-2">المبلغ المدفوع حالياً</Label>
                           <Input 
                              type="number" 
-                             className="h-14 bg-slate-100 border-none rounded-2xl text-center font-black text-emerald-600 text-xl shadow-inner focus:ring-2 focus:ring-emerald-500" 
+                             className="h-14 bg-slate-100 border-none rounded-2xl text-center font-black text-emerald-600 text-xl shadow-inner" 
                              placeholder={total.toString()}
                              value={paidAmount} 
                              onChange={e => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
@@ -656,13 +631,10 @@ export default function InvoicesPage() {
 
            <div className="lg:col-span-1 order-2">
               <div className="lg:sticky lg:top-28 space-y-6">
-                 <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
-                    <div className="absolute -top-10 -right-10 opacity-5"><Smartphone className="h-64 w-64 rotate-12" /></div>
-                    
+                 <Card className="border-none bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
                     <div className="relative z-10 space-y-8">
                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
                           <h2 className="text-xl md:text-2xl font-black">الحساب النهائي</h2>
-                          <Badge className="bg-white/20 text-white border-none font-black text-[10px]">REAL-TIME</Badge>
                        </div>
 
                        <div className="space-y-5">
@@ -676,14 +648,10 @@ export default function InvoicesPage() {
                           </div>
                           {discount > 0 && (
                             <div className="flex justify-between items-center text-red-200">
-                               <span className="text-xs md:sm font-bold">الخصم الممنوح:</span>
+                               <span className="text-xs md:sm font-bold">الخصم:</span>
                                <span className="font-black tabular-nums">-{discount.toLocaleString()} دج</span>
                             </div>
                           )}
-                          <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                             <span className="text-xs font-bold text-white/60">الموظف:</span>
-                             <span className="font-black text-sm">{username || "غير معرف"}</span>
-                          </div>
                        </div>
                     </div>
 
@@ -699,81 +667,47 @@ export default function InvoicesPage() {
                        <Button 
                           onClick={handlePreviewClick}
                           disabled={cart.length === 0}
-                          className="w-full h-14 md:h-16 rounded-[1.5rem] md:rounded-3xl bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30 text-base md:text-lg font-black shadow-inner gap-3 transition-all"
+                          className="w-full h-14 md:h-16 rounded-[1.5rem] bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-white/30 text-base md:text-lg font-black shadow-inner transition-all"
                        >
                           معاينة وتأكيد الحفظ
                        </Button>
                     </div>
                  </Card>
-
-                 <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-xl flex items-start gap-4 border border-slate-100">
-                    <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                       <Info className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-1">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إرشادات</p>
-                       <p className="text-[10px] font-bold text-slate-500 leading-relaxed italic">يمكنك تعديل أسعار بيع القطع يدوياً في السلة لكل فاتورة على حدة دون تغيير السعر الأصلي.</p>
-                    </div>
-                 </div>
               </div>
            </div>
         </main>
 
-        {/* Preview Dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-3xl z-[350]">
+          <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] p-8 md:p-10 shadow-3xl z-[350]">
              <DialogHeader>
-                <div className="mx-auto h-20 w-20 rounded-[2rem] bg-blue-50 flex items-center justify-center text-blue-600 mb-6 shadow-inner animate-in zoom-in duration-500">
-                   {editId ? <Save className="h-10 w-10" /> : <ShieldCheck className="h-10 w-10" />}
-                </div>
-                <DialogTitle className="text-2xl md:text-3xl font-black text-slate-800 text-center">
-                   {editId ? "حفظ التعديلات النهائية" : "تأكيد إصدار الفاتورة"}
-                </DialogTitle>
-                <DialogDescription className="text-center font-bold text-slate-500 mt-2">
-                   يرجى مراجعة الحسابات بدقة قبل الحفظ في السجل.
-                </DialogDescription>
+                <DialogTitle className="text-2xl font-black text-center">{editId ? "حفظ التعديلات" : "إصدار الفاتورة"}</DialogTitle>
              </DialogHeader>
-             
              <div className="py-8 space-y-6">
-                <div className="p-6 md:p-8 rounded-[2rem] bg-slate-50 text-center space-y-2 border border-slate-100 shadow-inner">
-                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">المبلغ الصافي المستحق</span>
-                   <p className="text-4xl md:text-5xl font-black text-blue-600 tabular-nums leading-none">{total.toLocaleString()} دج</p>
+                <div className="p-6 rounded-[2rem] bg-slate-50 text-center space-y-2 border border-slate-100 shadow-inner">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">الصافي المستحق</span>
+                   <p className="text-4xl md:text-5xl font-black text-blue-600 tabular-nums">{total.toLocaleString()} دج</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 md:gap-6">
-                   <div className="text-center p-4 rounded-[1.5rem] bg-emerald-50 border border-emerald-100">
-                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1">المدفوع</span>
-                      <p className="font-black text-lg md:text-xl text-emerald-700 tabular-nums">{finalPaid.toLocaleString()}</p>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="text-center p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                      <span className="text-[9px] font-black text-emerald-600 block mb-1">المدفوع</span>
+                      <p className="font-black text-lg text-emerald-700">{finalPaid.toLocaleString()}</p>
                    </div>
-                   <div className="text-center p-4 rounded-[1.5rem] bg-red-50 border border-red-100">
-                      <span className="text-[9px] font-black text-red-600 uppercase tracking-widest block mb-1">المتبقي (دين)</span>
-                      <p className="font-black text-lg md:text-xl text-red-700 tabular-nums">{debtAmount.toLocaleString()}</p>
+                   <div className="text-center p-4 rounded-2xl bg-red-50 border border-red-100">
+                      <span className="text-[9px] font-black text-red-600 block mb-1">المتبقي</span>
+                      <p className="font-black text-lg text-red-700">{debtAmount.toLocaleString()}</p>
                    </div>
                 </div>
-
-                {debtAmount > 0 && selectedCustomer && (
-                   <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-center gap-3">
-                      <AlertCircle className="h-5 w-5 text-orange-600 shrink-0" />
-                      <p className="text-[10px] font-bold text-orange-800 leading-tight">سيتم إضافة مبلغ {debtAmount.toLocaleString()} دج إلى دين العميل {selectedCustomer.name}.</p>
-                   </div>
-                )}
              </div>
-
              <DialogFooter className="flex flex-col gap-4">
-                <Button 
-                   onClick={handleProcessInvoice} 
-                   disabled={isProcessing} 
-                   className="w-full h-14 md:h-16 rounded-[1.5rem] md:rounded-[2rem] bg-blue-600 text-white font-black text-lg md:text-xl shadow-[0_15px_30px_-10px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all gap-3 active:scale-95"
-                >
+                <Button onClick={handleProcessInvoice} disabled={isProcessing} className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-lg shadow-xl">
                    {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Printer className="h-6 w-6" />}
-                   {editId ? "تحديث وحفظ التعديلات" : "تأكيد وطباعة الفاتورة"}
+                   تأكيد وطباعة الفاتورة
                 </Button>
-                <Button variant="ghost" className="w-full h-12 rounded-xl font-bold text-slate-400 hover:text-slate-800" onClick={() => setShowPreview(false)}>إلغاء والعودة للسلة</Button>
+                <Button variant="ghost" className="w-full h-12 rounded-xl font-bold" onClick={() => setShowPreview(false)}>إلغاء</Button>
              </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Walk-in Warning Dialog */}
         <Dialog open={showWalkinWarning} onOpenChange={setShowWalkinWarning}>
            <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] p-8 shadow-3xl z-[360]">
               <DialogHeader>
@@ -781,15 +715,10 @@ export default function InvoicesPage() {
                     <AlertCircle className="h-8 w-8" />
                  </div>
                  <DialogTitle className="text-xl font-black text-center">تنبيه: العميل غير محدد</DialogTitle>
-                 <DialogDescription className="text-center font-bold text-slate-500 mt-2">
-                    لم تقم باختيار عميل مسجل من القائمة. هل أنت متأكد أنك تريد تسجيل هذه الفاتورة كـ <span className="text-orange-600 font-black">"عميل عام"</span>؟
+                 <DialogDescription className="text-center font-bold text-slate-500">
+                    هل تريد تسجيل هذه الفاتورة كـ <span className="text-orange-600 font-black">"عميل عام"</span>؟
                  </DialogDescription>
               </DialogHeader>
-              <div className="py-4 space-y-4">
-                 <p className="text-[10px] text-muted-foreground leading-relaxed text-center italic">
-                    ملاحظة: الفواتير المسجلة لعميل عام لا يمكن ربطها لاحقاً بملف عميل مسجل لتتبع الديون.
-                 </p>
-              </div>
               <DialogFooter className="flex flex-col gap-3">
                  <Button className="w-full h-12 rounded-xl bg-orange-600 text-white font-black" onClick={() => { setShowWalkinWarning(false); setShowPreview(true); }}>
                     نعم، الاستمرار كعميل عام
@@ -801,7 +730,6 @@ export default function InvoicesPage() {
            </DialogContent>
         </Dialog>
 
-        {/* Success & WhatsApp Dialog */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
            <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[3rem] p-10 shadow-3xl z-[370]">
               <DialogHeader>
@@ -809,34 +737,17 @@ export default function InvoicesPage() {
                     <CheckCircle2 className="h-14 w-14" />
                  </div>
                  <DialogTitle className="text-3xl font-black text-center text-emerald-800">تم الحفظ بنجاح!</DialogTitle>
-                 <p className="text-center font-bold text-slate-500 mt-2">تم إصدار الفاتورة وتسجيلها في النظام.</p>
               </DialogHeader>
-              
               <div className="py-8 space-y-6">
                  <div className="space-y-2">
-                    <Label className="font-black text-xs text-primary px-1 uppercase tracking-widest text-center block">رقم هاتف العميل (لواتساب)</Label>
-                    <div className="relative">
-                       <Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                       <Input 
-                          placeholder="06XXXXXXXX" 
-                          className="h-14 pr-12 rounded-2xl bg-slate-50 border-none font-black text-lg text-center tabular-nums shadow-inner" 
-                          value={whatsappPhone}
-                          onChange={(e) => setWhatsappPhone(e.target.value)}
-                       />
-                    </div>
+                    <Label className="font-black text-xs text-primary text-center block">رقم هاتف العميل (لواتساب)</Label>
+                    <Input placeholder="06XXXXXXXX" className="h-14 rounded-2xl bg-slate-50 border-none font-black text-lg text-center" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} />
                  </div>
-
-                 <Button 
-                    className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20 gap-3 transition-all"
-                    onClick={handleSendWhatsApp}
-                 >
-                    <MessageCircle className="h-6 w-6" /> إرسال الفاتورة عبر واتساب
+                 <Button className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black text-lg shadow-xl gap-3" onClick={handleSendWhatsApp}>
+                    <MessageCircle className="h-6 w-6" /> إرسال الإيصال الرقمي عبر واتساب
                  </Button>
               </div>
-
-              <div className="flex justify-center">
-                 <Button variant="ghost" className="font-black text-slate-400" onClick={() => setShowSuccessDialog(false)}>إغلاق النافذة</Button>
-              </div>
+              <Button variant="ghost" className="w-full font-black text-slate-400" onClick={() => setShowSuccessDialog(false)}>إغلاق</Button>
            </DialogContent>
         </Dialog>
     </div>
