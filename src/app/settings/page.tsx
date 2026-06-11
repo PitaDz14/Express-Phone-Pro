@@ -47,6 +47,7 @@ import { playSystemSound } from "@/lib/audio-utils"
 
 const STORE_NAME = 'ep_sync_store';
 const KEY_NAME = 'active_file_handle';
+const DB_VERSION = 2; // Bumped to ensure store creation
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -92,7 +93,7 @@ export default function SettingsPage() {
   };
 
   const saveHandleToIDB = async (handle: any) => {
-    const request = indexedDB.open(STORE_NAME, 1);
+    const request = indexedDB.open(STORE_NAME, DB_VERSION);
     request.onupgradeneeded = (e: any) => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains('handles')) {
@@ -101,6 +102,7 @@ export default function SettingsPage() {
     };
     request.onsuccess = (e: any) => {
       const db = e.target.result;
+      if (!db.objectStoreNames.contains('handles')) return;
       const tx = db.transaction('handles', 'readwrite');
       tx.objectStore('handles').put(handle, KEY_NAME);
     };
@@ -108,10 +110,12 @@ export default function SettingsPage() {
 
   const getHandleFromIDB = (): Promise<any> => {
     return new Promise((resolve) => {
-      const request = indexedDB.open(STORE_NAME, 1);
+      const request = indexedDB.open(STORE_NAME, DB_VERSION);
       request.onupgradeneeded = (e: any) => {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+        if (!db.objectStoreNames.contains('handles')) {
+          db.createObjectStore('handles');
+        }
       };
       request.onsuccess = (e: any) => {
         const db = e.target.result;
@@ -195,7 +199,7 @@ export default function SettingsPage() {
         toast({ title: "تمت استعادة الاتصال", description: "النظام سيتابع تحديث الملف المختار تلقائياً." });
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "فشلت الاستعادة", description: "يرجى اختيار ملف جديد للمزامنة." });
+      toast({ variant: "destructive", title: "فشل الاستعادة", description: "يرجى اختيار ملف جديد للمزامنة." });
     }
   }
 

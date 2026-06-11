@@ -8,11 +8,12 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 
 const STORE_NAME = 'ep_sync_store';
 const KEY_NAME = 'active_file_handle';
+const DB_VERSION = 2; // Sync with version in other files
 
 /**
  * AutoBackup Component
  * Periodically saves a snapshot of the Firestore collections to LocalStorage and Bound File.
- * Enhanced with a master heartbeat interval to prevent worker termination issues.
+ * Enhanced with version 2 IDB support.
  */
 export function AutoBackup() {
   const db = useFirestore();
@@ -22,7 +23,13 @@ export function AutoBackup() {
 
   const getHandleFromIDB = (): Promise<any> => {
     return new Promise((resolve) => {
-      const request = indexedDB.open(STORE_NAME, 1);
+      const request = indexedDB.open(STORE_NAME, DB_VERSION);
+      request.onupgradeneeded = (e: any) => {
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains('handles')) {
+          idb.createObjectStore('handles');
+        }
+      };
       request.onsuccess = (e: any) => {
         const idb = e.target.result;
         if (!idb.objectStoreNames.contains('handles')) { resolve(null); return; }
@@ -92,13 +99,12 @@ export function AutoBackup() {
   }, [db, isBackingUp, role]);
 
   React.useEffect(() => {
-    // 1. Master Heartbeat: Force sync every 5 minutes while tab is open
+    // Master Heartbeat: Force sync every 5 minutes while tab is open
     const intervalId = setInterval(() => {
       console.log('[Heartbeat] Triggering 5-minute backup');
       performBackup();
     }, 5 * 60 * 1000);
 
-    // 2. Global Listener for explicit requests (e.g. from Sync button or Worker)
     const handleSyncRequest = () => performBackup();
     const handleTimestampSync = (e: any) => { if (e.detail) setLastBackup(e.detail); };
 

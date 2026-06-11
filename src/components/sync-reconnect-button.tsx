@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 
 const STORE_NAME = 'ep_sync_store';
 const KEY_NAME = 'active_file_handle';
+const DB_VERSION = 2; // Bumped to match SettingsPage
 
 export function SyncReconnectButton() {
   const { toast } = useToast()
@@ -32,7 +33,13 @@ export function SyncReconnectButton() {
 
   const getHandleFromIDB = (): Promise<any> => {
     return new Promise((resolve) => {
-      const request = indexedDB.open(STORE_NAME, 1);
+      const request = indexedDB.open(STORE_NAME, DB_VERSION);
+      request.onupgradeneeded = (e: any) => {
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains('handles')) {
+          idb.createObjectStore('handles');
+        }
+      };
       request.onsuccess = (e: any) => {
         const idb = e.target.result;
         if (!idb.objectStoreNames.contains('handles')) { resolve(null); return; }
@@ -124,23 +131,30 @@ export function SyncReconnectButton() {
           types: [{ description: 'JSON Data File', accept: { 'application/json': ['.json'] } }],
         });
         
-        const request = indexedDB.open(STORE_NAME, 1);
+        const request = indexedDB.open(STORE_NAME, DB_VERSION);
+        request.onupgradeneeded = (e: any) => {
+          const idb = e.target.result;
+          if (!idb.objectStoreNames.contains('handles')) {
+            idb.createObjectStore('handles');
+          }
+        };
+
         request.onsuccess = (e: any) => {
           const idb = e.target.result;
           const tx = idb.transaction('handles', 'readwrite');
           tx.objectStore('handles').put(handle, KEY_NAME);
+          setFileHandle(handle);
+          setStatus('healthy');
+          toast({ title: "تم تفعيل المزامنة", description: "تم ربط ملف الجهاز بنجاح." });
+          window.dispatchEvent(new CustomEvent('perform-system-backup'));
         };
-
-        setFileHandle(handle);
-        setStatus('healthy');
-        toast({ title: "تم تفعيل المزامنة", description: "تم ربط ملف الجهاز بنجاح." });
       } else if (status === 'needs-reconnect') {
         if (await fileHandle.requestPermission({ mode: 'readwrite' }) === 'granted') {
           setStatus('healthy');
           toast({ title: "تمت استعادة الاتصال", description: "المزامنة نشطة الآن." });
+          window.dispatchEvent(new CustomEvent('perform-system-backup'));
         }
       }
-      window.dispatchEvent(new CustomEvent('perform-system-backup'));
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         toast({ variant: "destructive", title: "خطأ في العملية", description: "تعذر إكمال طلب المزامنة." });
