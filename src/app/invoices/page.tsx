@@ -355,16 +355,16 @@ export default function InvoicesPage() {
     message += `*Produits achetés:*\n`;
     
     lastSavedInvoice.items.forEach((item: any) => {
-      message += `- ${item.name} (${item.qty} × ${item.price.toLocaleString()} DZD)\n`;
+      message += `- ${item.name} (${item.qty} × (${item.price.toLocaleString()}) DZD)\n`;
     });
     
     message += `*--------------------------*\n`;
-    message += `*Total:* ${lastSavedInvoice.totalAmount.toLocaleString()} DZD\n`;
-    if (lastSavedInvoice.discount > 0) message += `*Remise:* -${lastSavedInvoice.discount.toLocaleString()} DZD\n`;
-    message += `*Versé:* ${lastSavedInvoice.paidAmount.toLocaleString()} DZD\n`;
+    message += `*Total:* (${lastSavedInvoice.totalAmount.toLocaleString()}) DZD\n`;
+    if (lastSavedInvoice.discount > 0) message += `*Remise:* -(${lastSavedInvoice.discount.toLocaleString()}) DZD\n`;
+    message += `*Versé:* (${lastSavedInvoice.paidAmount.toLocaleString()}) DZD\n`;
     
     if (remaining > 0) {
-      message += `*Reste (Dette):* ${remaining.toLocaleString()} DZD\n`;
+      message += `*Reste (Dette):* (${remaining.toLocaleString()}) DZD\n`;
     } else {
       message += `*Statut:* Payée intégralement ✅\n`;
     }
@@ -373,8 +373,8 @@ export default function InvoicesPage() {
       message += `*--------------------------*\n`;
       message += `*    RELEVÉ GLOBAL         *\n`;
       message += `*--------------------------*\n`;
-      message += `*Ancien solde:* ${(currentTotalDebt - remaining).toLocaleString()} DZD\n`;
-      message += `*Nouveau solde total:* ${currentTotalDebt.toLocaleString()} DZD\n`;
+      message += `*Ancien solde:* (${(currentTotalDebt - remaining).toLocaleString()}) DZD\n`;
+      message += `*Nouveau solde total:* (${currentTotalDebt.toLocaleString()}) DZD\n`;
     }
     
     message += `*--------------------------*\n`;
@@ -457,7 +457,7 @@ export default function InvoicesPage() {
                     <div className="relative group">
                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                        <Input 
-                          placeholder="Rechercher produit, code ou catégorie..." 
+                          placeholder="Rechercher produit, code أو فئة..." 
                           className="pl-14 h-14 md:h-16 rounded-2xl border-none bg-slate-100 text-slate-900 placeholder:text-slate-400 font-bold text-base md:text-lg shadow-inner focus-visible:ring-2 focus-visible:ring-blue-500" 
                           value={searchTerm} 
                           onChange={e => setSearchTerm(e.target.value)} 

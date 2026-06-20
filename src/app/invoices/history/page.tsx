@@ -241,16 +241,16 @@ export default function InvoiceHistoryPage() {
     message += `*Produits achetés:*\n`;
     
     items.forEach((item: any) => {
-      message += `- ${item.productName} (${item.quantity} × ${item.unitPrice.toLocaleString()} DZD)\n`;
+      message += `- ${item.productName} (${item.quantity} × (${item.unitPrice.toLocaleString()}) DZD)\n`;
     });
     
     message += `*--------------------------*\n`;
-    message += `*Total:* ${invoice.totalAmount.toLocaleString()} DZD\n`;
-    if (invoice.discount > 0) message += `*Remise:* -${invoice.discount.toLocaleString()} DZD\n`;
-    message += `*Versé:* ${invoice.paidAmount.toLocaleString()} DZD\n`;
+    message += `*Total:* (${invoice.totalAmount.toLocaleString()}) DZD\n`;
+    if (invoice.discount > 0) message += `*Remise:* -(${invoice.discount.toLocaleString()}) DZD\n`;
+    message += `*Versé:* (${invoice.paidAmount.toLocaleString()}) DZD\n`;
     
     if (remaining > 0) {
-      message += `*Reste (Dette):* ${remaining.toLocaleString()} DZD\n`;
+      message += `*Reste (Dette):* (${remaining.toLocaleString()}) DZD\n`;
     } else {
       message += `*Statut:* Payée intégralement ✅\n`;
     }
@@ -259,7 +259,7 @@ export default function InvoiceHistoryPage() {
       message += `*--------------------------*\n`;
       message += `*    RELEVÉ GLOBAL         *\n`;
       message += `*--------------------------*\n`;
-      message += `*Solde total dettes:* ${totalCurrentDebt.toLocaleString()} DZD\n`;
+      message += `*Solde total dettes:* (${totalCurrentDebt.toLocaleString()}) DZD\n`;
       message += `*Situation:* Impayés en cours\n`;
     }
     

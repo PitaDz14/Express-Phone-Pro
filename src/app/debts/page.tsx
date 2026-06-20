@@ -114,7 +114,7 @@ export default function DebtsPage() {
       message += `*==========================*\n`;
       message += `*Client:* ${customer.name}\n`;
       message += `*Date:* ${format(new Date(), "dd/MM/yyyy", { locale: fr })}\n`;
-      message += `*Total Dette Actuelle:* ${customer.debt.toLocaleString()} DZD\n`;
+      message += `*Total Dette Actuelle:* (${customer.debt.toLocaleString()}) DZD\n`;
       message += `*==========================*\n\n`;
       message += `*Détails par factures:*\n`;
 
@@ -131,9 +131,9 @@ export default function DebtsPage() {
         });
 
         const unpaid = inv.totalAmount - inv.paidAmount;
-        message += `*Montant Facture:* ${inv.totalAmount.toLocaleString()} DZD\n`;
-        message += `*Payé:* ${inv.paidAmount.toLocaleString()} DZD\n`;
-        message += `*Reste à payer:* ${unpaid.toLocaleString()} DZD\n`;
+        message += `*Montant Facture:* (${inv.totalAmount.toLocaleString()}) DZD\n`;
+        message += `*Payé:* (${inv.paidAmount.toLocaleString()}) DZD\n`;
+        message += `*Reste à payer:* (${unpaid.toLocaleString()}) DZD\n`;
         message += `*--------------------------*\n`;
       }
 
@@ -466,7 +466,7 @@ export default function DebtsPage() {
                </div>
                <div className="flex items-center gap-2">
                   <Badge variant="destructive" className="px-4 py-2 rounded-xl font-black text-xs md:text-sm shadow-lg shadow-destructive/10">
-                    Total Reste: {selectedCustomer?.debt.toLocaleString()} DZD
+                    Total Reste: ({selectedCustomer?.debt.toLocaleString()}) DZD
                   </Badge>
                   <Button onClick={() => setIsBulkOpen(true)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white font-black gap-2 shadow-lg shadow-emerald-500/20">
                      <Coins className="h-4 w-4" /> Paiement Global
@@ -506,15 +506,15 @@ export default function DebtsPage() {
                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 md:gap-8 bg-black/5 sm:bg-transparent p-3 sm:p-0 rounded-xl flex-1">
                           <div className="flex flex-col items-center">
                              <span className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase text-center">Total</span>
-                             <span className="font-black text-foreground tabular-nums text-xs md:sm">{inv.totalAmount.toLocaleString()} DZD</span>
+                             <span className="font-black text-foreground tabular-nums text-xs md:sm">({inv.totalAmount.toLocaleString()}) DZD</span>
                           </div>
                           <div className="flex flex-col items-center">
                              <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase text-center">Payé</span>
-                             <span className="font-black text-emerald-600 tabular-nums text-xs md:sm">{inv.paidAmount.toLocaleString()} DZD</span>
+                             <span className="font-black text-emerald-600 tabular-nums text-xs md:sm">({inv.paidAmount.toLocaleString()}) DZD</span>
                           </div>
                           <div className="flex flex-col items-center col-span-2 sm:col-span-1 border-t sm:border-none border-white/10 pt-2 sm:pt-0">
                              <span className="text-[8px] md:text-[9px] font-black text-red-500 uppercase text-center">Reste (Dette)</span>
-                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">{(inv.totalAmount - inv.paidAmount).toLocaleString()} DZD</span>
+                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">({(inv.totalAmount - inv.paidAmount).toLocaleString()}) DZD</span>
                           </div>
                        </div>
                     </div>
