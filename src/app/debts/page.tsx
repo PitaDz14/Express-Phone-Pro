@@ -7,7 +7,7 @@ import {
   Search, 
   ArrowUpDown, 
   ArrowUp,
-  ArrowDown,
+  ArrowDown, 
   Loader2, 
   ChevronLeft, 
   Eye, 
@@ -46,7 +46,7 @@ import { Label } from "@/components/ui/label"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, doc, increment, getDocs, writeBatch, serverTimestamp, getDoc } from "firebase/firestore"
 import { format } from "date-fns"
-import { ar } from "date-fns/locale"
+import { ar, fr } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -95,7 +95,6 @@ export default function DebtsPage() {
   const handleSendDebtReport = async (customer: any) => {
     setIsSendingReport(customer.id);
     try {
-      // 1. Fetch all debt invoices
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", customer.id),
@@ -105,43 +104,41 @@ export default function DebtsPage() {
       const invoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
       if (invoices.length === 0) {
-        toast({ title: "لا توجد فواتير", description: "هذا العميل ليس لديه فواتير مديونية مسجلة حالياً." });
+        toast({ title: "Aucune facture", description: "Ce client n'a pas de factures impayées actuellement." });
         return;
       }
 
-      // 2. Build the message
       let message = `*==========================*\n`;
       message += `*    EXPRESS PHONE PRO     *\n`;
-      message += `*    كشف حساب المديونية     *\n`;
+      message += `*  RELEVÉ DE COMPTE DETTES *\n`;
       message += `*==========================*\n`;
-      message += `*العميل:* ${customer.name}\n`;
-      message += `*التاريخ:* ${format(new Date(), "yyyy/MM/dd", { locale: ar })}\n`;
-      message += `*إجمالي الدين الحالي:* ${customer.debt.toLocaleString()} دج\n`;
+      message += `*Client:* ${customer.name}\n`;
+      message += `*Date:* ${format(new Date(), "dd/MM/yyyy", { locale: fr })}\n`;
+      message += `*Total Dette Actuelle:* ${customer.debt.toLocaleString()} DZD\n`;
       message += `*==========================*\n\n`;
-      message += `*التفاصيل حسب الفواتير:*\n`;
+      message += `*Détails par factures:*\n`;
 
-      // 3. For each invoice, get items
       for (const inv of invoices) {
         const itemsRef = collection(db, "invoices", inv.id, "items");
         const itemsSnap = await getDocs(itemsRef);
-        const dateStr = inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---";
+        const dateStr = inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd/MM/yyyy", { locale: fr }) : "---";
         
-        message += `*الفاتورة:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
+        message += `*Facture:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
         
         itemsSnap.docs.forEach(d => {
           const item = d.data();
-          message += `- ${item.productName} (${item.quantity} قطعة)\n`;
+          message += `- ${item.productName} (${item.quantity} pièce(s))\n`;
         });
 
         const unpaid = inv.totalAmount - inv.paidAmount;
-        message += `*مبلغ الفاتورة:* ${inv.totalAmount.toLocaleString()} دج\n`;
-        message += `*المسدد:* ${inv.paidAmount.toLocaleString()} دج\n`;
-        message += `*المتبقي من هذه الفاتورة:* ${unpaid.toLocaleString()} دج\n`;
+        message += `*Montant Facture:* ${inv.totalAmount.toLocaleString()} DZD\n`;
+        message += `*Payé:* ${inv.paidAmount.toLocaleString()} DZD\n`;
+        message += `*Reste à payer:* ${unpaid.toLocaleString()} DZD\n`;
         message += `*--------------------------*\n`;
       }
 
-      message += `\n*ملاحظة:* يرجى مراجعة المحل لتسوية الوضعية المالية في أقرب وقت.\n`;
-      message += `شكراً لتعاملكم معنا! ✨\n`;
+      message += `\n*Note:* Veuillez passer au magasin pour régulariser votre situation financière.\n`;
+      message += `Merci de votre confiance ! ✨\n`;
       message += `*==========================*`;
 
       const phone = customer.phone || "";
@@ -149,7 +146,7 @@ export default function DebtsPage() {
       
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إنشاء تقرير الواتساب" });
+      toast({ variant: "destructive", title: "Erreur", description: "Échec de génération du rapport WhatsApp." });
     } finally {
       setIsSendingReport(null);
     }
@@ -228,8 +225,8 @@ export default function DebtsPage() {
       await batch.commit()
       
       toast({ 
-        title: "تم السداد الذكي", 
-        description: `تم توزيع مبلغ ${amountToApply.toLocaleString()} دج على أحدث الفواتير بنجاح.` 
+        title: "Paiement effectué", 
+        description: `Montant de ${amountToApply.toLocaleString()} DZD réparti avec succès.` 
       })
       
       setIsBulkOpen(false)
@@ -237,7 +234,7 @@ export default function DebtsPage() {
       setSelectedCustomer(null) 
     } catch (e) {
       console.error(e)
-      toast({ variant: "destructive", title: "خطأ", description: "فشلت عملية معالجة الدفعة" })
+      toast({ variant: "destructive", title: "Erreur", description: "Échec de traitement du paiement." })
     } finally {
       setIsProcessingBulk(false)
     }
@@ -287,14 +284,14 @@ export default function DebtsPage() {
       setInvoiceItems(Object.values(itemsMap))
     } catch (error) {
       console.error("Error fetching items:", error)
-      toast({ variant: "destructive", title: "خطأ", description: "فشل استرجاع عناصر الفاتورة" })
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de récupérer les articles." })
     } finally {
       setIsLoadingItems(false)
     }
   }
 
   const handleDeleteDebtInvoice = async (invoice: any) => {
-    if (confirm("هل تريد حذف هذه الفاتورة؟ سيتم إعادة المنتجات للمخزون وخصم المبلغ من دين العميل.")) {
+    if (confirm("Supprimer cette facture ? Le stock sera réintégré et la dette client diminuée.")) {
       try {
         const itemsSnap = await getDocs(collection(db, "invoices", invoice.id, "items"))
         itemsSnap.docs.forEach(itemDoc => {
@@ -313,16 +310,16 @@ export default function DebtsPage() {
 
         deleteDocumentNonBlocking(doc(db, "invoices", invoice.id))
         
-        toast({ title: "تم الحذف", description: "تم حذف الفاتورة وتحديث المخزون والدين" })
+        toast({ title: "Supprimé", description: "Facture supprimée et stock mis à jour." })
         setCustomerInvoices(prev => prev.filter(inv => inv.id !== invoice.id))
       } catch (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشلت العملية" })
+        toast({ variant: "destructive", title: "Erreur", description: "L'opération a échoué." })
       }
     }
   }
 
   const handleUpdatePayment = (invoice: any) => {
-    const newPaid = prompt(`إجمالي الفاتورة: ${invoice.totalAmount}\nالمدفوع حالياً: ${invoice.paidAmount}\nأدخل المبلغ المدفوع الجديد:`, invoice.paidAmount)
+    const newPaid = prompt(`Total Facture: ${invoice.totalAmount}\nVersé actuel: ${invoice.paidAmount}\nNouveau montant versé :`, invoice.paidAmount)
     if (newPaid !== null) {
       const paidNum = Number(newPaid)
       const diff = paidNum - invoice.paidAmount
@@ -336,7 +333,7 @@ export default function DebtsPage() {
         debt: increment(-diff)
       })
 
-      toast({ title: "تم التحديث", description: "تم تحديث الدفعة المالية بنجاح" })
+      toast({ title: "Mis à jour", description: "Le versement a été actualisé." })
       setCustomerInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, paidAmount: paidNum } : inv))
     }
   }
@@ -364,21 +361,21 @@ export default function DebtsPage() {
               <Wallet className="h-6 w-6" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-black text-gradient-premium uppercase tracking-tighter leading-tight">إدارة الديون</h1>
-              <p className="text-[8px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-widest">تتبع المستحقات</p>
+              <h1 className="text-lg md:text-xl font-black text-gradient-premium uppercase tracking-tighter leading-tight">Gestion des Dettes</h1>
+              <p className="text-[8px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Suivi des impayés</p>
             </div>
           </div>
           <div className="h-8 w-px bg-border mx-1 md:mx-2" />
           <div className="flex flex-col">
-             <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">إجمالي ديون السوق</span>
-             <span className="text-sm md:text-xl font-black text-red-600 tabular-nums">{totalGlobalDebt.toLocaleString()} دج</span>
+             <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">Dette Totale Marché</span>
+             <span className="text-sm md:text-xl font-black text-red-600 tabular-nums">{totalGlobalDebt.toLocaleString()} DZD</span>
           </div>
         </div>
 
         <div className="relative w-full md:w-72 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="بحث عن عميل..." 
+            placeholder="Rechercher client..." 
             className="pl-10 h-11 md:h-12 glass border-none rounded-xl font-bold text-xs" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -392,25 +389,25 @@ export default function DebtsPage() {
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="font-black text-foreground cursor-pointer text-center" onClick={() => handleSort('name')}>
-                  <div className="flex items-center justify-center gap-2">العميل <SortIcon column="name" /></div>
+                  <div className="flex items-center justify-center gap-2">Client <SortIcon column="name" /></div>
                 </TableHead>
-                <TableHead className="font-black text-foreground text-center">رقم الهاتف</TableHead>
+                <TableHead className="font-black text-foreground text-center">Téléphone</TableHead>
                 <TableHead 
                   className="text-center font-black text-foreground cursor-pointer group"
                   onClick={() => handleSort('debt')}
                 >
                   <div className="flex items-center justify-center gap-2">
-                    الدين <SortIcon column="debt" />
+                    Dette <SortIcon column="debt" />
                   </div>
                 </TableHead>
-                <TableHead className="text-center font-black text-foreground">الإجراءات</TableHead>
+                <TableHead className="text-center font-black text-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isCustomersLoading ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : indebtedCustomers.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-30 italic font-black">لا يوجد ديون حالياً</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-30 italic font-black">Aucune dette en cours</TableCell></TableRow>
               ) : indebtedCustomers.map((c) => (
                 <TableRow key={c.id} className="group border-border hover:bg-muted/30 transition-all">
                   <TableCell>
@@ -418,12 +415,12 @@ export default function DebtsPage() {
                        <div className="hidden sm:flex h-9 w-9 rounded-xl bg-primary/10 items-center justify-center text-primary">
                           <User className="h-5 w-5" />
                        </div>
-                       <span className="font-bold text-foreground text-xs md:text-sm">{c.name}</span>
+                       <span className="font-bold text-foreground text-xs md:sm">{c.name}</span>
                     </div>
                   </TableCell>
                   <TableCell className="font-bold text-muted-foreground tabular-nums text-center text-[10px] md:text-xs">{c.phone}</TableCell>
                   <TableCell className="text-center font-black text-red-600 text-sm md:text-lg tabular-nums">
-                    {c.debt.toLocaleString()} دج
+                    {c.debt.toLocaleString()} DZD
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -433,7 +430,7 @@ export default function DebtsPage() {
                         className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all"
                         onClick={() => handleSendDebtReport(c)}
                         disabled={isSendingReport === c.id}
-                        title="إرسال كشف حساب واتساب تفصيلي"
+                        title="Envoyer Relevé WhatsApp (FR)"
                       >
                         {isSendingReport === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
                       </Button>
@@ -442,7 +439,7 @@ export default function DebtsPage() {
                         className="h-9 md:h-10 px-3 md:px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white font-black text-[10px] md:text-xs gap-1 md:gap-2 transition-all"
                         onClick={() => fetchCustomerInvoices(c)}
                       >
-                        <span className="hidden sm:inline">عرض الفواتير</span>
+                        <span className="hidden sm:inline">Détails Factures</span>
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                     </div>
@@ -463,16 +460,16 @@ export default function DebtsPage() {
                     <History className="h-6 w-6" />
                   </div>
                   <div className="flex flex-col">
-                    <DialogTitle className="text-lg md:text-2xl font-black text-gradient-premium leading-tight">فواتير العميل: {selectedCustomer?.name}</DialogTitle>
-                    <p className="text-[10px] font-bold text-muted-foreground">قائمة المستحقات المتبقية</p>
+                    <DialogTitle className="text-lg md:text-2xl font-black text-gradient-premium leading-tight">Factures de : {selectedCustomer?.name}</DialogTitle>
+                    <p className="text-[10px] font-bold text-muted-foreground">Liste des impayés</p>
                   </div>
                </div>
                <div className="flex items-center gap-2">
                   <Badge variant="destructive" className="px-4 py-2 rounded-xl font-black text-xs md:text-sm shadow-lg shadow-destructive/10">
-                    إجمالي المتبقي: {selectedCustomer?.debt.toLocaleString()} دج
+                    Total Reste: {selectedCustomer?.debt.toLocaleString()} DZD
                   </Badge>
                   <Button onClick={() => setIsBulkOpen(true)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white font-black gap-2 shadow-lg shadow-emerald-500/20">
-                     <Coins className="h-4 w-4" /> تسجيل دفعة شاملة
+                     <Coins className="h-4 w-4" /> Paiement Global
                   </Button>
                </div>
             </div>
@@ -482,42 +479,42 @@ export default function DebtsPage() {
             {isLoadingInvoices ? (
               <div className="py-20 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
             ) : customerInvoices.length === 0 ? (
-              <div className="py-20 text-center opacity-30 italic font-black text-foreground">لا توجد فواتير مديونية</div>
+              <div className="py-20 text-center opacity-30 italic font-black text-foreground">Aucun impayé trouvé</div>
             ) : (
               <div className="space-y-4">
                 <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">تنبيه ذكي</p>
-                   <p className="text-xs font-bold text-muted-foreground leading-relaxed italic text-center">يتم ترتيب الفواتير من الأحدث إلى الأقدم. عند استخدام السداد الشامل، سيقوم النظام تلقائياً بتوزيع المبلغ بدءاً من أحدث فاتورة.</p>
+                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Information</p>
+                   <p className="text-xs font-bold text-muted-foreground leading-relaxed italic text-center">Les factures sont classées de la plus récente à la plus ancienne.</p>
                 </div>
                 {customerInvoices.map((inv) => (
                   <div key={inv.id} className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] glass border-white/10 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-white/40 transition-all gap-4 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-8 flex-1">
                        <div className="flex items-center gap-3">
                           <div className="flex flex-col">
-                             <span className="text-[8px] md:text-[10px] font-black text-primary uppercase text-center">رقم الفاتورة</span>
-                             <span className="font-black text-foreground text-xs md:text-sm text-center">#{inv.id.slice(0, 8)}</span>
+                             <span className="text-[8px] md:text-[10px] font-black text-primary uppercase text-center">N° Facture</span>
+                             <span className="font-black text-foreground text-xs md:sm text-center">#{inv.id.slice(0, 8)}</span>
                           </div>
                           <div className="h-8 w-px bg-border mx-2 hidden sm:block" />
                           <div className="flex flex-col">
-                             <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase text-center">التاريخ</span>
+                             <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase text-center">Date</span>
                              <span className="font-bold text-[10px] md:text-xs text-foreground text-center">
-                               {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "yyyy/MM/dd", { locale: ar }) : "---"}
+                               {inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd/MM/yyyy", { locale: fr }) : "---"}
                              </span>
                           </div>
                        </div>
                        
                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 md:gap-8 bg-black/5 sm:bg-transparent p-3 sm:p-0 rounded-xl flex-1">
                           <div className="flex flex-col items-center">
-                             <span className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase text-center">الإجمالي</span>
-                             <span className="font-black text-foreground tabular-nums text-xs md:text-sm">{inv.totalAmount.toLocaleString()} دج</span>
+                             <span className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase text-center">Total</span>
+                             <span className="font-black text-foreground tabular-nums text-xs md:sm">{inv.totalAmount.toLocaleString()} DZD</span>
                           </div>
                           <div className="flex flex-col items-center">
-                             <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase text-center">المدفوع</span>
-                             <span className="font-black text-emerald-600 tabular-nums text-xs md:text-sm">{inv.paidAmount.toLocaleString()} دج</span>
+                             <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase text-center">Payé</span>
+                             <span className="font-black text-emerald-600 tabular-nums text-xs md:sm">{inv.paidAmount.toLocaleString()} DZD</span>
                           </div>
                           <div className="flex flex-col items-center col-span-2 sm:col-span-1 border-t sm:border-none border-white/10 pt-2 sm:pt-0">
-                             <span className="text-[8px] md:text-[9px] font-black text-red-500 uppercase text-center">المتبقي (الدين)</span>
-                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">{(inv.totalAmount - inv.paidAmount).toLocaleString()} دج</span>
+                             <span className="text-[8px] md:text-[9px] font-black text-red-500 uppercase text-center">Reste (Dette)</span>
+                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">{(inv.totalAmount - inv.paidAmount).toLocaleString()} DZD</span>
                           </div>
                        </div>
                     </div>
@@ -526,21 +523,21 @@ export default function DebtsPage() {
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-primary/10 text-primary"
                         onClick={() => fetchInvoiceItems(inv)}
-                        title="معاينة"
+                        title="Aperçu"
                        >
                          <Eye className="h-4 w-4" />
                        </Button>
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600"
                         onClick={() => handleUpdatePayment(inv)}
-                        title="تحديث الدفع لهذه الفاتورة فقط"
+                        title="Mettre à jour"
                        >
                          <Edit3 className="h-4 w-4" />
                        </Button>
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-destructive/10 text-destructive"
                         onClick={() => handleDeleteDebtInvoice(inv)}
-                        title="حذف الفاتورة"
+                        title="Supprimer"
                        >
                          <Trash2 className="h-4 w-4" />
                        </Button>
@@ -552,7 +549,7 @@ export default function DebtsPage() {
           </div>
           
           <div className="p-6 bg-black/5 text-center shrink-0">
-             <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setSelectedCustomer(null)}>إغلاق السجل</Button>
+             <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setSelectedCustomer(null)}>Fermer l'Historique</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -561,21 +558,21 @@ export default function DebtsPage() {
          <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl z-[300] max-w-md w-[95%]">
             <DialogHeader>
                <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center justify-center gap-3">
-                  <Coins className="h-6 w-6 text-emerald-500" /> تسجيل دفعة مالية
+                  <Coins className="h-6 w-6 text-emerald-500" /> Versement Global
                </DialogTitle>
                <DialogDescription className="font-bold text-xs mt-2 text-center">
-                  سيقوم النظام بتوزيع المبلغ تلقائياً على فواتير {selectedCustomer?.name} بدءاً من أحدث فاتورة.
+                  Le montant sera réparti automatiquement sur les factures de {selectedCustomer?.name} en commençant par les plus récentes.
                </DialogDescription>
             </DialogHeader>
 
             <div className="py-6 space-y-6">
                <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex justify-between items-center">
-                  <span className="text-xs font-black text-emerald-600">إجمالي ديون العميل:</span>
-                  <span className="text-lg font-black text-red-600 tabular-nums">{selectedCustomer?.debt.toLocaleString()} دج</span>
+                  <span className="text-xs font-black text-emerald-600">Dette totale client :</span>
+                  <span className="text-lg font-black text-red-600 tabular-nums">{selectedCustomer?.debt.toLocaleString()} DZD</span>
                </div>
 
                <div className="space-y-2">
-                  <Label className="font-black text-[10px] text-primary uppercase px-1 text-center block">المبلغ المدفوع حالياً</Label>
+                  <Label className="font-black text-[10px] text-primary uppercase px-1 text-center block">Montant reçu</Label>
                   <Input 
                     type="number" 
                     value={bulkAmount} 
@@ -589,26 +586,26 @@ export default function DebtsPage() {
                {bulkAmount !== "" && Number(bulkAmount) > 0 && (
                   <div className="p-4 rounded-2xl bg-black/5 space-y-2">
                      <div className="flex justify-between text-[10px] font-bold">
-                        <span>المبلغ للتوزيع:</span>
-                        <span className="tabular-nums">{Number(bulkAmount).toLocaleString()} دج</span>
+                        <span>Montant à répartir :</span>
+                        <span className="tabular-nums">{Number(bulkAmount).toLocaleString()} DZD</span>
                      </div>
                      <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                        <span>الرصيد المتبقي للعميل بعد السداد:</span>
-                        <span className="tabular-nums">{Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()} دج</span>
+                        <span>Solde final après versement :</span>
+                        <span className="tabular-nums">{Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()} DZD</span>
                      </div>
                   </div>
                )}
             </div>
 
             <DialogFooter className="gap-2">
-               <Button variant="outline" className="rounded-xl h-12 font-bold flex-1" onClick={() => setIsBulkOpen(false)}>إلغاء</Button>
+               <Button variant="outline" className="rounded-xl h-12 font-bold flex-1" onClick={() => setIsBulkOpen(false)}>Annuler</Button>
                <Button 
                 onClick={handleProcessBulkPayment} 
                 disabled={isProcessingBulk || !bulkAmount || Number(bulkAmount) <= 0}
                 className="rounded-xl h-12 font-black bg-emerald-600 text-white flex-1 shadow-lg shadow-emerald-500/20"
                >
                   {isProcessingBulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  تأكيد التوزيع والتسديد
+                  Confirmer le paiement
                </Button>
             </DialogFooter>
          </DialogContent>
@@ -619,31 +616,31 @@ export default function DebtsPage() {
           <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
             <DialogTitle className="text-xl md:text-2xl font-black text-gradient-premium flex items-center justify-center gap-3">
               <FileText className="h-6 w-6 text-primary" />
-              محتويات الفاتورة #{selectedInvoiceForItems?.id.slice(0, 8)}
+              Contenu Facture #{selectedInvoiceForItems?.id.slice(0, 8)}
             </DialogTitle>
           </DialogHeader>
 
           <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-2 gap-4 glass p-4 rounded-2xl border-white/10">
                 <div className="text-center">
-                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">العميل</p>
-                   <p className="font-bold text-foreground text-xs md:text-sm">{selectedInvoiceForItems?.customerName}</p>
+                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Client</p>
+                   <p className="font-bold text-foreground text-xs md:sm">{selectedInvoiceForItems?.customerName}</p>
                 </div>
                 <div className="text-center border-r border-white/10">
-                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">التاريخ</p>
+                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Date</p>
                    <p className="font-bold text-[10px] md:text-xs text-foreground">
-                    {selectedInvoiceForItems?.createdAt?.toDate ? format(selectedInvoiceForItems.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ar }) : "---"}
+                    {selectedInvoiceForItems?.createdAt?.toDate ? format(selectedInvoiceForItems.createdAt.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "---"}
                    </p>
                 </div>
              </div>
 
              <div className="space-y-3">
-                <p className="font-black text-xs text-primary px-2 uppercase tracking-widest text-center">المنتجات المشتراة</p>
+                <p className="font-black text-xs text-primary px-2 uppercase tracking-widest text-center">Produits inclus</p>
                 <div className="space-y-2">
                    {isLoadingItems ? (
                      <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>
                    ) : invoiceItems.length === 0 ? (
-                     <div className="py-10 text-center opacity-30 italic font-black text-xs">لا توجد عناصر</div>
+                     <div className="py-10 text-center opacity-30 italic font-black text-xs">Aucun élément</div>
                    ) : invoiceItems.map((item) => (
                      <div key={item.id} className="flex items-center justify-between p-4 glass rounded-xl border-white/10">
                         <div className="flex items-center gap-3">
@@ -653,24 +650,24 @@ export default function DebtsPage() {
                            <div className="flex flex-col">
                               <p className="text-xs font-black text-foreground">{item.productName}</p>
                               <p className="text-[9px] text-muted-foreground font-bold tabular-nums">
-                                {item.quantity} قطعة × {item.unitPrice.toLocaleString()} دج
+                                {item.quantity} × {item.unitPrice.toLocaleString()} DZD
                               </p>
                            </div>
                         </div>
-                        <p className="font-black text-xs md:text-sm text-primary tabular-nums">{item.itemTotal.toLocaleString()} دج</p>
+                        <p className="font-black text-xs md:sm text-primary tabular-nums">{item.itemTotal.toLocaleString()} DZD</p>
                      </div>
                    ))}
                 </div>
              </div>
 
              <div className="pt-6 border-t border-white/10 flex justify-between items-center px-2">
-                <span className="text-sm md:text-lg font-black text-foreground">المجموع النهائي:</span>
-                <span className="text-lg md:text-2xl font-black text-primary tabular-nums">{selectedInvoiceForItems?.totalAmount.toLocaleString()} دج</span>
+                <span className="text-sm md:text-lg font-black text-foreground">Total Facture :</span>
+                <span className="text-lg md:text-2xl font-black text-primary tabular-nums">{selectedInvoiceForItems?.totalAmount.toLocaleString()} DZD</span>
              </div>
           </div>
 
           <div className="p-6 bg-black/5 text-center">
-             <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setSelectedInvoiceForItems(null)}>إغلاق المعاينة</Button>
+             <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setSelectedInvoiceForItems(null)}>Fermer l'aperçu</Button>
           </div>
         </DialogContent>
       </Dialog>
