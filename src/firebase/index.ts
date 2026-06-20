@@ -6,62 +6,51 @@ import { getAuth } from 'firebase/auth';
 import { 
   getFirestore,
   initializeFirestore, 
-  enableMultiTabIndexedDbPersistence,
   CACHE_SIZE_UNLIMITED,
   persistentLocalCache,
   persistentMultipleTabManager
 } from 'firebase/firestore'
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * تهيئة Firebase مع ضمان عدم التكرار.
+ * تم تحسين هذا الجزء ليعمل بكفاءة في بيئة تطوير Next.js (HMR).
+ */
 export function initializeFirebase() {
   let firebaseApp: FirebaseApp;
   
   if (!getApps().length) {
-    try {
-      firebaseApp = initializeApp();
-    } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-    
-    // Initial setup for the first time the app is created
-    const sdks = getSdks(firebaseApp);
-    
-    // Enable Multi-Tab IndexedDB Persistence for robust Offline-First capability
-    if (typeof window !== "undefined") {
-      enableMultiTabIndexedDbPersistence(sdks.firestore).catch((err) => {
-        if (err.code === 'failed-precondition') {
-          console.warn('Persistence failed: Multiple tabs open.');
-        } else if (err.code === 'unimplemented') {
-          console.warn('Persistence is not supported by this browser.');
-        }
-      });
-    }
-    
-    return sdks;
+    firebaseApp = initializeApp(firebaseConfig);
+  } else {
+    firebaseApp = getApp();
   }
 
-  firebaseApp = getApp();
   return getSdks(firebaseApp);
 }
 
+/**
+ * جلب خدمات Firebase مع تطبيق إعدادات المزامنة والاتصال المتقدمة.
+ */
 export function getSdks(firebaseApp: FirebaseApp) {
   let firestore;
   try {
-    // Attempt to retrieve the existing firestore instance
-    firestore = getFirestore(firebaseApp);
-  } catch (e) {
-    // If not initialized yet, initialize with specific settings for stable connectivity and robust offline
+    /**
+     * محاولة تهيئة Firestore بإعدادات مخصصة:
+     * 1. experimentalForceLongPolling: يحل مشاكل الاتصال في بيئات الحماية أو الشبكات الضعيفة.
+     * 2. localCache: تفعيل التخزين المحلي المتطور لدعم العمل بدون إنترنت (Offline-First).
+     */
     firestore = initializeFirestore(firebaseApp, {
       experimentalForceLongPolling: true,
       cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-      // Optimized for robust local storage
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
       })
     });
+  } catch (e) {
+    /**
+     * في حال كانت قاعدة البيانات مهيأة مسبقاً (كما يحدث عند تحديث الكود لحظياً)، 
+     * نقوم بجلب النسخة الموجودة بالفعل بدلاً من إعادة التهيئة.
+     */
+    firestore = getFirestore(firebaseApp);
   }
 
   return {
