@@ -437,7 +437,7 @@ export default function InvoiceHistoryPage() {
                       </TableHead>
                       <TableHead className="text-center font-black cursor-pointer select-none group" onClick={() => handleSort('status')}>
                         <div className="flex items-center justify-center gap-2">Statut <SortIcon column="status" /></div>
-                      </TableHeader>
+                      </TableHead>
                       <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('id')}>
                         <div className="flex items-center justify-center gap-2">N° Facture <SortIcon column="id" /></div>
                       </TableHead>
