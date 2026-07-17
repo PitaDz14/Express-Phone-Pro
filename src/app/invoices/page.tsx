@@ -67,7 +67,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase, useUser, addDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp, increment, getDoc, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
+import Link from "next/navigation"
 import { useSearchParams, useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
@@ -617,7 +617,7 @@ export default function InvoicesPage() {
                                        <button className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-red-500 hover:text-white transition-all flex items-center justify-center font-black" onClick={() => handleUpdateQty(item.productId, item.qty - 1)}><Minus className="h-3 w-3" /></button>
                                        <Input 
                                           type="number" 
-                                          className="h-7 w-12 border-none bg-transparent text-center font-black text-sm tabular-nums p-0 focus-visible:ring-0"
+                                          className="h-7 w-12 border-none bg-transparent text-center font-black text-sm text-slate-900 tabular-nums p-0 focus-visible:ring-0"
                                           value={item.qty}
                                           onChange={(e) => handleUpdateQty(item.productId, Number(e.target.value))}
                                        />
@@ -671,7 +671,7 @@ export default function InvoicesPage() {
                                 <div className="p-2 pb-4">
                                    <Input 
                                       placeholder="Chercher client..." 
-                                      className="h-12 mb-2 rounded-xl border-none bg-slate-100 font-bold focus:ring-2 focus:ring-blue-500" 
+                                      className="h-12 mb-2 rounded-xl border-none bg-slate-100 font-bold text-slate-900 focus:ring-2 focus:ring-blue-500" 
                                       value={searchFilter} 
                                       onChange={e => setSearchFilter(e.target.value)} 
                                    />
@@ -792,7 +792,7 @@ export default function InvoicesPage() {
              <div className="py-6 space-y-5">
                 <div className="space-y-2">
                    <Label className="font-black text-[10px] text-primary px-1">اسم الصنف / الخدمة</Label>
-                   <Input value={mName} onChange={e => setMName(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none font-bold" placeholder="مثال: تصليح سوكيت شحن" />
+                   <Input value={mName} onChange={e => setMName(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none font-bold text-slate-900" placeholder="مثال: تصليح سوكيت شحن" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
@@ -801,13 +801,13 @@ export default function InvoicesPage() {
                    </div>
                    <div className="space-y-2">
                       <Label className="font-black text-[10px] text-primary px-1">الكمية</Label>
-                      <Input type="number" value={mQty} onChange={e => setMQty(Number(e.target.value))} className="h-12 rounded-xl bg-slate-50 border-none font-black text-center" />
+                      <Input type="number" value={mQty} onChange={e => setMQty(Number(e.target.value))} className="h-12 rounded-xl bg-slate-50 border-none font-black text-center text-slate-900" />
                    </div>
                 </div>
                 <div className="space-y-2">
                    <Label className="font-black text-[10px] text-primary px-1">تصنيف الصنف</Label>
                    <Select value={mCategoryId} onValueChange={setMCategoryId}>
-                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold text-slate-900">
                          <SelectValue placeholder="اختر التصنيف..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl z-[400]">
@@ -892,7 +892,7 @@ export default function InvoicesPage() {
               <div className="py-8 space-y-6">
                  <div className="space-y-2">
                     <Label className="font-black text-xs text-primary text-center block">N° WhatsApp du client</Label>
-                    <Input placeholder="06XXXXXXXX" className="h-14 rounded-2xl bg-slate-50 border-none font-black text-lg text-center" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} />
+                    <Input placeholder="06XXXXXXXX" className="h-14 rounded-2xl bg-slate-50 border-none font-black text-lg text-center text-slate-900" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} />
                  </div>
                  <Button className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black text-lg shadow-xl gap-3" onClick={handleSendWhatsApp}>
                     <MessageCircle className="h-6 w-6" /> Envoyer le reçu via WhatsApp
