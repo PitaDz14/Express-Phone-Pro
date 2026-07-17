@@ -26,6 +26,7 @@ import {
   Save,
   Minus,
   MessageCircle,
+  PlusCircle,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -55,7 +57,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useFirestore, useCollection, useMemoFirebase, useUser, addDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp, increment, getDoc, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -73,6 +82,9 @@ interface CartItem {
   price: number
   qty: number
   categoryPath?: string
+  isManual?: boolean
+  saveToProducts?: boolean
+  categoryId?: string
 }
 
 export default function InvoicesPage() {
@@ -97,6 +109,14 @@ export default function InvoicesPage() {
   const [isQRScannerOpen, setIsQRScannerOpen] = React.useState(false)
   const [pendingId, setPendingId] = React.useState("")
   
+  // Manual Item States
+  const [isManualItemOpen, setIsManualItemOpen] = React.useState(false)
+  const [mName, setMName] = React.useState("")
+  const [mPrice, setMPrice] = React.useState(0)
+  const [mQty, setMQty] = React.useState(1)
+  const [mCategoryId, setMCategoryId] = React.useState("")
+  const [mSaveToProducts, setMSaveToProducts] = React.useState(false)
+
   // WhatsApp States
   const [showSuccessDialog, setShowSuccessDialog] = React.useState(false)
   const [lastSavedInvoice, setLastSavedInvoice] = React.useState<any>(null)
@@ -113,8 +133,14 @@ export default function InvoicesPage() {
     return collection(db, "customers");
   }, [db, user])
 
+  const categoriesRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "categories");
+  }, [db, user])
+
   const { data: products } = useCollection(productsRef)
   const { data: customers } = useCollection(customersRef)
+  const { data: categories } = useCollection(categoriesRef)
 
   React.useEffect(() => {
     if (!editId) {
@@ -149,7 +175,8 @@ export default function InvoicesPage() {
               name: item.productName,
               price: item.unitPrice,
               qty: item.quantity,
-              categoryPath: item.categoryPath || ""
+              categoryPath: item.categoryPath || "",
+              isManual: item.productId?.startsWith('manual-')
             };
           });
           setCart(items);
@@ -207,7 +234,42 @@ export default function InvoicesPage() {
     playSystemSound('success')
   }
 
+  const addManualItemToCart = () => {
+    if (!mName || mPrice < 0 || mQty < 1) {
+      toast({ title: "خطأ", description: "يرجى إكمال بيانات الصنف اليدوي", variant: "destructive" })
+      return
+    }
+
+    const selectedCat = categories?.find(c => c.id === mCategoryId)
+    const manualId = `manual-${Date.now()}`
+
+    setCart([...cart, {
+      id: Math.random().toString(36).substring(7),
+      productId: manualId,
+      name: mName,
+      price: mPrice,
+      qty: mQty,
+      categoryPath: selectedCat?.name || "صنف يدوي",
+      isManual: true,
+      saveToProducts: mSaveToProducts,
+      categoryId: mCategoryId
+    }])
+
+    setIsManualItemOpen(false)
+    setMName(""); setMPrice(0); setMQty(1); setMSaveToProducts(false);
+    playSystemSound('success')
+  }
+
   const handleUpdateQty = (productId: string, newQty: number) => {
+    const item = cart.find(x => x.productId === productId);
+    if (!item) return;
+
+    if (item.isManual) {
+      if (newQty < 1) return;
+      setCart(cart.map(i => i.productId === productId ? { ...i, qty: newQty } : i));
+      return;
+    }
+
     const p = products?.find(x => x.id === productId);
     const originalQty = originalCart.find(o => o.productId === productId)?.qty || 0;
     const availableStock = (p?.quantity || 0) + originalQty;
@@ -254,7 +316,7 @@ export default function InvoicesPage() {
           const oldItemsSnap = await getDocs(collection(db, "invoices", editId, "items"));
           oldItemsSnap.docs.forEach(d => {
             const item = d.data();
-            if (item.productId) {
+            if (item.productId && !item.productId.startsWith('manual-')) {
               batch.update(doc(db, "products", item.productId), { quantity: increment(item.quantity) });
             }
             batch.delete(d.ref);
@@ -283,11 +345,35 @@ export default function InvoicesPage() {
       if (!editId) invoiceData.createdAt = serverTimestamp();
       batch.set(targetDocRef, invoiceData, { merge: true });
       
-      cart.forEach(item => {
+      for (const item of cart) {
+        let finalProductId = item.productId;
+
+        // If it's a manual item and needs saving to products
+        if (item.isManual && item.saveToProducts) {
+          const newProductRef = doc(collection(db, "products"));
+          finalProductId = newProductRef.id;
+          batch.set(newProductRef, {
+            name: item.name,
+            productCode: `EP-M-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+            categoryId: item.categoryId || "",
+            categoryName: item.categoryPath || "غير مصنف",
+            categoryPath: item.categoryPath || "غير مصنف",
+            quantity: 0, // Stock will be handled if needed, usually new manual item starts at 0 or is sold immediately
+            purchasePrice: 0,
+            salePrice: item.price,
+            minStockQuantity: 1,
+            isPriority: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            createdByUserId: user.uid,
+            excludeFromLowStock: false
+          });
+        }
+
         const newItemRef = doc(collection(db, "invoices", targetDocRef.id, "items"));
         batch.set(newItemRef, { 
           invoiceId: targetDocRef.id, 
-          productId: item.productId, 
+          productId: finalProductId, 
           productName: item.name, 
           quantity: item.qty, 
           unitPrice: item.price, 
@@ -296,8 +382,12 @@ export default function InvoicesPage() {
           generatedByUserId: user.uid, 
           createdAt: serverTimestamp() 
         });
-        batch.update(doc(db, "products", item.productId), { quantity: increment(-item.qty), updatedAt: serverTimestamp() });
-      });
+
+        // ONLY decrement stock for NON-MANUAL items
+        if (!item.productId.startsWith('manual-')) {
+          batch.update(doc(db, "products", item.productId), { quantity: increment(-item.qty), updatedAt: serverTimestamp() });
+        }
+      }
 
       if (selectedCustomer && selectedCustomer.id !== 'walk-in') {
         const newTotalDebt = (selectedCustomer.debt || 0) + (debtAmount || 0);
@@ -443,14 +533,19 @@ export default function InvoicesPage() {
         <main className="max-w-[1600px] mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
            <div className="lg:col-span-3 space-y-8 order-1">
               <Card className="border-none bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
-                 <div className="p-6 md:p-8 bg-[#334155] text-white flex items-center justify-between">
+                 <div className="p-6 md:p-8 bg-[#334155] text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                        <Package className="h-5 w-5 text-blue-400" />
                        <h3 className="text-lg md:text-xl font-black">Panier d'achat</h3>
                     </div>
-                    <Button onClick={() => setIsQRScannerOpen(true)} className="h-10 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 gap-2 font-bold text-xs transition-all">
-                       <Camera className="h-4 w-4" /> Scanner QR
-                    </Button>
+                    <div className="flex items-center gap-2">
+                       <Button onClick={() => setIsManualItemOpen(true)} variant="outline" className="h-10 px-4 rounded-xl bg-primary/20 text-white border-primary/30 gap-2 font-bold text-xs">
+                          <PlusCircle className="h-4 w-4" /> إضافة صنف يدوي
+                       </Button>
+                       <Button onClick={() => setIsQRScannerOpen(true)} className="h-10 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 gap-2 font-bold text-xs transition-all">
+                          <Camera className="h-4 w-4" /> Scanner QR
+                       </Button>
+                    </div>
                  </div>
 
                  <CardContent className="p-6 md:p-10 space-y-8">
@@ -510,7 +605,10 @@ export default function InvoicesPage() {
                               <TableRow key={item.productId} className="border-slate-50 hover:bg-slate-50/50 transition-colors">
                                  <TableCell className="py-5">
                                     <div className="flex flex-col text-center">
-                                       <span className="font-black text-sm text-slate-800">{item.name}</span>
+                                       <div className="flex items-center justify-center gap-2">
+                                          <span className="font-black text-sm text-slate-800">{item.name}</span>
+                                          {item.isManual && <Badge variant="outline" className="text-[7px] h-4 bg-orange-50 text-orange-600 border-orange-200 uppercase">Manuel</Badge>}
+                                       </div>
                                        <span className="text-[9px] text-blue-500 font-bold uppercase tracking-tight opacity-60">{item.categoryPath}</span>
                                     </div>
                                  </TableCell>
@@ -683,6 +781,52 @@ export default function InvoicesPage() {
               </div>
            </div>
         </main>
+
+        {/* Manual Item Dialog */}
+        <Dialog open={isManualItemOpen} onOpenChange={setIsManualItemOpen}>
+          <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] p-8 shadow-3xl z-[360]">
+             <DialogHeader>
+                <DialogTitle className="text-2xl font-black text-primary">إضافة صنف يدوي للفاتورة</DialogTitle>
+                <DialogDescription className="font-bold text-slate-500">هذا الصنف لن يخصم من المخزون إلا إذا اخترت حفظه.</DialogDescription>
+             </DialogHeader>
+             <div className="py-6 space-y-5">
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-primary px-1">اسم الصنف / الخدمة</Label>
+                   <Input value={mName} onChange={e => setMName(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none font-bold" placeholder="مثال: تصليح سوكيت شحن" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                      <Label className="font-black text-[10px] text-primary px-1">السعر (DZD)</Label>
+                      <Input type="number" value={mPrice} onChange={e => setMPrice(Number(e.target.value))} className="h-12 rounded-xl bg-slate-50 border-none font-black text-center text-blue-600" />
+                   </div>
+                   <div className="space-y-2">
+                      <Label className="font-black text-[10px] text-primary px-1">الكمية</Label>
+                      <Input type="number" value={mQty} onChange={e => setMQty(Number(e.target.value))} className="h-12 rounded-xl bg-slate-50 border-none font-black text-center" />
+                   </div>
+                </div>
+                <div className="space-y-2">
+                   <Label className="font-black text-[10px] text-primary px-1">تصنيف الصنف</Label>
+                   <Select value={mCategoryId} onValueChange={setMCategoryId}>
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                         <SelectValue placeholder="اختر التصنيف..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl z-[400]">
+                         {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                   </Select>
+                </div>
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                   <Checkbox id="save-to-prod" checked={mSaveToProducts} onCheckedChange={(v) => setMSaveToProducts(!!v)} />
+                   <Label htmlFor="save-to-prod" className="text-xs font-black cursor-pointer text-primary">إضافة هذا المنتج للمخزون بشكل دائم؟</Label>
+                </div>
+             </div>
+             <DialogFooter>
+                <Button onClick={addManualItemToCart} className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-lg shadow-xl">
+                   إدراج في الفاتورة
+                </Button>
+             </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent dir="rtl" className="max-w-md bg-white border-none rounded-[2.5rem] p-8 md:p-10 shadow-3xl z-[350]">
