@@ -67,7 +67,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase, useUser, addDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp, increment, getDoc, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/navigation"
+import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
@@ -463,7 +463,7 @@ export default function InvoicesPage() {
       message += `*--------------------------*\n`;
       message += `*    RELEVÉ GLOBAL         *\n`;
       message += `*--------------------------*\n`;
-      message += `*Ancien solde:* (${(currentTotalDebt - remaining).toLocaleString()}) DZD\n`;
+      message += `*Ancien solده:* (${(currentTotalDebt - remaining).toLocaleString()}) DZD\n`;
       message += `*Nouveau solde total:* (${currentTotalDebt.toLocaleString()}) DZD\n`;
     }
     
