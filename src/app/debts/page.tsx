@@ -226,7 +226,7 @@ export default function DebtsPage() {
       
       toast({ 
         title: "Paiement effectué", 
-        description: `Montant de ${amountToApply.toLocaleString()} DZD réparti avec succès.` 
+        description: `Montant de ${amountToApply.toLocaleString()} DZD répartي avec succès.` 
       })
       
       setIsBulkOpen(false)
@@ -248,40 +248,16 @@ export default function DebtsPage() {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      const itemsMap: Record<string, any> = {}
-      const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
-      let runningSubtotal = 0;
-
-      snapshot.docs.forEach(d => {
-        const item = d.data()
-        const unitPrice = item.unitPrice || 0;
-        const rawQty = item.quantity || 1;
-
-        if (unitPrice <= 0) return;
-
-        const remainingBalance = limit - runningSubtotal;
-        const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
-        const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
-        const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
-
-        if (finalQty <= 0 && runningSubtotal > 0) return;
-
-        const key = `${item.productId}_${unitPrice}`
-        if (itemsMap[key]) {
-          itemsMap[key].quantity += finalQty
-          itemsMap[key].itemTotal = itemsMap[key].quantity * unitPrice
-        } else {
-          itemsMap[key] = { 
-            id: d.id, 
-            ...item, 
-            quantity: finalQty, 
-            itemTotal: finalQty * unitPrice 
-          }
-        }
-        runningSubtotal += (finalQty * unitPrice);
-      })
+      const items = snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          itemTotal: data.itemTotal || (data.quantity * data.unitPrice) || 0
+        };
+      });
       
-      setInvoiceItems(Object.values(itemsMap))
+      setInvoiceItems(items)
     } catch (error) {
       console.error("Error fetching items:", error)
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de récupérer les articles." })

@@ -155,41 +155,18 @@ export default function InvoiceHistoryPage() {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const snapshot = await getDocs(itemsRef)
       
-      const itemsMap: Record<string, any> = {}
-      const limit = (invoice.totalAmount || 0) + (invoice.discount || 0);
-      let runningSubtotal = 0;
-
-      snapshot.docs.forEach(d => {
-        const item = d.data()
-        const unitPrice = item.unitPrice || 0;
-        const rawQty = item.quantity || 1;
-
-        if (unitPrice <= 0) return;
-
-        const remainingBalance = limit - runningSubtotal;
-        const maxPossibleQty = Math.floor((remainingBalance + 0.1) / unitPrice);
-        const correctedQty = Math.max(0, Math.min(rawQty, maxPossibleQty));
-        const finalQty = (runningSubtotal === 0 && correctedQty === 0) ? 1 : correctedQty;
-
-        if (finalQty <= 0 && runningSubtotal > 0) return;
-
-        const key = `${item.productId}_${unitPrice}`
-        if (itemsMap[key]) {
-          itemsMap[key].quantity += finalQty
-          itemsMap[key].itemTotal = itemsMap[key].quantity * unitPrice
-        } else {
-          itemsMap[key] = { 
-            id: d.id, 
-            productName: item.productName,
-            quantity: finalQty, 
-            unitPrice: unitPrice,
-            itemTotal: finalQty * unitPrice 
-          }
+      const items = snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          productName: data.productName,
+          quantity: data.quantity,
+          unitPrice: data.unitPrice,
+          itemTotal: data.itemTotal || (data.quantity * data.unitPrice),
+          ...data
         }
-        runningSubtotal += (finalQty * unitPrice);
-      })
+      });
       
-      const items = Object.values(itemsMap)
       setInvoiceItems(items)
       return items;
     } catch (error) {
@@ -685,7 +662,7 @@ export default function InvoiceHistoryPage() {
                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${zoomQR?.id}`} className="h-64 w-64" alt="Enlarged QR" />
                   </div>
                   <div className="flex flex-col items-center">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scannez pour accéder à la facture</p>
+                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scanneز pour accéder à la facture</p>
                      <p className="text-lg font-mono font-black text-primary mt-2 text-center">#{zoomQR?.id.slice(0, 15)}</p>
                   </div>
                </div>
