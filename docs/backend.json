@@ -82,26 +82,27 @@
         "customerName": { "type": "string" },
         "totalAmount": { "type": "number" },
         "paidAmount": { "type": "number" },
-        "status": { "type": "string" },
+        "status": { "type": "string", "enum": ["Paid", "Partial", "Unpaid"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "generatedByUserId": { "type": "string" }
       },
       "required": ["id", "customerId", "totalAmount", "paidAmount", "createdAt", "generatedByUserId"]
     },
-    "Repair": {
+    "Payment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Repair",
+      "title": "Payment",
       "type": "object",
-      "description": "Legacy service requests mapped to repairs.",
+      "description": "Represents a specific payment transaction made towards an invoice.",
       "properties": {
         "id": { "type": "string" },
-        "clientName": { "type": "string" },
-        "phoneType": { "type": "string" },
-        "status": { "type": "string" },
-        "finalCost": { "type": "number" },
-        "receivedDate": { "type": "string", "format": "date-time" }
+        "invoiceId": { "type": "string" },
+        "amount": { "type": "number" },
+        "cumulativePaid": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "method": { "type": "string" }
       },
-      "required": ["id", "clientName", "status"]
+      "required": ["id", "invoiceId", "amount", "cumulativePaid", "remainingAmount", "createdAt"]
     }
   },
   "auth": {
@@ -114,6 +115,7 @@
       { "path": "/products/{productId}", "definition": { "entityName": "Product" } },
       { "path": "/customers/{customerId}", "definition": { "entityName": "Customer" } },
       { "path": "/invoices/{invoiceId}", "definition": { "entityName": "Invoice" } },
+      { "path": "/invoices/{invoiceId}/payments/{paymentId}", "definition": { "entityName": "Payment" } },
       { "path": "/repairs/{repairId}", "definition": { "entityName": "Repair" } }
     ]
   }

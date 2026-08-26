@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -62,6 +63,11 @@ service cloud.firestore {
         allow read: if isAuthorizedStaff();
         allow create: if isAuthorizedStaff();
         allow update, delete: if isAdmin() || (resource != null && resource.data.generatedByUserId == request.auth.uid);
+      }
+      
+      match /payments/{paymentId} {
+        allow read: if isAuthorizedStaff();
+        allow create, update, delete: if isAuthorizedStaff();
       }
     }
 

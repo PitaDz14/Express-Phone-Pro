@@ -98,7 +98,7 @@ export default function DebtsPage() {
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", customer.id),
-        where("status", "==", "Debt")
+        where("status", "!=", "Paid")
       );
       const snapshot = await getDocs(q);
       const invoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -187,7 +187,7 @@ export default function DebtsPage() {
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", selectedCustomer.id),
-        where("status", "==", "Debt")
+        where("status", "!=", "Paid")
       )
       const snapshot = await getDocs(q)
       
@@ -208,11 +208,26 @@ export default function DebtsPage() {
         const paymentForThisInv = Math.min(remaining, invUnpaid)
         
         const newPaidAmount = inv.paidAmount + paymentForThisInv
+        let newStatus = "Paid";
+        if (newPaidAmount === 0) newStatus = "Unpaid";
+        else if (newPaidAmount < inv.totalAmount) newStatus = "Partial";
+
         batch.update(doc(db, "invoices", inv.id), {
           paidAmount: newPaidAmount,
-          status: newPaidAmount >= inv.totalAmount ? "Paid" : "Debt",
+          status: newStatus,
           updatedAt: serverTimestamp()
         })
+
+        // Record payment history
+        const paymentRef = doc(collection(db, "invoices", inv.id, "payments"));
+        batch.set(paymentRef, {
+          invoiceId: inv.id,
+          amount: paymentForThisInv,
+          cumulativePaid: newPaidAmount,
+          remainingAmount: inv.totalAmount - newPaidAmount,
+          createdAt: serverTimestamp(),
+          method: "Bulk Payment"
+        });
         
         remaining -= paymentForThisInv
       }
@@ -272,7 +287,7 @@ export default function DebtsPage() {
         const itemsSnap = await getDocs(collection(db, "invoices", invoice.id, "items"))
         itemsSnap.docs.forEach(itemDoc => {
           const item = itemDoc.data()
-          if (item.productId) {
+          if (item.productId && !item.productId.startsWith('manual-')) {
             updateDocumentNonBlocking(doc(db, "products", item.productId), {
               quantity: increment(item.quantity)
             })
@@ -289,28 +304,48 @@ export default function DebtsPage() {
         toast({ title: "Supprimé", description: "Facture supprimée et stock mis à jour." })
         setCustomerInvoices(prev => prev.filter(inv => inv.id !== invoice.id))
       } catch (error) {
-        toast({ variant: "destructive", title: "Erreur", description: "L'opération a échoué." })
+        toast({ variant: "destructive", title: "Erreur", description: "L'opération a échوée." })
       }
     }
   }
 
-  const handleUpdatePayment = (invoice: any) => {
-    const newPaid = prompt(`Total Facture: ${invoice.totalAmount}\nVersé actuel: ${invoice.paidAmount}\nNouveau montant versé :`, invoice.paidAmount)
+  const handleUpdatePayment = async (invoice: any) => {
+    const newPaid = prompt(`Total Facture: ${invoice.totalAmount}\nVersé actuel: ${invoice.paidAmount}\nNouveau montant total versé (cumulé) :`, invoice.paidAmount)
     if (newPaid !== null) {
       const paidNum = Number(newPaid)
       const diff = paidNum - invoice.paidAmount
       
-      updateDocumentNonBlocking(doc(db, "invoices", invoice.id), {
+      let newStatus = "Paid";
+      if (paidNum === 0) newStatus = "Unpaid";
+      else if (paidNum < invoice.totalAmount) newStatus = "Partial";
+
+      const batch = writeBatch(db);
+      
+      batch.update(doc(db, "invoices", invoice.id), {
         paidAmount: paidNum,
-        status: paidNum >= invoice.totalAmount ? "Paid" : "Debt"
+        status: newStatus,
+        updatedAt: serverTimestamp()
       })
 
-      updateDocumentNonBlocking(doc(db, "customers", invoice.customerId), {
+      // Record this adjustment as a payment entry
+      const paymentRef = doc(collection(db, "invoices", invoice.id, "payments"));
+      batch.set(paymentRef, {
+        invoiceId: invoice.id,
+        amount: diff,
+        cumulativePaid: paidNum,
+        remainingAmount: invoice.totalAmount - paidNum,
+        createdAt: serverTimestamp(),
+        method: "Manual Update"
+      });
+
+      batch.update(doc(db, "customers", invoice.customerId), {
         debt: increment(-diff)
       })
 
+      await batch.commit();
+
       toast({ title: "Mis à jour", description: "Le versement a été actualisé." })
-      setCustomerInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, paidAmount: paidNum } : inv))
+      setCustomerInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, paidAmount: paidNum, status: newStatus } : inv))
     }
   }
 

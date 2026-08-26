@@ -70,7 +70,7 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { ar } from "date-fns/locale"
+import { ar, fr } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { QRScannerDialog } from "@/components/qr-scanner-dialog"
 import { playSystemSound } from "@/lib/audio-utils"
@@ -309,6 +309,10 @@ export default function InvoicesPage() {
       const currentInvoiceId = editId || pendingId;
       const targetDocRef = doc(db, "invoices", currentInvoiceId);
       
+      let initialStatus = "Paid";
+      if (finalPaid === 0) initialStatus = "Unpaid";
+      else if (finalPaid < total) initialStatus = "Partial";
+
       if (editId) {
         const oldInvSnap = await getDoc(targetDocRef);
         if (oldInvSnap.exists()) {
@@ -322,9 +326,9 @@ export default function InvoicesPage() {
             batch.delete(d.ref);
           });
 
-          if (oldData.status === 'Debt' && oldData.customerId !== 'walk-in') {
-            const oldDebt = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
-            batch.update(doc(db, "customers", oldData.customerId), { debt: increment(-oldDebt) });
+          if (oldData.customerId !== 'walk-in') {
+            const oldUnpaid = (oldData.totalAmount || 0) - (oldData.paidAmount || 0);
+            batch.update(doc(db, "customers", oldData.customerId), { debt: increment(-oldUnpaid) });
           }
         }
       }
@@ -336,19 +340,33 @@ export default function InvoicesPage() {
         totalAmount: total, 
         paidAmount: finalPaid, 
         discount: discount, 
-        status: debtAmount > 0 ? "Debt" : "Paid", 
+        status: initialStatus, 
         generatedByUserId: user.uid, 
         generatedByUserName: username || "Inconnu", 
         updatedAt: serverTimestamp() 
       }
       
-      if (!editId) invoiceData.createdAt = serverTimestamp();
+      if (!editId) {
+        invoiceData.createdAt = serverTimestamp();
+        // Record first payment if new invoice
+        if (finalPaid > 0) {
+          const paymentRef = doc(collection(db, "invoices", currentInvoiceId, "payments"));
+          batch.set(paymentRef, {
+            invoiceId: currentInvoiceId,
+            amount: finalPaid,
+            cumulativePaid: finalPaid,
+            remainingAmount: total - finalPaid,
+            createdAt: serverTimestamp(),
+            method: "Cash"
+          });
+        }
+      }
+      
       batch.set(targetDocRef, invoiceData, { merge: true });
       
       for (const item of cart) {
         let finalProductId = item.productId;
 
-        // If it's a manual item and needs saving to products
         if (item.isManual && item.saveToProducts) {
           const newProductRef = doc(collection(db, "products"));
           finalProductId = newProductRef.id;
@@ -358,7 +376,7 @@ export default function InvoicesPage() {
             categoryId: item.categoryId || "",
             categoryName: item.categoryPath || "غير مصنف",
             categoryPath: item.categoryPath || "غير مصنف",
-            quantity: 0, // Stock will be handled if needed, usually new manual item starts at 0 or is sold immediately
+            quantity: 0,
             purchasePrice: 0,
             salePrice: item.price,
             minStockQuantity: 1,
@@ -383,16 +401,15 @@ export default function InvoicesPage() {
           createdAt: serverTimestamp() 
         });
 
-        // ONLY decrement stock for NON-MANUAL items
         if (!item.productId.startsWith('manual-')) {
           batch.update(doc(db, "products", item.productId), { quantity: increment(-item.qty), updatedAt: serverTimestamp() });
         }
       }
 
       if (selectedCustomer && selectedCustomer.id !== 'walk-in') {
-        const newTotalDebt = (selectedCustomer.debt || 0) + (debtAmount || 0);
+        const newTotalDebt = (selectedCustomer.debt || 0) + (total - finalPaid);
         setCurrentTotalDebt(newTotalDebt);
-        batch.update(doc(db, "customers", selectedCustomer.id), { debt: increment(debtAmount), updatedAt: serverTimestamp() });
+        batch.update(doc(db, "customers", selectedCustomer.id), { debt: increment(total - finalPaid), updatedAt: serverTimestamp() });
       } else {
         setCurrentTotalDebt(0);
       }
@@ -427,52 +444,15 @@ export default function InvoicesPage() {
   }
 
   const handleSendWhatsApp = () => {
+    // Legacy support for text while PDF is ready
     if (!lastSavedInvoice || !lastSavedInvoice.items) {
       toast({ title: "Données manquantes", variant: "destructive" });
       return;
     }
-
-    const dateStr = new Date().toLocaleDateString('fr-FR');
-    const remaining = lastSavedInvoice.totalAmount - lastSavedInvoice.paidAmount;
-
-    let message = `*==========================*\n`;
-    message += `*    EXPRESS PHONE PRO     *\n`;
-    message += `*==========================*\n`;
-    message += `*N° Facture:* #${lastSavedInvoice.id.slice(0, 8)}\n`;
-    message += `*Client:* ${lastSavedInvoice.customerName}\n`;
-    message += `*Date:* ${dateStr}\n`;
-    message += `*--------------------------*\n`;
-    message += `*Produits achetés:*\n`;
     
-    lastSavedInvoice.items.forEach((item: any) => {
-      message += `- ${item.name} (${item.qty} × (${item.price.toLocaleString()}) DZD)\n`;
-    });
-    
-    message += `*--------------------------*\n`;
-    message += `*Total:* (${lastSavedInvoice.totalAmount.toLocaleString()}) DZD\n`;
-    if (lastSavedInvoice.discount > 0) message += `*Remise:* -(${lastSavedInvoice.discount.toLocaleString()}) DZD\n`;
-    message += `*Versé:* (${lastSavedInvoice.paidAmount.toLocaleString()}) DZD\n`;
-    
-    if (remaining > 0) {
-      message += `*Reste (Dette):* (${remaining.toLocaleString()}) DZD\n`;
-    } else {
-      message += `*Statut:* Payée intégralement ✅\n`;
-    }
-
-    if (lastSavedInvoice.customerId !== 'walk-in' && currentTotalDebt > 0) {
-      message += `*--------------------------*\n`;
-      message += `*    RELEVÉ GLOBAL         *\n`;
-      message += `*--------------------------*\n`;
-      message += `*Ancien solده:* (${(currentTotalDebt - remaining).toLocaleString()}) DZD\n`;
-      message += `*Nouveau solde total:* (${currentTotalDebt.toLocaleString()}) DZD\n`;
-    }
-    
-    message += `*--------------------------*\n`;
-    message += `Merci de votre confiance ! ✨\n`;
-    message += `*==========================*`;
-    
-    const phone = whatsappPhone || "";
-    window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
+    // Redirect to history for better PDF sharing context
+    router.push(`/invoices/history#inv-${lastSavedInvoice.id}`);
+    setShowSuccessDialog(false);
   }
 
   if (isLoadingInvoice) {
@@ -519,7 +499,7 @@ export default function InvoicesPage() {
 
           <div className="flex items-center gap-4">
             <div className="flex flex-col text-left items-end">
-              <h1 className="font-black text-lg md:text-xl tracking-tighter text-blue-400 leading-none flex items-center gap-2 md:gap-3">
+              <h1 className="font-black text-lg md:text-xl tracking-tighter text-gradient-premium leading-none flex items-center gap-2 md:gap-3">
                  <span className="text-white opacity-40 text-[9px] font-bold uppercase tracking-widest mt-1 hidden sm:inline">SMART POINT OF SALE</span>
                  EXPRESS VENTES
               </h1>
@@ -895,7 +875,7 @@ export default function InvoicesPage() {
                     <Input placeholder="06XXXXXXXX" className="h-14 rounded-2xl bg-slate-50 border-none font-black text-lg text-center text-slate-900" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} />
                  </div>
                  <Button className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black text-lg shadow-xl gap-3" onClick={handleSendWhatsApp}>
-                    <MessageCircle className="h-6 w-6" /> Envoyer le reçu via WhatsApp
+                    <MessageCircle className="h-6 w-6" /> Envoyer la facture
                  </Button>
               </div>
               <Button variant="ghost" className="w-full font-black text-slate-400" onClick={() => setShowSuccessDialog(false)}>Fermer</Button>

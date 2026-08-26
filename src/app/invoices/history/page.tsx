@@ -23,6 +23,9 @@ import {
   Maximize2,
   UserCog,
   MessageCircle,
+  Download,
+  Share2,
+  Filter,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,6 +45,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, orderBy, getDocs, doc, increment, getDoc } from "firebase/firestore"
 import Link from "next/link"
@@ -50,6 +60,8 @@ import { format } from "date-fns"
 import { ar, fr } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import html2canvas from "html2canvas"
+import { jsPDF } from "jspdf"
 
 type SortConfig = {
   key: string;
@@ -61,14 +73,20 @@ export default function InvoiceHistoryPage() {
   const db = useFirestore()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [selectedCustomerIdFilter, setSelectedCustomerIdFilter] = React.useState("all")
   const [selectedInvoice, setSelectedInvoice] = React.useState<any>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<any[]>([])
+  const [paymentHistory, setPaymentHistory] = React.useState<any[]>([])
   const [isLoadingItems, setIsLoadingItems] = React.useState(false)
+  const [isSharingPDF, setIsSharingPDF] = React.useState(false)
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'createdAt', direction: 'desc' })
   const [zoomQR, setZoomQR] = React.useState<{ code: string, id: string } | null>(null)
 
   const invoicesRef = useMemoFirebase(() => query(collection(db, "invoices")), [db])
   const { data: invoices, isLoading } = useCollection(invoicesRef)
+
+  const customersRef = useMemoFirebase(() => collection(db, "customers"), [db])
+  const { data: customers } = useCollection(customersRef)
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' | null = 'desc';
@@ -81,11 +99,15 @@ export default function InvoiceHistoryPage() {
 
   const sortedInvoices = React.useMemo(() => {
     if (!invoices) return [];
-    let items = [...invoices].filter(inv => 
-      inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inv.generatedByUserName && inv.generatedByUserName.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    let items = [...invoices].filter(inv => {
+      const matchSearch = inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (inv.generatedByUserName && inv.generatedByUserName.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchCustomer = selectedCustomerIdFilter === "all" || inv.customerId === selectedCustomerIdFilter;
+      
+      return matchSearch && matchCustomer;
+    });
 
     if (sortConfig.key && sortConfig.direction) {
       items.sort((a, b) => {
@@ -96,8 +118,10 @@ export default function InvoiceHistoryPage() {
           aValue = a.totalAmount - a.paidAmount;
           bValue = b.totalAmount - b.paidAmount;
         } else if (sortConfig.key === 'status') {
-          aValue = (a.totalAmount - a.paidAmount > 0) ? 1 : 0;
-          bValue = (b.totalAmount - b.paidAmount > 0) ? 1 : 0;
+          // Status order priority
+          const statusOrder = { 'Unpaid': 2, 'Partial': 1, 'Paid': 0 };
+          aValue = statusOrder[a.status as keyof typeof statusOrder] || 0;
+          bValue = statusOrder[b.status as keyof typeof statusOrder] || 0;
         } else {
           aValue = a[sortConfig.key];
           bValue = b[sortConfig.key];
@@ -115,7 +139,7 @@ export default function InvoiceHistoryPage() {
       });
     }
     return items;
-  }, [invoices, searchTerm, sortConfig]);
+  }, [invoices, searchTerm, selectedCustomerIdFilter, sortConfig]);
 
   const handleDeleteInvoice = async (id: string) => {
     if (confirm("Voulez-vous vraiment supprimer cette facture ? Le stock sera réintégré.")) {
@@ -125,7 +149,7 @@ export default function InvoiceHistoryPage() {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
         items.forEach((item: any) => {
-          if (item.productId) {
+          if (item.productId && !item.productId.startsWith('manual-')) {
             const productRef = doc(db, "products", item.productId)
             updateDocumentNonBlocking(productRef, {
               quantity: increment(item.quantity)
@@ -151,11 +175,11 @@ export default function InvoiceHistoryPage() {
     setSelectedInvoice(invoice)
     setIsLoadingItems(true)
     setInvoiceItems([])
+    setPaymentHistory([])
     try {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
-      const snapshot = await getDocs(itemsRef)
-      
-      const items = snapshot.docs.map(d => {
+      const itemsSnap = await getDocs(itemsRef)
+      const items = itemsSnap.docs.map(d => {
         const data = d.data();
         return {
           id: d.id,
@@ -166,180 +190,92 @@ export default function InvoiceHistoryPage() {
           ...data
         }
       });
-      
       setInvoiceItems(items)
-      return items;
+
+      const paymentsRef = collection(db, "invoices", invoice.id, "payments")
+      const paymentsSnap = await getDocs(paymentsRef)
+      const payments = paymentsSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })).sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || 0;
+        const tB = b.createdAt?.seconds || 0;
+        return tA - tB;
+      });
+      setPaymentHistory(payments)
+
+      return { items, payments };
     } catch (error) {
       console.error("Error fetching invoice items:", error)
-      return [];
+      return { items: [], payments: [] };
     } finally {
       setIsLoadingItems(false)
     }
   }
 
-  const handleSendWhatsApp = async (invoice: any) => {
-    let items = await handleViewDetails(invoice);
-    
-    let phone = "";
-    let totalCurrentDebt = 0;
-    if (invoice.customerId && invoice.customerId !== 'walk-in') {
-      try {
-        const custDoc = await getDoc(doc(db, "customers", invoice.customerId));
-        if (custDoc.exists()) {
-          const cData = custDoc.data();
-          phone = cData.phone || "";
-          totalCurrentDebt = cData.debt || 0;
-        }
-      } catch (e) {}
-    }
+  const handleSharePDF = async (invoice: any) => {
+    setIsSharingPDF(true);
+    try {
+      // 1. Ensure we have data loaded
+      const data = await handleViewDetails(invoice);
+      if (!data.items.length) {
+        toast({ title: "Données incomplètes", variant: "destructive" });
+        return;
+      }
 
-    if (!phone) {
-      phone = prompt("Entrez le numéro du client (06XXXXXXXX) :", "") || "";
-    }
+      // 2. Wait for UI to render the detailed view fully
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (!phone) {
-      toast({ title: "Numéro requis", variant: "destructive" });
-      return;
-    }
+      // 3. Find the element to capture (the actual invoice paper UI in the modal)
+      const element = document.getElementById("invoice-capture-target");
+      if (!element) throw new Error("Capture target not found");
 
-    const dateStr = invoice.createdAt?.toDate 
-      ? format(invoice.createdAt.toDate(), "dd/MM/yyyy", { locale: fr }) 
-      : (invoice.createdAt instanceof Date ? format(invoice.createdAt, "dd/MM/yyyy", { locale: fr }) : "---");
+      // 4. Generate canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      });
 
-    const remaining = invoice.totalAmount - invoice.paidAmount;
+      // 5. Create PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
 
-    let message = `*==========================*\n`;
-    message += `*    EXPRESS PHONE PRO     *\n`;
-    message += `*==========================*\n`;
-    message += `*N° Facture:* #${invoice.id.slice(0, 8)}\n`;
-    message += `*Client:* ${invoice.customerName}\n`;
-    message += `*Date:* ${dateStr}\n`;
-    message += `*--------------------------*\n`;
-    message += `*Produits achetés:*\n`;
-    
-    items.forEach((item: any) => {
-      message += `- ${item.productName} (${item.quantity} × (${item.unitPrice.toLocaleString()}) DZD)\n`;
-    });
-    
-    message += `*--------------------------*\n`;
-    message += `*Total:* (${invoice.totalAmount.toLocaleString()}) DZD\n`;
-    if (invoice.discount > 0) message += `*Remise:* -(${invoice.discount.toLocaleString()}) DZD\n`;
-    message += `*Versé:* (${invoice.paidAmount.toLocaleString()}) DZD\n`;
-    
-    if (remaining > 0) {
-      message += `*Reste (Dette):* (${remaining.toLocaleString()}) DZD\n`;
-    } else {
-      message += `*Statut:* Payée intégralement ✅\n`;
-    }
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-    if (invoice.customerId !== 'walk-in' && totalCurrentDebt > 0) {
-      message += `*--------------------------*\n`;
-      message += `*    RELEVÉ GLOBAL         *\n`;
-      message += `*--------------------------*\n`;
-      message += `*Solde total dettes:* (${totalCurrentDebt.toLocaleString()}) DZD\n`;
-      message += `*Situation:* Impayés en cours\n`;
-    }
-    
-    message += `*--------------------------*\n`;
-    message += `Merci de votre confiance ! ✨\n`;
-    message += `*==========================*`;
-    
-    window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
-  }
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfBlob = pdf.output('blob');
+      const file = new File([pdfBlob], `Invoice_${invoice.id.slice(0, 8)}.pdf`, { type: 'application/pdf' });
 
-  const handlePrintInvoice = (invoice: any, items: any[]) => {
-    const hasDiscount = (invoice.discount || 0) > 0;
-    const invoiceDate = invoice.createdAt?.toDate ? invoice.createdAt.toDate() : (invoice.createdAt instanceof Date ? invoice.createdAt : new Date());
+      // 6. Sharing
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: `Facture #${invoice.id.slice(0, 8)}`,
+          text: `Bonjour ${invoice.customerName}, voici votre facture de chez EXPRESS PHONE.`
+        });
+      } else {
+        // Fallback: Download
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Invoice_${invoice.id.slice(0, 8)}.pdf`;
+        a.click();
+        toast({ title: "PDF généré", description: "Votre navigateur ne supporte pas le partage direct. Le fichier a été téléchargé." });
+      }
 
-    const printContent = `
-      <html dir="rtl">
-        <head>
-          <title>Facture - ${invoice.id}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-            body { font-family: 'Almarai', sans-serif; padding: 10mm; color: #000; background: #fff; line-height: 1.4; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .header h1 { font-size: 24px; font-weight: 800; margin: 0; }
-            .info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-            th, td { border-bottom: 1px solid #000; padding: 8px; text-align: right; }
-            th { background-color: #f0f0f0; }
-            .summary { border-top: 2px solid #000; padding-top: 10px; font-size: 14px; }
-            .summary-row { display: flex; justify-content: space-between; font-weight: 700; }
-            .total { font-size: 18px; border-top: 1px solid #000; padding-top: 5px; font-weight: 800; }
-            .qr-footer { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>EXPRESS PHONE</h1>
-            <p style="font-weight: 800;">FACTURE DE VENTE</p>
-          </div>
-          <div class="info">
-            <div>
-              <strong>N° Facture:</strong> ${invoice.id}<br>
-              <strong>Date:</strong> ${format(invoiceDate, "dd/MM/yyyy", { locale: fr })}<br>
-              <strong>Employé:</strong> ${invoice.generatedByUserName || "N/A"}
-            </div>
-            <div style="text-align: left;">
-              <strong>Client:</strong> ${invoice.customerName}<br>
-              <strong>Statut:</strong> ${invoice.status === 'Paid' ? 'Payée' : 'Dette'}
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th style="text-align: center">Qté</th>
-                <th style="text-align: left">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
-                <tr>
-                  <td>${item.productName}</td>
-                  <td style="text-align: center">${item.quantity}</td>
-                  <td style="text-align: left">${item.itemTotal.toLocaleString()} DZD</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="summary">
-             <div class="summary-row"><span>Sous-total:</span> <span>${(invoice.totalAmount + (invoice.discount || 0)).toLocaleString()} DZD</span></div>
-             ${hasDiscount ? `<div class="summary-row"><span>Remise:</span> <span>-${invoice.discount.toLocaleString()} DZD</span></div>` : ''}
-             <div class="summary-row"><span>Versé:</span> <span>${invoice.paidAmount.toLocaleString()} DZD</span></div>
-             <div class="summary-row total">Total Net: ${invoice.totalAmount.toLocaleString()} DZD</div>
-          </div>
-
-          <div class="qr-footer">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/invoices/history#inv-${invoice.id}" width="120" />
-            <p style="font-weight: 800; margin-top: 10px;">Merci de votre visite</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(printContent);
-      iframeDoc.close();
-
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      toast({ title: "Erreur PDF", description: "Échec de génération du fichier.", variant: "destructive" });
+    } finally {
+      setIsSharingPDF(false);
     }
   }
 
@@ -381,14 +317,34 @@ export default function InvoiceHistoryPage() {
 
         <main className="flex-1 overflow-auto p-8 space-y-8">
           <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
-            <div className="relative w-full md:w-[500px] group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input 
-                placeholder="Chercher par facture, client ou employé..." 
-                className="pl-12 h-14 glass border-none shadow-sm rounded-2xl focus:ring-primary font-bold" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex flex-col md:flex-row gap-4 flex-1">
+              <div className="relative w-full md:w-[400px] group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input 
+                  placeholder="Chercher par facture, client ou employé..." 
+                  className="pl-12 h-14 glass border-none shadow-sm rounded-2xl focus:ring-primary font-bold" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <div className="w-full md:w-64">
+                <Select value={selectedCustomerIdFilter} onValueChange={setSelectedCustomerIdFilter}>
+                  <SelectTrigger className="h-14 glass border-none rounded-2xl font-bold px-6">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-primary" />
+                      <SelectValue placeholder="Filtrer par client" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="glass border-none rounded-2xl z-[250]">
+                    <SelectItem value="all">Tous les clients</SelectItem>
+                    <SelectItem value="walk-in">Client de passage</SelectItem>
+                    {customers?.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -435,114 +391,113 @@ export default function InvoiceHistoryPage() {
                           Aucune facture enregistrée
                         </TableCell>
                       </TableRow>
-                    ) : sortedInvoices.map((inv) => (
-                      <TableRow 
-                        key={inv.id} 
-                        id={`inv-${inv.id}`}
-                        className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group target:bg-primary/10 target:animate-pulse"
-                      >
-                        <TableCell className="text-center">
-                          <div 
-                            className="h-10 w-10 mx-auto bg-white p-1 rounded-lg shadow-sm border border-black/5 cursor-pointer hover:scale-110 transition-transform flex items-center justify-center relative group/qr-cell"
-                            onClick={() => setZoomQR({ id: inv.id, code: inv.id })}
-                          >
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${inv.id}`} className="w-full h-full" alt="INV QR" />
-                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/qr-cell:opacity-100 transition-opacity">
-                               <Maximize2 className="h-3 w-3 text-white" />
+                    ) : sortedInvoices.map((inv) => {
+                      const remaining = inv.totalAmount - inv.paidAmount;
+                      const status = inv.status || (remaining > 0 ? (inv.paidAmount > 0 ? 'Partial' : 'Unpaid') : 'Paid');
+                      
+                      return (
+                        <TableRow 
+                          key={inv.id} 
+                          id={`inv-${inv.id}`}
+                          className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group target:bg-primary/10 target:animate-pulse"
+                        >
+                          <TableCell className="text-center">
+                            <div 
+                              className="h-10 w-10 mx-auto bg-white p-1 rounded-lg shadow-sm border border-black/5 cursor-pointer hover:scale-110 transition-transform flex items-center justify-center relative group/qr-cell"
+                              onClick={() => setZoomQR({ id: inv.id, code: inv.id })}
+                            >
+                              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${inv.id}`} className="w-full h-full" alt="INV QR" />
+                              <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/qr-cell:opacity-100 transition-opacity">
+                                 <Maximize2 className="h-3 w-3 text-white" />
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <div className="flex items-center justify-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                 <User className="h-4 w-4 text-primary" />
-                              </div>
-                              <span className="font-bold">{inv.customerName}</span>
-                           </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <div className="flex flex-col items-center justify-center">
-                              <span className="text-[10px] font-black text-muted-foreground/60 uppercase">Par</span>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                 <UserCog className="h-3 w-3 text-muted-foreground" />
-                                 <span className="text-[11px] font-black">{inv.generatedByUserName || "Inconnu"}</span>
-                              </div>
-                           </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground font-bold text-xs tabular-nums text-center">
-                          {inv.createdAt?.toDate 
-                            ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: fr }) 
-                            : (inv.createdAt instanceof Date ? format(inv.createdAt, "dd MMMM yyyy - HH:mm", { locale: fr }) : "---")}
-                        </TableCell>
-                        <TableCell className="text-center font-black tabular-nums text-lg text-primary">
-                          {inv.totalAmount.toLocaleString()} DZD
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {inv.totalAmount - inv.paidAmount > 0 ? (
-                            <span className="font-black text-red-600 tabular-nums">{(inv.totalAmount - inv.paidAmount).toLocaleString()} DZD</span>
-                          ) : (
-                            <span className="font-bold text-emerald-600">Payée</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {inv.totalAmount - inv.paidAmount > 0 ? (
-                            <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-none px-4 rounded-lg">Dette</Badge>
-                          ) : (
-                            <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">Complète</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-black tabular-nums text-primary text-center">#{inv.id.slice(0, 8)}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
-                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-emerald-500 hover:text-white text-emerald-600"
-                              onClick={() => handleSendWhatsApp(inv)}
-                              title="Envoyer via WhatsApp"
-                             >
-                               <MessageCircle className="h-4 w-4" />
-                             </Button>
-                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
-                              onClick={() => handleViewDetails(inv)}
-                              title="Détails"
-                             >
-                               <Eye className="h-4 w-4" />
-                             </Button>
-                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-accent hover:text-white"
-                              onClick={() => handleViewDetails(inv).then((items) => handlePrintInvoice(inv, items))}
-                              title="Imprimer"
-                             >
-                               <Printer className="h-4 w-4" />
-                             </Button>
-                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
-                              onClick={() => router.push(`/invoices?editId=${inv.id}`)}
-                              title="Modifier"
-                             >
-                               <Edit3 className="h-4 w-4" />
-                             </Button>
-                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
-                              onClick={() => handleDeleteInvoice(inv.id)}
-                              title="Supprimer"
-                             >
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-center">
+                             <div className="flex items-center justify-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                   <User className="h-4 w-4 text-primary" />
+                                </div>
+                                <span className="font-bold">{inv.customerName}</span>
+                             </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                             <div className="flex flex-col items-center justify-center">
+                                <span className="text-[10px] font-black text-muted-foreground/60 uppercase">Par</span>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                   <UserCog className="h-3 w-3 text-muted-foreground" />
+                                   <span className="text-[11px] font-black">{inv.generatedByUserName || "Inconnu"}</span>
+                                </div>
+                             </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-bold text-xs tabular-nums text-center">
+                            {inv.createdAt?.toDate 
+                              ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: fr }) 
+                              : (inv.createdAt instanceof Date ? format(inv.createdAt, "dd MMMM yyyy - HH:mm", { locale: fr }) : "---")}
+                          </TableCell>
+                          <TableCell className="text-center font-black tabular-nums text-lg text-primary">
+                            {inv.totalAmount.toLocaleString()} DZD
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {remaining > 0 ? (
+                              <span className="font-black text-red-600 tabular-nums">{(remaining).toLocaleString()} DZD</span>
+                            ) : (
+                              <span className="font-bold text-emerald-600">Payée</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {status === 'Paid' ? (
+                              <Badge variant="success" className="bg-emerald-500/10 text-emerald-600 border-none px-4 rounded-lg">Complète</Badge>
+                            ) : status === 'Partial' ? (
+                              <Badge variant="warning" className="bg-orange-500/10 text-orange-600 border-none px-4 rounded-lg">Partielle</Badge>
+                            ) : (
+                              <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-none px-4 rounded-lg">Impayée</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-black tabular-nums text-primary text-center">#{inv.id.slice(0, 8)}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
+                               <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 rounded-xl bg-white/50 hover:bg-emerald-500 hover:text-white text-emerald-600"
+                                onClick={() => handleSharePDF(inv)}
+                                disabled={isSharingPDF && selectedInvoice?.id === inv.id}
+                                title="Partager PDF via WhatsApp"
+                               >
+                                 {isSharingPDF && selectedInvoice?.id === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                               </Button>
+                               <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
+                                onClick={() => handleViewDetails(inv)}
+                                title="Détails"
+                               >
+                                 <Eye className="h-4 w-4" />
+                               </Button>
+                               <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
+                                onClick={() => router.push(`/invoices?editId=${inv.id}`)}
+                                title="Modifier"
+                               >
+                                 <Edit3 className="h-4 w-4" />
+                               </Button>
+                               <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
+                                onClick={() => handleDeleteInvoice(inv.id)}
+                                title="Supprimer"
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -552,12 +507,12 @@ export default function InvoiceHistoryPage() {
           <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
             <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
                <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
-                  <DialogTitle className="text-xl font-black text-center text-primary">Aperçu Facture Numérique</DialogTitle>
+                  <DialogTitle className="text-xl font-black text-center text-primary">Détails de la Facture</DialogTitle>
                </DialogHeader>
 
                <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                   <div className="flex flex-col items-center min-h-full py-4">
-                    <div className="bg-white text-black w-full max-w-[290px] sm:max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
+                    <div id="invoice-capture-target" className="bg-white text-black w-full max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                        <div className="text-center space-y-1 border-b-2 border-black pb-4">
                           <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
                           <p className="text-[9px] sm:text-[10px] font-bold">Services & Ventes Mobiles</p>
@@ -572,7 +527,13 @@ export default function InvoiceHistoryPage() {
                           <p className="font-bold">N° Facture: <span className="tabular-nums">#{selectedInvoice?.id.slice(0, 8)}</span></p>
                           <p>Client: {selectedInvoice?.customerName || "Passant"}</p>
                           <p>Employé: {selectedInvoice?.generatedByUserName || "Inconnu"}</p>
-                          <p>Statut: {selectedInvoice?.status === 'Paid' ? 'Payée' : 'Dette en cours'}</p>
+                          <p className="flex items-center gap-2">Statut: 
+                             <Badge className={cn("px-2 py-0 h-5 text-[9px] font-black border-none", 
+                                selectedInvoice?.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 
+                                selectedInvoice?.status === 'Partial' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700')}>
+                                {selectedInvoice?.status === 'Paid' ? 'Payée' : selectedInvoice?.status === 'Partial' ? 'Partielle' : 'Impayée'}
+                             </Badge>
+                          </p>
                        </div>
 
                        <table className="w-full text-left">
@@ -611,7 +572,7 @@ export default function InvoiceHistoryPage() {
                              <span>NET À PAYER:</span> <span className="tabular-nums">{selectedInvoice?.totalAmount.toLocaleString()} DZD</span>
                           </div>
                           <div className="flex justify-between text-[10px] sm:text-[11px]">
-                            <span>Versé:</span> 
+                            <span>Cumul Versé:</span> 
                             <span className="tabular-nums">{selectedInvoice?.paidAmount?.toLocaleString()} DZD</span>
                           </div>
                           {(selectedInvoice?.totalAmount - selectedInvoice?.paidAmount) > 0 && (
@@ -621,6 +582,31 @@ export default function InvoiceHistoryPage() {
                             </div>
                           )}
                        </div>
+
+                       {/* Payment History Section */}
+                       {paymentHistory.length > 0 && (
+                          <div className="pt-4 border-t border-black space-y-2">
+                             <p className="font-black text-[10px] uppercase text-center border-b border-dashed border-black pb-1">Sujet des versements</p>
+                             <table className="w-full text-[9px]">
+                                <thead>
+                                   <tr className="border-b border-black/10">
+                                      <th className="py-1 text-right">Date</th>
+                                      <th className="py-1 text-center">Montant</th>
+                                      <th className="py-1 text-left">Reste</th>
+                                   </tr>
+                                </thead>
+                                <tbody>
+                                   {paymentHistory.map((p, idx) => (
+                                      <tr key={p.id} className="opacity-80">
+                                         <td className="py-1 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
+                                         <td className="py-1 text-center font-bold">{p.amount.toLocaleString()}</td>
+                                         <td className="py-1 text-left">{p.remainingAmount.toLocaleString()}</td>
+                                      </tr>
+                                   ))}
+                                </tbody>
+                             </table>
+                          </div>
+                       )}
 
                        <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/30">
                           <img 
@@ -637,15 +623,11 @@ export default function InvoiceHistoryPage() {
                <div className="p-4 bg-white border-t border-border flex flex-col gap-2 shrink-0">
                   <Button 
                     className="w-full h-12 rounded-xl bg-emerald-600 text-white font-black shadow-lg flex gap-2 justify-center" 
-                    onClick={() => handleSendWhatsApp(selectedInvoice)}
+                    onClick={() => handleSharePDF(selectedInvoice)}
+                    disabled={isSharingPDF}
                   >
-                     <MessageCircle className="h-5 w-5" /> Envoyer Reçu WhatsApp (FR)
-                  </Button>
-                  <Button 
-                    className="w-full h-12 rounded-xl bg-primary text-white font-black shadow-lg flex gap-2 justify-center" 
-                    onClick={() => handlePrintInvoice(selectedInvoice, invoiceItems)}
-                  >
-                     <Printer className="h-5 w-5" /> Imprimer Facture
+                     {isSharingPDF ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageCircle className="h-5 w-5" />} 
+                     Partager Facture PDF (WhatsApp)
                   </Button>
                   <Button variant="outline" className="w-full h-11 rounded-xl font-bold border-white/20" onClick={() => setSelectedInvoice(null)}>Fermer</Button>
                </div>
