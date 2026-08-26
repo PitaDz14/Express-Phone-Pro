@@ -60,8 +60,6 @@ import { format } from "date-fns"
 import { ar, fr } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import html2canvas from "html2canvas"
-import { jsPDF } from "jspdf"
 
 type SortConfig = {
   key: string;
@@ -118,7 +116,6 @@ export default function InvoiceHistoryPage() {
           aValue = a.totalAmount - a.paidAmount;
           bValue = b.totalAmount - b.paidAmount;
         } else if (sortConfig.key === 'status') {
-          // Status order priority
           const statusOrder = { 'Unpaid': 2, 'Partial': 1, 'Paid': 0 };
           aValue = statusOrder[a.status as keyof typeof statusOrder] || 0;
           bValue = statusOrder[b.status as keyof typeof statusOrder] || 0;
@@ -216,21 +213,21 @@ export default function InvoiceHistoryPage() {
   const handleSharePDF = async (invoice: any) => {
     setIsSharingPDF(true);
     try {
-      // 1. Ensure we have data loaded
+      // Dynamic imports to prevent build errors and SSR issues
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
       const data = await handleViewDetails(invoice);
       if (!data.items.length) {
         toast({ title: "Données incomplètes", variant: "destructive" });
         return;
       }
 
-      // 2. Wait for UI to render the detailed view fully
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3. Find the element to capture (the actual invoice paper UI in the modal)
       const element = document.getElementById("invoice-capture-target");
       if (!element) throw new Error("Capture target not found");
 
-      // 4. Generate canvas
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -238,7 +235,6 @@ export default function InvoiceHistoryPage() {
         backgroundColor: "#ffffff"
       });
 
-      // 5. Create PDF
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -254,7 +250,6 @@ export default function InvoiceHistoryPage() {
       const pdfBlob = pdf.output('blob');
       const file = new File([pdfBlob], `Invoice_${invoice.id.slice(0, 8)}.pdf`, { type: 'application/pdf' });
 
-      // 6. Sharing
       if (navigator.share) {
         await navigator.share({
           files: [file],
@@ -262,18 +257,17 @@ export default function InvoiceHistoryPage() {
           text: `Bonjour ${invoice.customerName}, voici votre facture de chez EXPRESS PHONE.`
         });
       } else {
-        // Fallback: Download
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url;
         a.download = `Invoice_${invoice.id.slice(0, 8)}.pdf`;
         a.click();
-        toast({ title: "PDF généré", description: "Votre navigateur ne supporte pas le partage direct. Le fichier a été téléchargé." });
+        toast({ title: "PDF généré", description: "Votre navigateur ne supportه pas le partage direct. Le fichier a été téléchargé." });
       }
 
     } catch (error) {
       console.error("PDF generation failed:", error);
-      toast({ title: "Erreur PDF", description: "Échec de génération du fichier.", variant: "destructive" });
+      toast({ title: "Erreur PDF", description: "Échec de génération du fichier. Vérifiez que toutes les ressources sont chargées.", variant: "destructive" });
     } finally {
       setIsSharingPDF(false);
     }
@@ -583,7 +577,6 @@ export default function InvoiceHistoryPage() {
                           )}
                        </div>
 
-                       {/* Payment History Section */}
                        {paymentHistory.length > 0 && (
                           <div className="pt-4 border-t border-black space-y-2">
                              <p className="font-black text-[10px] uppercase text-center border-b border-dashed border-black pb-1">Sujet des versements</p>
