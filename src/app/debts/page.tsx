@@ -93,32 +93,47 @@ export default function DebtsPage() {
   }, [allCustomers])
 
   const handleSendDebtReport = async (customer: any) => {
+    if (!customer) return;
     setIsSendingReport(customer.id);
+    
     try {
+      // Logic fix: Simplified query to avoid Firestore Index requirement (equality + inequality filter)
+      // We fetch all invoices for the customer and filter in-memory for safety and reliability
       const q = query(
         collection(db, "invoices"), 
-        where("customerId", "==", customer.id),
-        where("status", "!=", "Paid")
+        where("customerId", "==", customer.id)
       );
-      const snapshot = await getDocs(q);
-      const invoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
-      if (invoices.length === 0) {
-        toast({ title: "Aucune facture", description: "Ce client n'a pas de factures impayées actuellement." });
+      const snapshot = await getDocs(q);
+      const allInvoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      // Only include invoices that have an outstanding balance
+      const debtInvoices = allInvoices.filter(inv => {
+        const unpaid = inv.totalAmount - (inv.paidAmount || 0);
+        return unpaid > 0 && inv.status !== "Paid";
+      }).sort((a, b) => {
+        const tA = a.createdAt?.seconds || 0;
+        const tB = b.createdAt?.seconds || 0;
+        return tB - tA; // Sort by newest
+      });
+      
+      if (debtInvoices.length === 0) {
+        toast({ title: "Aucune dette", description: "Ce client n'a pas de factures impayées actuellement." });
         return;
       }
 
+      // Build Message in French as requested
       let message = `*==========================*\n`;
       message += `*    EXPRESS PHONE PRO     *\n`;
       message += `*  RELEVÉ DE COMPTE DETTES *\n`;
       message += `*==========================*\n`;
       message += `*Client:* ${customer.name}\n`;
       message += `*Date:* ${format(new Date(), "dd/MM/yyyy", { locale: fr })}\n`;
-      message += `*Total Dette Actuelle:* (${customer.debt.toLocaleString()}) DZD\n`;
+      message += `*Total Dette Actuelle:* (${(customer.debt || 0).toLocaleString()}) DZD\n`;
       message += `*==========================*\n\n`;
       message += `*Détails par factures:*\n`;
 
-      for (const inv of invoices) {
+      for (const inv of debtInvoices) {
         const itemsRef = collection(db, "invoices", inv.id, "items");
         const itemsSnap = await getDocs(itemsRef);
         const dateStr = inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd/MM/yyyy", { locale: fr }) : "---";
@@ -130,9 +145,9 @@ export default function DebtsPage() {
           message += `- ${item.productName} (${item.quantity} pièce(s))\n`;
         });
 
-        const unpaid = inv.totalAmount - inv.paidAmount;
-        message += `*Montant Facture:* (${inv.totalAmount.toLocaleString()}) DZD\n`;
-        message += `*Payé:* (${inv.paidAmount.toLocaleString()}) DZD\n`;
+        const unpaid = inv.totalAmount - (inv.paidAmount || 0);
+        message += `*Montant Facture:* (${(inv.totalAmount || 0).toLocaleString()}) DZD\n`;
+        message += `*Payé:* (${(inv.paidAmount || 0).toLocaleString()}) DZD\n`;
         message += `*Reste à payer:* (${unpaid.toLocaleString()}) DZD\n`;
         message += `*--------------------------*\n`;
       }
@@ -141,12 +156,24 @@ export default function DebtsPage() {
       message += `Merci de votre confiance ! ✨\n`;
       message += `*==========================*`;
 
-      const phone = customer.phone || "";
-      window.open(`https://wa.me/${phone.startsWith('0') ? '213' + phone.slice(1) : phone}?text=${encodeURIComponent(message)}`, '_blank');
+      // Robust Phone Handling
+      const rawPhone = (customer.phone || "").replace(/\s+/g, '').replace(/-/g, '').replace(/\+/g, '');
+      if (!rawPhone) {
+        toast({ variant: "destructive", title: "Erreur", description: "Le numéro de téléphone du client est manquant." });
+        return;
+      }
+
+      const finalPhone = rawPhone.startsWith('0') ? '213' + rawPhone.slice(1) : (rawPhone.startsWith('213') ? rawPhone : '213' + rawPhone);
       
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Erreur", description: "Échec de génération du rapport WhatsApp." });
+      window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank');
+      
+    } catch (error: any) {
+      console.error("WhatsApp Report Error Detail:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erreur de connexion", 
+        description: "Échec de génération du rapport. Vérifiez votre connexion ou les index Firebase." 
+      });
     } finally {
       setIsSendingReport(null);
     }
@@ -160,7 +187,7 @@ export default function DebtsPage() {
       const snapshot = await getDocs(q)
       const items = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((inv: any) => inv.totalAmount > inv.paidAmount)
+        .filter((inv: any) => inv.totalAmount > (inv.paidAmount || 0))
       
       items.sort((a: any, b: any) => {
         const tA = a.createdAt?.seconds || 0
@@ -170,7 +197,7 @@ export default function DebtsPage() {
       
       setCustomerInvoices(items)
     } catch (error) {
-      console.error(error)
+      console.error("Fetch invoices error:", error)
     } finally {
       setIsLoadingInvoices(false)
     }
@@ -184,19 +211,20 @@ export default function DebtsPage() {
     const batch = writeBatch(db)
     
     try {
+      // Simplified query here too for stability
       const q = query(
         collection(db, "invoices"), 
-        where("customerId", "==", selectedCustomer.id),
-        where("status", "!=", "Paid")
+        where("customerId", "==", selectedCustomer.id)
       )
       const snapshot = await getDocs(q)
       
       const debtInvoices = snapshot.docs
         .map(d => ({ id: d.id, ...d.data() } as any))
+        .filter(inv => inv.totalAmount > (inv.paidAmount || 0))
         .sort((a, b) => {
           const tA = a.createdAt?.seconds || 0
           const tB = b.createdAt?.seconds || 0
-          return tB - tA 
+          return tB - tA // Pay newest first (or change to tA - tB for oldest)
         })
 
       let remaining = amountToApply
@@ -204,10 +232,10 @@ export default function DebtsPage() {
       for (const inv of debtInvoices) {
         if (remaining <= 0) break
         
-        const invUnpaid = inv.totalAmount - inv.paidAmount
+        const invUnpaid = inv.totalAmount - (inv.paidAmount || 0)
         const paymentForThisInv = Math.min(remaining, invUnpaid)
         
-        const newPaidAmount = inv.paidAmount + paymentForThisInv
+        const newPaidAmount = (inv.paidAmount || 0) + paymentForThisInv
         let newStatus = "Paid";
         if (newPaidAmount === 0) newStatus = "Unpaid";
         else if (newPaidAmount < inv.totalAmount) newStatus = "Partial";
@@ -218,7 +246,6 @@ export default function DebtsPage() {
           updatedAt: serverTimestamp()
         })
 
-        // Record payment history
         const paymentRef = doc(collection(db, "invoices", inv.id, "payments"));
         batch.set(paymentRef, {
           invoiceId: inv.id,
@@ -241,14 +268,14 @@ export default function DebtsPage() {
       
       toast({ 
         title: "Paiement effectué", 
-        description: `Montant de ${amountToApply.toLocaleString()} DZD répartي avec succès.` 
+        description: `Montant de (${amountToApply.toLocaleString()}) DZD répartي avec succès.` 
       })
       
       setIsBulkOpen(false)
       setBulkAmount("")
       setSelectedCustomer(null) 
     } catch (e) {
-      console.error(e)
+      console.error("Bulk payment error:", e)
       toast({ variant: "destructive", title: "Erreur", description: "Échec de traitement du paiement." })
     } finally {
       setIsProcessingBulk(false)
@@ -294,7 +321,7 @@ export default function DebtsPage() {
           }
         })
 
-        const unpaidAmount = invoice.totalAmount - invoice.paidAmount
+        const unpaidAmount = invoice.totalAmount - (invoice.paidAmount || 0)
         updateDocumentNonBlocking(doc(db, "customers", invoice.customerId), {
           debt: increment(-unpaidAmount)
         })
@@ -304,16 +331,17 @@ export default function DebtsPage() {
         toast({ title: "Supprimé", description: "Facture supprimée et stock mis à jour." })
         setCustomerInvoices(prev => prev.filter(inv => inv.id !== invoice.id))
       } catch (error) {
+        console.error("Delete error:", error);
         toast({ variant: "destructive", title: "Erreur", description: "L'opération a échوée." })
       }
     }
   }
 
   const handleUpdatePayment = async (invoice: any) => {
-    const newPaid = prompt(`Total Facture: ${invoice.totalAmount}\nVersé actuel: ${invoice.paidAmount}\nNouveau montant total versé (cumulé) :`, invoice.paidAmount)
+    const newPaid = prompt(`Total Facture: ${invoice.totalAmount}\nVersé actuel: ${invoice.paidAmount || 0}\nNouveau montant total versé (cumulé) :`, invoice.paidAmount || 0)
     if (newPaid !== null) {
       const paidNum = Number(newPaid)
-      const diff = paidNum - invoice.paidAmount
+      const diff = paidNum - (invoice.paidAmount || 0)
       
       let newStatus = "Paid";
       if (paidNum === 0) newStatus = "Unpaid";
@@ -327,7 +355,6 @@ export default function DebtsPage() {
         updatedAt: serverTimestamp()
       })
 
-      // Record this adjustment as a payment entry
       const paymentRef = doc(collection(db, "invoices", invoice.id, "payments"));
       batch.set(paymentRef, {
         invoiceId: invoice.id,
@@ -364,14 +391,14 @@ export default function DebtsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32" dir="rtl">
       <header className="flex flex-col md:flex-row md:h-20 shrink-0 md:items-center justify-between glass p-6 md:px-8 rounded-[2rem] gap-4">
         <div className="flex items-center gap-4 md:gap-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 h-10 md:h-12 md:w-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
+            <div className="h-10 md:h-12 md:w-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg">
               <Wallet className="h-6 w-6" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-right">
               <h1 className="text-lg md:text-xl font-black text-gradient-premium uppercase tracking-tighter leading-tight">Gestion des Dettes</h1>
               <p className="text-[8px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Suivi des impayés</p>
             </div>
@@ -379,7 +406,7 @@ export default function DebtsPage() {
           <div className="h-8 w-px bg-border mx-1 md:mx-2" />
           <div className="flex flex-col">
              <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">Dette Totale Marché</span>
-             <span className="text-sm md:text-xl font-black text-red-600 tabular-nums">{totalGlobalDebt.toLocaleString()} DZD</span>
+             <span className="text-sm md:text-xl font-black text-red-600 tabular-nums">({totalGlobalDebt.toLocaleString()}) DZD</span>
           </div>
         </div>
 
@@ -431,7 +458,7 @@ export default function DebtsPage() {
                   </TableCell>
                   <TableCell className="font-bold text-muted-foreground tabular-nums text-center text-[10px] md:text-xs">{c.phone}</TableCell>
                   <TableCell className="text-center font-black text-red-600 text-sm md:text-lg tabular-nums">
-                    {c.debt.toLocaleString()} DZD
+                    ({c.debt.toLocaleString()}) DZD
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -470,14 +497,14 @@ export default function DebtsPage() {
                   <div className="h-10 w-10 md:h-12 md:w-12 rounded-[1.2rem] bg-primary/10 flex items-center justify-center text-primary">
                     <History className="h-6 w-6" />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col text-right">
                     <DialogTitle className="text-lg md:text-2xl font-black text-gradient-premium leading-tight">Factures de : {selectedCustomer?.name}</DialogTitle>
                     <p className="text-[10px] font-bold text-muted-foreground">Liste des impayés</p>
                   </div>
                </div>
                <div className="flex items-center gap-2">
                   <Badge variant="destructive" className="px-4 py-2 rounded-xl font-black text-xs md:text-sm shadow-lg shadow-destructive/10">
-                    Total Reste: ({selectedCustomer?.debt.toLocaleString()}) DZD
+                    Total Reste: ({(selectedCustomer?.debt || 0).toLocaleString()}) DZD
                   </Badge>
                   <Button onClick={() => setIsBulkOpen(true)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white font-black gap-2 shadow-lg shadow-emerald-500/20">
                      <Coins className="h-4 w-4" /> Paiement Global
@@ -517,20 +544,20 @@ export default function DebtsPage() {
                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 md:gap-8 bg-black/5 sm:bg-transparent p-3 sm:p-0 rounded-xl flex-1">
                           <div className="flex flex-col items-center">
                              <span className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase text-center">Total</span>
-                             <span className="font-black text-foreground tabular-nums text-xs md:sm">({inv.totalAmount.toLocaleString()}) DZD</span>
+                             <span className="font-black text-foreground tabular-nums text-xs md:sm">({(inv.totalAmount || 0).toLocaleString()}) DZD</span>
                           </div>
                           <div className="flex flex-col items-center">
                              <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase text-center">Payé</span>
-                             <span className="font-black text-emerald-600 tabular-nums text-xs md:sm">({inv.paidAmount.toLocaleString()}) DZD</span>
+                             <span className="font-black text-emerald-600 tabular-nums text-xs md:sm">({(inv.paidAmount || 0).toLocaleString()}) DZD</span>
                           </div>
                           <div className="flex flex-col items-center col-span-2 sm:col-span-1 border-t sm:border-none border-white/10 pt-2 sm:pt-0">
                              <span className="text-[8px] md:text-[9px] font-black text-red-500 uppercase text-center">Reste (Dette)</span>
-                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">({(inv.totalAmount - inv.paidAmount).toLocaleString()}) DZD</span>
+                             <span className="font-black text-red-600 tabular-nums text-sm md:text-lg">({(inv.totalAmount - (inv.paidAmount || 0)).toLocaleString()}) DZD</span>
                           </div>
                        </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 justify-end pt-3 sm:pt-0 border-t sm:border-none border-white/5">
+                    <div className="flex items-center gap-2 justify-end pt-3 sm:pt-0 border-t border-none border-white/5">
                        <Button 
                         variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-primary/10 text-primary"
                         onClick={() => fetchInvoiceItems(inv)}
@@ -572,14 +599,14 @@ export default function DebtsPage() {
                   <Coins className="h-6 w-6 text-emerald-500" /> Versement Global
                </DialogTitle>
                <DialogDescription className="font-bold text-xs mt-2 text-center">
-                  Le montant sera réparti automatiquement sur les factures de {selectedCustomer?.name} en commençant par les plus récentes.
+                  Le montant sera répartي automatiquement sur les factures de {selectedCustomer?.name} en commençant par les plus récentes.
                </DialogDescription>
             </DialogHeader>
 
             <div className="py-6 space-y-6">
                <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex justify-between items-center">
                   <span className="text-xs font-black text-emerald-600">Dette totale client :</span>
-                  <span className="text-lg font-black text-red-600 tabular-nums">{selectedCustomer?.debt.toLocaleString()} DZD</span>
+                  <span className="text-lg font-black text-red-600 tabular-nums">({(selectedCustomer?.debt || 0).toLocaleString()}) DZD</span>
                </div>
 
                <div className="space-y-2">
@@ -597,12 +624,12 @@ export default function DebtsPage() {
                {bulkAmount !== "" && Number(bulkAmount) > 0 && (
                   <div className="p-4 rounded-2xl bg-black/5 space-y-2">
                      <div className="flex justify-between text-[10px] font-bold">
-                        <span>Montant à répartir :</span>
-                        <span className="tabular-nums">{Number(bulkAmount).toLocaleString()} DZD</span>
+                        <span>Montant à répartير :</span>
+                        <span className="tabular-nums">({Number(bulkAmount).toLocaleString()}) DZD</span>
                      </div>
                      <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                         <span>Solde final après versement :</span>
-                        <span className="tabular-nums">{Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()} DZD</span>
+                        <span className="tabular-nums">({Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()}) DZD</span>
                      </div>
                   </div>
                )}
@@ -658,14 +685,14 @@ export default function DebtsPage() {
                            <div className="h-9 w-9 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
                               <ShoppingBag className="h-4 w-4" />
                            </div>
-                           <div className="flex flex-col">
+                           <div className="flex flex-col text-right">
                               <p className="text-xs font-black text-foreground">{item.productName}</p>
                               <p className="text-[9px] text-muted-foreground font-bold tabular-nums">
-                                {item.quantity} × {item.unitPrice.toLocaleString()} DZD
+                                {item.quantity} × ({(item.unitPrice || 0).toLocaleString()}) DZD
                               </p>
                            </div>
                         </div>
-                        <p className="font-black text-xs md:sm text-primary tabular-nums">{item.itemTotal.toLocaleString()} DZD</p>
+                        <p className="font-black text-xs md:sm text-primary tabular-nums">({(item.itemTotal || 0).toLocaleString()}) DZD</p>
                      </div>
                    ))}
                 </div>
@@ -673,7 +700,7 @@ export default function DebtsPage() {
 
              <div className="pt-6 border-t border-white/10 flex justify-between items-center px-2">
                 <span className="text-sm md:text-lg font-black text-foreground">Total Facture :</span>
-                <span className="text-lg md:text-2xl font-black text-primary tabular-nums">{selectedInvoiceForItems?.totalAmount.toLocaleString()} DZD</span>
+                <span className="text-lg md:text-2xl font-black text-primary tabular-nums">({(selectedInvoiceForItems?.totalAmount || 0).toLocaleString()}) DZD</span>
              </div>
           </div>
 
