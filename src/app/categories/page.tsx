@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser, errorEmitter, FirestorePermissionError } from "@/firebase"
 import { collection, doc, serverTimestamp, query, where, getDocs, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -99,7 +99,13 @@ export default function CategoriesPage() {
       // 2. Sync name/path in products (Critical Fix)
       try {
         const productsQuery = query(collection(db, "products"), where("categoryId", "==", editingCategory.id))
-        const snapshot = await getDocs(productsQuery)
+        const snapshot = await getDocs(productsQuery).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'products',
+            operation: 'list'
+          }));
+          throw err;
+        });
         if (!snapshot.empty) {
           const batch = writeBatch(db)
           snapshot.docs.forEach(pDoc => {
@@ -109,10 +115,15 @@ export default function CategoriesPage() {
               updatedAt: serverTimestamp()
             })
           })
-          await batch.commit()
+          await batch.commit().catch(err => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: 'products/batch-update',
+              operation: 'write'
+            }));
+          });
         }
       } catch (e) {
-        console.error("Sync Error:", e)
+        // Handled
       }
 
       toast({ title: "تم التعديل", description: "تم تحديث التصنيف ومزامنة المنتجات التابعة له" })

@@ -65,7 +65,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase"
 import { collection, query, orderBy, limit, getDocs, where, Timestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -138,116 +138,126 @@ export default function ReportsPage() {
       let totalRev = 0;
       let totalProf = 0;
 
-      // Hierarchical filter set
       const allowedCategoryIds = selectedCategoryIds.length > 0 
         ? getCategoryAndDescendantsSet(selectedCategoryIds, categories)
         : null;
 
-      // 1. Filter Invoices by Date
       const filteredInvoices = allInvoices.filter(inv => {
         const date = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt instanceof Date ? inv.createdAt : null);
         return date && isWithinInterval(date, { start, end });
       });
 
-      // 2. Parallel Processing of Items
-      const batchSize = 10;
-      for (let i = 0; i < filteredInvoices.length; i += batchSize) {
-        const batch = filteredInvoices.slice(i, i + batchSize);
-        const itemSnaps = await Promise.all(
-          batch.map(inv => getDocs(collection(db, "invoices", inv.id, "items")))
-        );
+      try {
+        const batchSize = 10;
+        for (let i = 0; i < filteredInvoices.length; i += batchSize) {
+          const batch = filteredInvoices.slice(i, i + batchSize);
+          const itemSnaps = await Promise.all(
+            batch.map(inv => {
+              const itemsRef = collection(db, "invoices", inv.id, "items");
+              return getDocs(itemsRef).catch(err => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                  path: itemsRef.path,
+                  operation: 'list'
+                }));
+                throw err;
+              });
+            })
+          );
 
-        itemSnaps.forEach((itemsSnap, snapIdx) => {
-          itemsSnap.docs.forEach(d => {
-            const item = d.data();
-            const product = allProducts.find(p => p.id === item.productId);
-            
-            // Apply Hierarchical Category Filter
-            if (allowedCategoryIds && product && !allowedCategoryIds.has(product.categoryId)) {
-              return;
-            }
+          itemSnaps.forEach((itemsSnap, snapIdx) => {
+            itemsSnap.docs.forEach(d => {
+              const item = d.data();
+              const product = allProducts.find(p => p.id === item.productId);
+              
+              if (allowedCategoryIds && product && !allowedCategoryIds.has(product.categoryId)) {
+                return;
+              }
 
-            const itemValue = item.itemTotal || (item.quantity * item.unitPrice) || 0;
+              const itemValue = item.itemTotal || (item.quantity * item.unitPrice) || 0;
 
-            if (!productSalesMap[item.productId]) {
-              productSalesMap[item.productId] = {
-                id: item.productId,
-                name: item.productName,
-                categoryPath: item.categoryPath || "عام",
-                categoryId: product?.categoryId || "unknown",
-                quantitySold: 0,
-                revenue: 0,
-                purchaseCost: 0
-              };
-            }
-            productSalesMap[item.productId].quantitySold += item.quantity;
-            productSalesMap[item.productId].revenue += itemValue;
-            
-            const cost = (product?.purchasePrice || 0) * item.quantity;
-            productSalesMap[item.productId].purchaseCost += cost;
-            
-            totalRev += itemValue;
-            totalProf += (itemValue - cost);
+              if (!productSalesMap[item.productId]) {
+                productSalesMap[item.productId] = {
+                  id: item.productId,
+                  name: item.productName,
+                  categoryPath: item.categoryPath || "عام",
+                  categoryId: product?.categoryId || "unknown",
+                  quantitySold: 0,
+                  revenue: 0,
+                  purchaseCost: 0
+                };
+              }
+              productSalesMap[item.productId].quantitySold += item.quantity;
+              productSalesMap[item.productId].revenue += itemValue;
+              
+              const cost = (product?.purchasePrice || 0) * item.quantity;
+              productSalesMap[item.productId].purchaseCost += cost;
+              
+              totalRev += itemValue;
+              totalProf += (itemValue - cost);
+            });
           });
-        });
-      }
-
-      setTotals({ revenue: totalRev, profit: totalProf });
-
-      const sortedSellers = Object.values(productSalesMap).sort((a: any, b: any) => b.quantitySold - a.quantitySold);
-      setBestSellers(sortedSellers);
-
-      const soldIds = new Set(Object.keys(productSalesMap));
-      let stagnant = allProducts.filter(p => !soldIds.has(p.id));
-      if (allowedCategoryIds) {
-        stagnant = stagnant.filter(p => allowedCategoryIds.has(p.categoryId));
-      }
-      setStagnantProducts(stagnant.slice(0, 10));
-
-      const newInsights = [];
-      const hoursMap: Record<number, number> = {};
-      filteredInvoices.forEach(inv => {
-        const date = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt instanceof Date ? inv.createdAt : null);
-        if (date) {
-          const hour = date.getHours();
-          hoursMap[hour] = (hoursMap[hour] || 0) + 1;
         }
-      });
-      const peakHour = Object.entries(hoursMap).sort((a, b) => b[1] - a[1])[0];
-      
-      if (peakHour) {
-        newInsights.push({
-          type: "peak",
-          title: "أوقات ذروة المبيعات",
-          text: `ساعة الذروة هي حوالي الساعة ${peakHour[0]}:00. ننصح بتجهيز الطاقم في هذا الوقت.`,
-          icon: Clock,
-          color: "text-blue-500 bg-blue-500/10"
-        });
-      }
 
-      if (sortedSellers[0]) {
-        newInsights.push({
-          type: "demand",
-          title: "منتج مطلوب بشدة",
-          text: `المنتج "${sortedSellers[0].name}" هو الأكثر طلباً بـ ${sortedSellers[0].quantitySold} قطعة.`,
-          icon: ShoppingBag,
-          color: "text-emerald-500 bg-emerald-500/10"
-        });
-      }
+        setTotals({ revenue: totalRev, profit: totalProf });
 
-      if (stagnant.length > 0) {
-        newInsights.push({
-          type: "stagnant",
-          title: "نصيحة للمخزون",
-          text: `لديك ${stagnant.length} منتجات راكدة. ننصح بعمل تخفيضات لتنشيط حركتها.`,
-          icon: Lightbulb,
-          color: "text-orange-500 bg-orange-500/10"
-        });
-      }
+        const sortedSellers = Object.values(productSalesMap).sort((a: any, b: any) => b.quantitySold - a.quantitySold);
+        setBestSellers(sortedSellers);
 
-      setInsights(newInsights);
-      setProcessedInvoices(filteredInvoices);
-      setIsDataDataProcessing(false);
+        const soldIds = new Set(Object.keys(productSalesMap));
+        let stagnant = allProducts.filter(p => !soldIds.has(p.id));
+        if (allowedCategoryIds) {
+          stagnant = stagnant.filter(p => allowedCategoryIds.has(p.categoryId));
+        }
+        setStagnantProducts(stagnant.slice(0, 10));
+
+        const newInsights = [];
+        const hoursMap: Record<number, number> = {};
+        filteredInvoices.forEach(inv => {
+          const date = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt instanceof Date ? inv.createdAt : null);
+          if (date) {
+            const hour = date.getHours();
+            hoursMap[hour] = (hoursMap[hour] || 0) + 1;
+          }
+        });
+        const peakHour = Object.entries(hoursMap).sort((a, b) => b[1] - a[1])[0];
+        
+        if (peakHour) {
+          newInsights.push({
+            type: "peak",
+            title: "أوقات ذروة المبيعات",
+            text: `ساعة الذروة هي حوالي الساعة ${peakHour[0]}:00. ننصح بتجهيز الطاقم في هذا الوقت.`,
+            icon: Clock,
+            color: "text-blue-500 bg-blue-500/10"
+          });
+        }
+
+        if (sortedSellers[0]) {
+          newInsights.push({
+            type: "demand",
+            title: "منتج مطلوب بشدة",
+            text: `المنتج "${sortedSellers[0].name}" هو الأكثر طلباً بـ ${sortedSellers[0].quantitySold} قطعة.`,
+            icon: ShoppingBag,
+            color: "text-emerald-500 bg-emerald-500/10"
+          });
+        }
+
+        if (stagnant.length > 0) {
+          newInsights.push({
+            type: "stagnant",
+            title: "نصيحة للمخزون",
+            text: `لديك ${stagnant.length} منتجات راكدة. ننصح بعمل تخفيضات لتنشيط حركتها.`,
+            icon: Lightbulb,
+            color: "text-orange-500 bg-orange-500/10"
+          });
+        }
+
+        setInsights(newInsights);
+        setProcessedInvoices(filteredInvoices);
+      } catch (err) {
+        // Handled by emitter
+      } finally {
+        setIsDataDataProcessing(false);
+      }
     };
 
     runAnalysis();
@@ -517,7 +527,7 @@ export default function ReportsPage() {
                     ) : insights.length === 0 ? (
                       <p className="text-center py-6 text-xs font-bold opacity-30 italic">لا توجد نصائح كافية لهذا النطاق</p>
                     ) : insights.map((insight, idx) => (
-                      <div key={idx} className="p-4 md:p-6 rounded-[1.8rem] glass-premium border-white/20 flex gap-4 group hover:bg-white/60 transition-all">
+                      <div key={insight.title} className="p-4 md:p-6 rounded-[1.8rem] glass-premium border-white/20 flex gap-4 group hover:bg-white/60 transition-all">
                          <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm", insight.color)}>
                             <insight.icon className="h-6 w-6" />
                          </div>

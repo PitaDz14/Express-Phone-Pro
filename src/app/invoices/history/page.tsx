@@ -53,7 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase"
 import { collection, query, orderBy, getDocs, doc, increment, getDoc } from "firebase/firestore"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -156,7 +156,15 @@ export default function InvoiceHistoryPage() {
           }
         })
 
-        const invoiceDoc = await getDoc(doc(db, "invoices", id));
+        const invoiceRef = doc(db, "invoices", id);
+        const invoiceDoc = await getDoc(invoiceRef).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: invoiceRef.path,
+            operation: 'get'
+          }));
+          throw err;
+        });
+
         if (invoiceDoc.exists()) {
            const data = invoiceDoc.data();
            if (data.customerId && data.customerId !== 'walk-in') {
@@ -177,8 +185,7 @@ export default function InvoiceHistoryPage() {
           description: "Le stock a été mis à jour avec succès" 
         })
       } catch (error) {
-        console.error("Error deleting invoice:", error)
-        toast({ variant: "destructive", title: "Erreur opération" })
+        // Errors are handled by non-blocking calls or standard catch
       }
     }
   }
@@ -195,7 +202,13 @@ export default function InvoiceHistoryPage() {
     try {
       // 1. Fetch Items (Directly from Firestore for freshness)
       const itemsRef = collection(db, "invoices", invoice.id, "items")
-      const itemsSnap = await getDocs(itemsRef)
+      const itemsSnap = await getDocs(itemsRef).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: itemsRef.path,
+          operation: 'list'
+        }));
+        throw err;
+      });
       const items = itemsSnap.docs.map(d => {
         const data = d.data();
         return {
@@ -211,7 +224,13 @@ export default function InvoiceHistoryPage() {
 
       // 2. Fetch Payments
       const paymentsRef = collection(db, "invoices", invoice.id, "payments")
-      const paymentsSnap = await getDocs(paymentsRef)
+      const paymentsSnap = await getDocs(paymentsRef).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: paymentsRef.path,
+          operation: 'list'
+        }));
+        throw err;
+      });
       const payments = paymentsSnap.docs.map(d => ({
         id: d.id,
         ...d.data()
@@ -224,7 +243,14 @@ export default function InvoiceHistoryPage() {
 
       // 3. Fetch Customer Data
       if (invoice.customerId && invoice.customerId !== 'walk-in') {
-         const custSnap = await getDoc(doc(db, "customers", invoice.customerId));
+         const custRef = doc(db, "customers", invoice.customerId);
+         const custSnap = await getDoc(custRef).catch(err => {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({
+             path: custRef.path,
+             operation: 'get'
+           }));
+           throw err;
+         });
          if (custSnap.exists()) {
             setCustomerFullData({ id: custSnap.id, ...custSnap.data() });
          }
@@ -232,7 +258,7 @@ export default function InvoiceHistoryPage() {
 
       return { items, payments };
     } catch (error) {
-      console.error("Error fetching invoice details:", error)
+      // Standard logging is avoided, error emitter handles contextual UI feedback
       return { items: [], payments: [] };
     } finally {
       setIsLoadingItems(false)
@@ -317,7 +343,6 @@ export default function InvoiceHistoryPage() {
       }
 
     } catch (error: any) {
-      console.error("PDF generation failed:", error);
       toast({ 
         title: "Erreur PDF", 
         description: "Échec de génération du fichier. Vérifiez votre connexion.", 

@@ -43,7 +43,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase"
 import { collection, query, where, doc, increment, getDocs, writeBatch, serverTimestamp, getDoc } from "firebase/firestore"
 import { format } from "date-fns"
 import { ar, fr } from "date-fns/locale"
@@ -97,24 +97,27 @@ export default function DebtsPage() {
     setIsSendingReport(customer.id);
     
     try {
-      // Logic fix: Simplified query to avoid Firestore Index requirement (equality + inequality filter)
-      // We fetch all invoices for the customer and filter in-memory for safety and reliability
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", customer.id)
       );
       
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'invoices',
+          operation: 'list'
+        }));
+        throw err;
+      });
       const allInvoices = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
-      // Only include invoices that have an outstanding balance
       const debtInvoices = allInvoices.filter(inv => {
         const unpaid = inv.totalAmount - (inv.paidAmount || 0);
         return unpaid > 0 && inv.status !== "Paid";
       }).sort((a, b) => {
         const tA = a.createdAt?.seconds || 0;
         const tB = b.createdAt?.seconds || 0;
-        return tB - tA; // Sort by newest
+        return tB - tA;
       });
       
       if (debtInvoices.length === 0) {
@@ -122,7 +125,6 @@ export default function DebtsPage() {
         return;
       }
 
-      // Build Message in French as requested
       let message = `*==========================*\n`;
       message += `*    EXPRESS PHONE PRO     *\n`;
       message += `*  RELEVÉ DE COMPTE DETTES *\n`;
@@ -135,7 +137,13 @@ export default function DebtsPage() {
 
       for (const inv of debtInvoices) {
         const itemsRef = collection(db, "invoices", inv.id, "items");
-        const itemsSnap = await getDocs(itemsRef);
+        const itemsSnap = await getDocs(itemsRef).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: itemsRef.path,
+            operation: 'list'
+          }));
+          throw err;
+        });
         const dateStr = inv.createdAt?.toDate ? format(inv.createdAt.toDate(), "dd/MM/yyyy", { locale: fr }) : "---";
         
         message += `*Facture:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
@@ -156,7 +164,6 @@ export default function DebtsPage() {
       message += `Merci de votre confiance ! ✨\n`;
       message += `*==========================*`;
 
-      // Robust Phone Handling
       const rawPhone = (customer.phone || "").replace(/\s+/g, '').replace(/-/g, '').replace(/\+/g, '');
       if (!rawPhone) {
         toast({ variant: "destructive", title: "Erreur", description: "Le numéro de téléphone du client est manquant." });
@@ -168,11 +175,10 @@ export default function DebtsPage() {
       window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank');
       
     } catch (error: any) {
-      console.error("WhatsApp Report Error Detail:", error);
       toast({ 
         variant: "destructive", 
-        title: "Erreur de connexion", 
-        description: "Échec de génération du rapport. Vérifiez votre connexion ou les index Firebase." 
+        title: "Erreur", 
+        description: "Échec de génération du rapport." 
       });
     } finally {
       setIsSendingReport(null);
@@ -184,7 +190,13 @@ export default function DebtsPage() {
     setIsLoadingInvoices(true)
     try {
       const q = query(collection(db, "invoices"), where("customerId", "==", customer.id))
-      const snapshot = await getDocs(q)
+      const snapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'invoices',
+          operation: 'list'
+        }));
+        throw err;
+      });
       const items = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter((inv: any) => inv.totalAmount > (inv.paidAmount || 0))
@@ -197,7 +209,7 @@ export default function DebtsPage() {
       
       setCustomerInvoices(items)
     } catch (error) {
-      console.error("Fetch invoices error:", error)
+      // Handled
     } finally {
       setIsLoadingInvoices(false)
     }
@@ -211,12 +223,17 @@ export default function DebtsPage() {
     const batch = writeBatch(db)
     
     try {
-      // Simplified query here too for stability
       const q = query(
         collection(db, "invoices"), 
         where("customerId", "==", selectedCustomer.id)
       )
-      const snapshot = await getDocs(q)
+      const snapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'invoices',
+          operation: 'list'
+        }));
+        throw err;
+      });
       
       const debtInvoices = snapshot.docs
         .map(d => ({ id: d.id, ...d.data() } as any))
@@ -224,7 +241,7 @@ export default function DebtsPage() {
         .sort((a, b) => {
           const tA = a.createdAt?.seconds || 0
           const tB = b.createdAt?.seconds || 0
-          return tB - tA // Pay newest first (or change to tA - tB for oldest)
+          return tB - tA 
         })
 
       let remaining = amountToApply
@@ -275,7 +292,6 @@ export default function DebtsPage() {
       setBulkAmount("")
       setSelectedCustomer(null) 
     } catch (e) {
-      console.error("Bulk payment error:", e)
       toast({ variant: "destructive", title: "Erreur", description: "Échec de traitement du paiement." })
     } finally {
       setIsProcessingBulk(false)
@@ -288,7 +304,13 @@ export default function DebtsPage() {
     setInvoiceItems([])
     try {
       const itemsRef = collection(db, "invoices", invoice.id, "items")
-      const snapshot = await getDocs(itemsRef)
+      const snapshot = await getDocs(itemsRef).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: itemsRef.path,
+          operation: 'list'
+        }));
+        throw err;
+      });
       
       const items = snapshot.docs.map(d => {
         const data = d.data();
@@ -301,7 +323,6 @@ export default function DebtsPage() {
       
       setInvoiceItems(items)
     } catch (error) {
-      console.error("Error fetching items:", error)
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de récupérer les articles." })
     } finally {
       setIsLoadingItems(false)
@@ -322,16 +343,17 @@ export default function DebtsPage() {
         })
 
         const unpaidAmount = invoice.totalAmount - (invoice.paidAmount || 0)
-        updateDocumentNonBlocking(doc(db, "customers", invoice.customerId), {
-          debt: increment(-unpaidAmount)
-        })
+        if (unpaidAmount > 0) {
+          updateDocumentNonBlocking(doc(db, "customers", invoice.customerId), {
+            debt: increment(-unpaidAmount)
+          })
+        }
 
         deleteDocumentNonBlocking(doc(db, "invoices", invoice.id))
         
         toast({ title: "Supprimé", description: "Facture supprimée et stock mis à jour." })
         setCustomerInvoices(prev => prev.filter(inv => inv.id !== invoice.id))
       } catch (error) {
-        console.error("Delete error:", error);
         toast({ variant: "destructive", title: "Erreur", description: "L'opération a échوée." })
       }
     }
@@ -369,7 +391,12 @@ export default function DebtsPage() {
         debt: increment(-diff)
       })
 
-      await batch.commit();
+      await batch.commit().catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'batch-update',
+          operation: 'write'
+        }));
+      });
 
       toast({ title: "Mis à jour", description: "Le versement a été actualisé." })
       setCustomerInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, paidAmount: paidNum, status: newStatus } : inv))

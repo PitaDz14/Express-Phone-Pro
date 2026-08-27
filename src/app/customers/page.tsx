@@ -48,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase"
 import { collection, doc, serverTimestamp, query, where, getDocs, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -151,11 +151,17 @@ export default function CustomersPage() {
     setIsHistoryLoading(true)
     try {
       const q = query(collection(db, "invoices"), where("customerId", "==", customer.id))
-      const snapshot = await getDocs(q)
+      const snapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'invoices',
+          operation: 'list'
+        }));
+        throw err;
+      });
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       setHistoryInvoices(data)
     } catch (e) {
-      console.error(e)
+      // Handled by emitter
     } finally {
       setIsHistoryLoading(false)
     }
@@ -185,7 +191,13 @@ export default function CustomersPage() {
     setPreviewItems([])
     try {
       const itemsRef = collection(db, "invoices", inv.id, "items")
-      const snapshot = await getDocs(itemsRef)
+      const snapshot = await getDocs(itemsRef).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: itemsRef.path,
+          operation: 'list'
+        }));
+        throw err;
+      });
       
       const items = snapshot.docs.map(d => {
         const data = d.data();
@@ -198,7 +210,7 @@ export default function CustomersPage() {
       
       setPreviewItems(items)
     } catch (e) {
-      console.error(e)
+      // Handled by emitter
     } finally {
       setIsPreviewLoading(false)
     }
@@ -221,11 +233,13 @@ export default function CustomersPage() {
           }
         })
 
-        if (inv.status === "Debt") {
+        if (inv.status === "Debt" || inv.status === "Partial") {
           const unpaid = inv.totalAmount - inv.paidAmount
-          updateDocumentNonBlocking(doc(db, "customers", inv.customerId), {
-            debt: increment(-unpaid)
-          })
+          if (unpaid > 0) {
+            updateDocumentNonBlocking(doc(db, "customers", inv.customerId), {
+              debt: increment(-unpaid)
+            })
+          }
         }
 
         deleteDocumentNonBlocking(doc(db, "invoices", inv.id))
@@ -527,7 +541,7 @@ export default function CustomersPage() {
                                <FileText className="h-4 w-4 md:h-5 md:w-5" />
                             </div>
                             <div className="flex flex-col">
-                               <p className="font-black text-xs md:text-sm">{item.productName}</p>
+                               <p className="font-black text-xs md:sm">{item.productName}</p>
                                <p className="text-[8px] md:text-[10px] text-muted-foreground font-bold tabular-nums">{item.quantity} قطعة × {item.unitPrice.toLocaleString()} دج</p>
                             </div>
                          </div>
