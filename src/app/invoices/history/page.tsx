@@ -191,7 +191,7 @@ export default function InvoiceHistoryPage() {
     setCustomerFullData(null)
 
     try {
-      // 1. Fetch Items
+      // 1. Fetch Items (Directly from Firestore for freshness)
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const itemsSnap = await getDocs(itemsRef)
       const items = itemsSnap.docs.map(d => {
@@ -220,7 +220,7 @@ export default function InvoiceHistoryPage() {
       });
       setPaymentHistory(payments)
 
-      // 3. Fetch Customer Debt (for PDF statement)
+      // 3. Fetch Customer Data
       if (invoice.customerId && invoice.customerId !== 'walk-in') {
          const custSnap = await getDoc(doc(db, "customers", invoice.customerId));
          if (custSnap.exists()) {
@@ -238,42 +238,38 @@ export default function InvoiceHistoryPage() {
   }
 
   const handleSharePDF = async (invoice: any) => {
+    if (isSharingPDF) return;
     setIsSharingPDF(true);
+    
     try {
-      // 1. Fetch FRESH data directly to avoid any "Incomplete Data" issues
-      const itemsRef = collection(db, "invoices", invoice.id, "items");
-      const itemsSnap = await getDocs(itemsRef);
-      const items = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      // 1. Fetch all required data in ONE go (Sync and await)
+      const freshData = await handleViewDetails(invoice);
       
-      if (items.length === 0) {
-        toast({ title: "Données de facture vides", variant: "destructive" });
-        setIsSharingPDF(false);
-        return;
+      if (!freshData.items || freshData.items.length === 0) {
+        throw new Error("Empty items list");
       }
 
-      // Sync state for the hidden template to render
-      await handleViewDetails(invoice);
-
-      // 2. Wait for React to finish rendering the hidden capture div
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 2. Short wait for React to update the hidden template DOM
+      await new Promise(resolve => setTimeout(resolve, 600));
 
       const element = document.getElementById("pdf-capture-template");
       if (!element) {
-        throw new Error("Template de capture non trouvé dans le DOM");
+        throw new Error("Template non trouvé");
       }
 
-      // 3. Load libraries
+      // 3. Dynamic Load libraries
       // @ts-ignore
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
-      // 4. Capture Canvas
+      // 4. Capture Canvas - Reduced scale for SPEED (2 is enough for mobile)
       const canvas = await html2canvas(element, {
-        scale: 3, // High resolution
+        scale: 2, 
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
-        logging: false
+        logging: false,
+        imageTimeout: 5000,
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -286,9 +282,9 @@ export default function InvoiceHistoryPage() {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
       const pdfBlob = pdf.output('blob');
-      const fileName = `Facture_${invoice.id.slice(0, 8)}.pdf`;
+      const fileName = `INV_${invoice.id.slice(0, 8)}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       // 5. Native Share or Download
@@ -297,7 +293,7 @@ export default function InvoiceHistoryPage() {
           await navigator.share({
             files: [file],
             title: `Facture ${invoice.id.slice(0, 8)}`,
-            text: `Bonjour ${invoice.customerName}, veuillez trouver ci-joint votre facture.`
+            text: `Bonjour ${invoice.customerName}, votre facture Express Phone.`
           });
         } catch (shareErr: any) {
           if (shareErr.name !== 'AbortError') throw shareErr;
@@ -309,17 +305,14 @@ export default function InvoiceHistoryPage() {
         a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
-        toast({ 
-          title: "PDF Téléchargé", 
-          description: "Le fichier a été enregistré sur votre appareil. Vous pouvez l'envoyer manuellement." 
-        });
+        toast({ title: "PDF Prêt", description: "Le fichier a été téléchargé." });
       }
 
     } catch (error: any) {
       console.error("PDF generation failed:", error);
       toast({ 
         title: "Erreur PDF", 
-        description: "Échec de génération du fichier. Vérifiez votre connexion.", 
+        description: "Échec de génération. Vérifiez les données ou la connexion.", 
         variant: "destructive" 
       });
     } finally {
@@ -552,148 +545,96 @@ export default function InvoiceHistoryPage() {
             </CardContent>
           </Card>
 
-          {/* Dedicated Hidden Template for PDF Capture (Professional Layout) */}
+          {/* Dedicated Hidden Template for PDF Capture (Optimized for speed) */}
           <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -1 }}>
             {selectedInvoice && (
-              <div id="pdf-capture-template" className="bg-white text-black w-[800px] p-10 space-y-8 font-sans">
-                 <div className="text-center space-y-2 border-b-4 border-black pb-6">
-                    <h2 className="text-5xl font-black leading-none">EXPRESS PHONE PRO</h2>
-                    <p className="text-lg font-bold uppercase tracking-[0.3em] text-gray-600">Solutions de Vente & Services Mobiles</p>
-                    <div className="flex justify-center gap-6 mt-4">
-                       <Badge variant="outline" className="border-2 border-black text-black px-4 py-1 font-black uppercase">Document Officiel</Badge>
-                       <span className="text-sm font-bold tabular-nums">
+              <div id="pdf-capture-template" className="bg-white text-black w-[750px] p-8 space-y-6 font-sans">
+                 <div className="text-center space-y-2 border-b-2 border-black pb-4">
+                    <h2 className="text-4xl font-black leading-none">EXPRESS PHONE PRO</h2>
+                    <p className="text-sm font-bold uppercase tracking-widest text-gray-500">Solutions de Vente & Services Mobiles</p>
+                    <div className="flex justify-center gap-4 mt-2">
+                       <span className="text-xs font-bold tabular-nums">
                          Date: {selectedInvoice.createdAt?.toDate 
                            ? format(selectedInvoice.createdAt.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) 
-                           : (selectedInvoice.createdAt instanceof Date ? format(selectedInvoice.createdAt, "dd/MM/yyyy HH:mm", { locale: fr }) : "---")}
+                           : "---"}
                        </span>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-10 bg-gray-50 p-6 rounded-2xl border-2 border-black/5">
-                    <div className="space-y-2">
-                       <p className="font-black text-gray-400 text-xs uppercase tracking-widest border-b border-black/10 pb-1">Détails de la Facture</p>
-                       <p className="text-lg"><strong>N° Facture:</strong> <span className="font-mono font-black">#{selectedInvoice.id.slice(0, 10)}</span></p>
-                       <p><strong>Statut:</strong> <span className="font-black">{selectedInvoice.status === 'Paid' ? 'PAYÉE' : selectedInvoice.status === 'Partial' ? 'PARTIELLE' : 'IMPAYÉE'}</span></p>
-                       <p><strong>Employé:</strong> {selectedInvoice.generatedByUserName || "Système"}</p>
+                 <div className="grid grid-cols-2 gap-8 bg-gray-50 p-4 rounded-xl border border-black/5">
+                    <div className="space-y-1">
+                       <p className="font-black text-gray-400 text-[10px] uppercase">Facture Details</p>
+                       <p className="text-sm"><strong>N°:</strong> <span className="font-mono">#{selectedInvoice.id.slice(0, 10)}</span></p>
+                       <p className="text-sm"><strong>Statut:</strong> {selectedInvoice.status === 'Paid' ? 'PAYÉE' : 'IMPAYÉE'}</p>
                     </div>
-                    <div className="space-y-2">
-                       <p className="font-black text-gray-400 text-xs uppercase tracking-widest border-b border-black/10 pb-1">Information Client</p>
-                       <p className="text-2xl font-black">{selectedInvoice.customerName || "Client de passage"}</p>
-                       {customerFullData?.phone && <p className="font-bold text-gray-600">Tel: {customerFullData.phone}</p>}
+                    <div className="space-y-1">
+                       <p className="font-black text-gray-400 text-[10px] uppercase">Client</p>
+                       <p className="text-lg font-black">{selectedInvoice.customerName || "Passant"}</p>
+                       {customerFullData?.phone && <p className="text-xs font-bold text-gray-600">Tél: {customerFullData.phone}</p>}
                     </div>
                  </div>
 
-                 <table className="w-full text-left border-collapse mt-8">
-                    <thead className="border-y-4 border-black bg-gray-50">
-                      <tr className="text-sm">
-                         <th className="py-4 px-2 text-right">Désignation Produit / Service</th>
-                         <th className="py-4 text-center">Qté</th>
-                         <th className="py-4 text-right">Prix Unitaire (DZD)</th>
-                         <th className="py-4 px-2 text-left">Total (DZD)</th>
+                 <table className="w-full text-left border-collapse">
+                    <thead className="border-y border-black bg-gray-50">
+                      <tr className="text-[11px] font-black">
+                         <th className="py-2 text-right">Désignation</th>
+                         <th className="py-2 text-center">Qté</th>
+                         <th className="py-2 text-right">P.U (DZD)</th>
+                         <th className="py-2 text-left">Total (DZD)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y-2 divide-gray-200">
+                    <tbody className="divide-y divide-gray-100">
                       {invoiceItems.map((item) => (
-                        <tr key={item.id} className="text-sm">
-                           <td className="py-4 px-2 text-right font-black">{item.productName}</td>
-                           <td className="py-4 text-center tabular-nums font-bold">{item.quantity}</td>
-                           <td className="py-4 text-right tabular-nums">({(item.unitPrice || 0).toLocaleString()})</td>
-                           <td className="py-4 px-2 text-left font-black tabular-nums text-lg">({(item.itemTotal || 0).toLocaleString()})</td>
+                        <tr key={item.id} className="text-[11px]">
+                           <td className="py-2 text-right font-bold">{item.productName}</td>
+                           <td className="py-2 text-center tabular-nums">{item.quantity}</td>
+                           <td className="py-2 text-right tabular-nums">({(item.unitPrice || 0).toLocaleString()})</td>
+                           <td className="py-2 text-left font-black tabular-nums">({(item.itemTotal || 0).toLocaleString()})</td>
                         </tr>
                       ))}
                     </tbody>
                  </table>
 
-                 <div className="flex justify-end pt-8">
-                    <div className="w-80 space-y-3 bg-gray-50 p-6 rounded-2xl border-2 border-black">
-                       <div className="flex justify-between text-sm">
-                          <span className="font-bold">Sous-total:</span> 
-                          <span className="tabular-nums font-black">({(selectedInvoice.totalAmount + (selectedInvoice.discount || 0)).toLocaleString()}) DZD</span>
+                 <div className="flex justify-end">
+                    <div className="w-64 space-y-2 bg-gray-50 p-4 rounded-xl border border-black/10">
+                       <div className="flex justify-between text-xs">
+                          <span>Sous-total:</span> 
+                          <span className="tabular-nums font-bold">({(selectedInvoice.totalAmount + (selectedInvoice.discount || 0)).toLocaleString()})</span>
                        </div>
-                       {selectedInvoice.discount > 0 && (
-                          <div className="flex justify-between text-sm text-red-600 border-b border-dashed border-red-200 pb-2">
-                             <span className="font-bold">Remise:</span> 
-                             <span className="tabular-nums font-black">(-{selectedInvoice.discount.toLocaleString()}) DZD</span>
-                          </div>
-                       )}
-                       <div className="flex justify-between font-black text-2xl pt-2 border-t-2 border-black">
+                       <div className="flex justify-between font-black text-lg pt-2 border-t border-black/20">
                           <span>NET À PAYER:</span> 
                           <span className="tabular-nums">({selectedInvoice.totalAmount.toLocaleString()}) DZD</span>
                        </div>
-                       <div className="flex justify-between text-sm font-bold pt-2 text-emerald-700">
-                          <span>Montant Versé:</span> 
-                          <span className="tabular-nums font-black">({(selectedInvoice.paidAmount || 0).toLocaleString()}) DZD</span>
+                       <div className="flex justify-between text-xs font-bold text-emerald-700">
+                          <span>Versé:</span> 
+                          <span className="tabular-nums">({(selectedInvoice.paidAmount || 0).toLocaleString()})</span>
                        </div>
                        {(selectedInvoice.totalAmount - selectedInvoice.paidAmount) > 0 && (
-                          <div className="flex justify-between text-lg text-red-600 font-black border-t-2 border-dashed border-red-300 pt-3 mt-2">
-                             <span>RESTE À PAYER:</span> 
-                             <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()}) DZD</span>
+                          <div className="flex justify-between text-sm text-red-600 font-black border-t border-dashed border-red-200 pt-2">
+                             <span>RESTE:</span> 
+                             <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()})</span>
                           </div>
                        )}
                     </div>
                  </div>
 
-                 {/* Combined Debt Statement Section */}
                  {customerFullData && customerFullData.debt > 0 && (
-                    <div className="mt-10 p-6 bg-red-50 border-4 border-red-200 rounded-[2rem] space-y-4">
-                       <div className="flex items-center gap-3 border-b-2 border-red-100 pb-3">
-                          <AlertCircle className="h-6 w-6 text-red-600" />
-                          <h3 className="text-xl font-black text-red-700 uppercase tracking-widest">Relevé de Compte Global</h3>
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
+                       <h3 className="text-xs font-black text-red-700 uppercase mb-2">Relevé de Compte Global</h3>
+                       <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-red-400">SOLDE TOTAL ACTUEL À RÉGLER:</span>
+                          <span className="text-lg font-black text-red-600 tabular-nums">({(customerFullData.debt).toLocaleString()}) DZD</span>
                        </div>
-                       <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-1">
-                             <p className="text-xs font-bold text-red-400 uppercase">Ancien Solde Débiteur</p>
-                             <p className="text-2xl font-black text-red-800 tabular-nums">
-                               ({(customerFullData.debt - (selectedInvoice.totalAmount - selectedInvoice.paidAmount)).toLocaleString()}) DZD
-                             </p>
-                          </div>
-                          <div className="space-y-1 text-left">
-                             <p className="text-xs font-bold text-red-400 uppercase">SOLDE TOTAL ACTUEL</p>
-                             <p className="text-3xl font-black text-red-600 tabular-nums">
-                               ({(customerFullData.debt).toLocaleString()}) DZD
-                             </p>
-                          </div>
-                       </div>
-                       <p className="text-[10px] font-bold text-red-500 italic text-center pt-2">
-                          * Ce relevé inclut toutes vos dettes en cours à la date du jour. Veuillez régulariser votre situation dès que possible.
-                       </p>
                     </div>
                  )}
 
-                 {paymentHistory.length > 1 && (
-                    <div className="pt-8 border-t-2 border-black/10">
-                       <p className="font-black text-center text-xs uppercase bg-black text-white py-2 rounded-lg mb-4 tracking-[0.2em]">Historique Chronologique des Versements</p>
-                       <table className="w-full text-xs">
-                          <thead>
-                             <tr className="border-b-2 border-black/10">
-                                <th className="py-2 text-right">Date du versement</th>
-                                <th className="py-2 text-center">Montant encaissé</th>
-                                <th className="py-2 text-left">Nouveau reste</th>
-                             </tr>
-                          </thead>
-                          <tbody className="font-bold">
-                             {paymentHistory.map((p) => (
-                                <tr key={p.id}>
-                                   <td className="py-2 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
-                                   <td className="py-2 text-center text-emerald-700">({p.amount.toLocaleString()}) DZD</td>
-                                   <td className="py-2 text-left text-red-600">({p.remainingAmount.toLocaleString()}) DZD</td>
-                                </tr>
-                             ))}
-                          </tbody>
-                       </table>
-                    </div>
-                 )}
-
-                 <div className="flex flex-col items-center pt-12 border-t-4 border-dashed border-black/10 mt-10">
-                    <div className="bg-white p-3 border-2 border-black rounded-3xl shadow-lg">
-                      <img 
-                        className="w-32 h-32" 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${selectedInvoice.id}`} 
-                        alt="QR Verification" 
-                      />
-                    </div>
-                    <p className="mt-6 font-black text-xl tracking-widest">MERCI POUR VOTRE CONFIANCE !</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-2">© Express Phone Pro • Logiciel de gestion Cloud</p>
+                 <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/10">
+                    <img 
+                      className="w-24 h-24" 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${selectedInvoice.id}`} 
+                      alt="QR" 
+                    />
+                    <p className="mt-2 font-black text-sm">MERCI POUR VOTRE CONFIANCE !</p>
                  </div>
               </div>
             )}
@@ -838,19 +779,15 @@ export default function InvoiceHistoryPage() {
                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${zoomQR?.id}`} className="h-64 w-64" alt="Enlarged QR" />
                   </div>
                   <div className="flex flex-col items-center">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scannez pour accéder à la facture</p>
+                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scanneز لفتح الفاتورة</p>
                      <p className="text-lg font-mono font-black text-primary mt-2 text-center">#{zoomQR?.id.slice(0, 15)}</p>
                   </div>
                </div>
                <div className="p-6 bg-black/5 flex justify-center">
-                  <Button onClick={() => setZoomQR(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">Fermer</Button>
+                  <Button onClick={() => setZoomQR(null)} className="rounded-2xl px-12 h-12 font-black shadow-lg">إغلاق</Button>
                </div>
             </DialogContent>
           </Dialog>
-
-          <div className="flex justify-center text-muted-foreground/30 text-[10px] font-black italic gap-2 py-4">
-            <span>EXPRESS PHONE PRO • SECURE AUDIT LOGS</span>
-          </div>
         </main>
     </div>
   )
