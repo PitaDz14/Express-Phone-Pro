@@ -214,6 +214,7 @@ export default function InvoiceHistoryPage() {
     setIsSharingPDF(true);
     try {
       // Dynamic imports to prevent build errors and SSR issues
+      // @ts-ignore
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
@@ -223,7 +224,7 @@ export default function InvoiceHistoryPage() {
         return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       const element = document.getElementById("invoice-capture-target");
       if (!element) throw new Error("Capture target not found");
@@ -262,7 +263,7 @@ export default function InvoiceHistoryPage() {
         a.href = url;
         a.download = `Invoice_${invoice.id.slice(0, 8)}.pdf`;
         a.click();
-        toast({ title: "PDF généré", description: "Votre navigateur ne supportه pas le partage direct. Le fichier a été téléchargé." });
+        toast({ title: "PDF généré", description: "Votre navigateur ne supporte pas le partage direct. Le fichier a été téléchargé." });
       }
 
     } catch (error) {
@@ -433,7 +434,7 @@ export default function InvoiceHistoryPage() {
                           </TableCell>
                           <TableCell className="text-center">
                             {remaining > 0 ? (
-                              <span className="font-black text-red-600 tabular-nums">{(remaining).toLocaleString()} DZD</span>
+                              <span className="font-black text-red-600 tabular-nums">({(remaining).toLocaleString()}) DZD</span>
                             ) : (
                               <span className="font-bold text-emerald-600">Payée</span>
                             )}
@@ -554,25 +555,25 @@ export default function InvoiceHistoryPage() {
                        <div className="space-y-1 border-t border-black pt-4">
                           <div className="flex justify-between">
                             <span>Sous-total:</span> 
-                            <span className="tabular-nums">{(selectedInvoice?.totalAmount + (selectedInvoice?.discount || 0)).toLocaleString()} DZD</span>
+                            <span className="tabular-nums">({(selectedInvoice?.totalAmount + (selectedInvoice?.discount || 0)).toLocaleString()}) DZD</span>
                           </div>
                           {selectedInvoice?.discount > 0 && (
                             <div className="flex justify-between">
                               <span>Remise:</span> 
-                              <span className="tabular-nums">-{selectedInvoice.discount.toLocaleString()} DZD</span>
+                              <span className="tabular-nums">({selectedInvoice.discount.toLocaleString()}) DZD</span>
                             </div>
                           )}
                           <div className="flex justify-between font-black text-sm sm:text-base border-t-2 border-double border-black pt-2">
-                             <span>NET À PAYER:</span> <span className="tabular-nums">{selectedInvoice?.totalAmount.toLocaleString()} DZD</span>
+                             <span>NET À PAYER:</span> <span className="tabular-nums">({selectedInvoice?.totalAmount.toLocaleString()}) DZD</span>
                           </div>
                           <div className="flex justify-between text-[10px] sm:text-[11px]">
                             <span>Cumul Versé:</span> 
-                            <span className="tabular-nums">{selectedInvoice?.paidAmount?.toLocaleString()} DZD</span>
+                            <span className="tabular-nums">({selectedInvoice?.paidAmount?.toLocaleString()}) DZD</span>
                           </div>
                           {(selectedInvoice?.totalAmount - selectedInvoice?.paidAmount) > 0 && (
                             <div className="flex justify-between text-red-600 font-bold">
                               <span>Reste (Dette):</span> 
-                              <span className="tabular-nums">{(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()} DZD</span>
+                              <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()}) DZD</span>
                             </div>
                           )}
                        </div>
@@ -592,8 +593,8 @@ export default function InvoiceHistoryPage() {
                                    {paymentHistory.map((p, idx) => (
                                       <tr key={p.id} className="opacity-80">
                                          <td className="py-1 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
-                                         <td className="py-1 text-center font-bold">{p.amount.toLocaleString()}</td>
-                                         <td className="py-1 text-left">{p.remainingAmount.toLocaleString()}</td>
+                                         <td className="py-1 text-center font-bold">({p.amount.toLocaleString()})</td>
+                                         <td className="py-1 text-left">({p.remainingAmount.toLocaleString()})</td>
                                       </tr>
                                    ))}
                                 </tbody>
@@ -637,7 +638,7 @@ export default function InvoiceHistoryPage() {
                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${zoomQR?.id}`} className="h-64 w-64" alt="Enlarged QR" />
                   </div>
                   <div className="flex flex-col items-center">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scanneز pour accéder à la facture</p>
+                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scannez pour accéder à la facture</p>
                      <p className="text-lg font-mono font-black text-primary mt-2 text-center">#{zoomQR?.id.slice(0, 15)}</p>
                   </div>
                </div>
