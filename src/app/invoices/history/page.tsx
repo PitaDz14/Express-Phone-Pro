@@ -213,25 +213,32 @@ export default function InvoiceHistoryPage() {
   const handleSharePDF = async (invoice: any) => {
     setIsSharingPDF(true);
     try {
-      // Dynamic imports to prevent build errors and SSR issues
-      // @ts-ignore
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-
+      // 1. Fetch complete data
       const data = await handleViewDetails(invoice);
-      if (!data.items.length) {
+      if (!data.items || data.items.length === 0) {
         toast({ title: "Données incomplètes", variant: "destructive" });
         return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // 2. Wait for React to mount the hidden template in the background
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const element = document.getElementById("invoice-capture-target");
-      if (!element) throw new Error("Capture target not found");
+      // 3. Find the HIDDEN template for capture (not the dialog one)
+      const element = document.getElementById("pdf-capture-template");
+      if (!element) {
+        throw new Error("Template de capture non trouvé");
+      }
 
+      // 4. Load libraries dynamically
+      // @ts-ignore
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      // 5. Generate high-quality canvas
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: "#ffffff"
       });
@@ -251,26 +258,40 @@ export default function InvoiceHistoryPage() {
       const pdfBlob = pdf.output('blob');
       const file = new File([pdfBlob], `Invoice_${invoice.id.slice(0, 8)}.pdf`, { type: 'application/pdf' });
 
-      if (navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: `Facture #${invoice.id.slice(0, 8)}`,
-          text: `Bonjour ${invoice.customerName}, voici votre facture de chez EXPRESS PHONE.`
-        });
+      // 6. Share or Fallback to download
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Facture #${invoice.id.slice(0, 8)}`,
+            text: `Bonjour ${invoice.customerName}, voici votre facture de chez EXPRESS PHONE.`
+          });
+        } catch (shareErr: any) {
+          if (shareErr.name !== 'AbortError') throw shareErr;
+        }
       } else {
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url;
         a.download = `Invoice_${invoice.id.slice(0, 8)}.pdf`;
         a.click();
-        toast({ title: "PDF généré", description: "Votre navigateur ne supporte pas le partage direct. Le fichier a été téléchargé." });
+        URL.revokeObjectURL(url);
+        toast({ 
+          title: "PDF généré", 
+          description: "Le fichier a été téléchargé. Vous pouvez maintenant l'envoyer manuellement." 
+        });
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("PDF generation failed:", error);
-      toast({ title: "Erreur PDF", description: "Échec de génération du fichier. Vérifiez que toutes les ressources sont chargées.", variant: "destructive" });
+      toast({ 
+        title: "Erreur PDF", 
+        description: error.message || "Échec de génération du fichier. Vérifiez votre connexion.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsSharingPDF(false);
+      // We keep selectedInvoice so the user sees the preview, but we could close it if desired
     }
   }
 
@@ -499,6 +520,121 @@ export default function InvoiceHistoryPage() {
             </CardContent>
           </Card>
 
+          {/* Dedicated Hidden Template for PDF Capture (Robust Solution) */}
+          <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -1 }}>
+            {selectedInvoice && (
+              <div id="pdf-capture-template" className="bg-white text-black w-[800px] p-10 space-y-8 font-sans">
+                 <div className="text-center space-y-2 border-b-2 border-black pb-6">
+                    <h2 className="text-4xl font-black leading-none">EXPRESS PHONE</h2>
+                    <p className="text-sm font-bold uppercase tracking-widest">Services & Ventes Mobiles</p>
+                    <p className="text-xs tabular-nums">
+                      Date: {selectedInvoice.createdAt?.toDate 
+                        ? format(selectedInvoice.createdAt.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) 
+                        : (selectedInvoice.createdAt instanceof Date ? format(selectedInvoice.createdAt, "dd/MM/yyyy HH:mm", { locale: fr }) : "---")}
+                    </p>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-10">
+                    <div className="space-y-1 text-sm">
+                       <p className="font-black border-b border-black/10 pb-1 mb-2">INFORMATION FACTURE</p>
+                       <p><strong>N° Facture:</strong> #{selectedInvoice.id.slice(0, 8)}</p>
+                       <p><strong>Statut:</strong> {selectedInvoice.status === 'Paid' ? 'Payée' : selectedInvoice.status === 'Partial' ? 'Partielle' : 'Impayée'}</p>
+                       <p><strong>Employé:</strong> {selectedInvoice.generatedByUserName || "Inconnu"}</p>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                       <p className="font-black border-b border-black/10 pb-1 mb-2">CLIENT</p>
+                       <p><strong>Nom:</strong> {selectedInvoice.customerName || "Passant"}</p>
+                    </div>
+                 </div>
+
+                 <table className="w-full text-left border-collapse mt-6">
+                    <thead className="border-b-2 border-black">
+                      <tr className="text-sm">
+                         <th className="py-3 text-right">Produit / Service</th>
+                         <th className="py-3 text-center">Qté</th>
+                         <th className="py-3 text-right">P.U (DZD)</th>
+                         <th className="py-3 text-left">Total (DZD)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/10">
+                      {invoiceItems.map((item) => (
+                        <tr key={item.id} className="text-xs">
+                           <td className="py-3 text-right font-bold">{item.productName}</td>
+                           <td className="py-3 text-center tabular-nums">{item.quantity}</td>
+                           <td className="py-3 text-right tabular-nums">{(item.unitPrice || 0).toLocaleString()}</td>
+                           <td className="py-3 text-left font-black tabular-nums">{(item.itemTotal || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+
+                 <div className="flex justify-end pt-6">
+                    <div className="w-72 space-y-2 border-t-2 border-black pt-4">
+                       <div className="flex justify-between text-xs">
+                          <span>Sous-total:</span> 
+                          <span className="tabular-nums">({(selectedInvoice.totalAmount + (selectedInvoice.discount || 0)).toLocaleString()}) DZD</span>
+                       </div>
+                       {selectedInvoice.discount > 0 && (
+                          <div className="flex justify-between text-xs text-red-600">
+                             <span>Remise:</span> 
+                             <span className="tabular-nums">(-{selectedInvoice.discount.toLocaleString()}) DZD</span>
+                          </div>
+                       )}
+                       <div className="flex justify-between font-black text-xl border-t-2 border-double border-black pt-2">
+                          <span>NET À PAYER:</span> 
+                          <span className="tabular-nums">({selectedInvoice.totalAmount.toLocaleString()}) DZD</span>
+                       </div>
+                       <div className="flex justify-between text-xs font-bold pt-2">
+                          <span>Cumul Versé:</span> 
+                          <span className="tabular-nums">({(selectedInvoice.paidAmount || 0).toLocaleString()}) DZD</span>
+                       </div>
+                       {(selectedInvoice.totalAmount - selectedInvoice.paidAmount) > 0 && (
+                          <div className="flex justify-between text-sm text-red-600 font-black border-t border-dashed border-red-200 pt-2">
+                             <span>Reste (Dette):</span> 
+                             <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()}) DZD</span>
+                          </div>
+                       )}
+                    </div>
+                 </div>
+
+                 {paymentHistory.length > 0 && (
+                    <div className="pt-6 border-t border-black space-y-3">
+                       <p className="font-black text-center text-xs uppercase border-b border-dashed border-black pb-1">HISTORIQUE DES VERSEMENTS</p>
+                       <table className="w-full text-[10px]">
+                          <thead>
+                             <tr className="border-b border-black/10">
+                                <th className="py-1 text-right">Date de versement</th>
+                                <th className="py-1 text-center">Montant versé</th>
+                                <th className="py-1 text-left">Reste à payer</th>
+                             </tr>
+                          </thead>
+                          <tbody>
+                             {paymentHistory.map((p) => (
+                                <tr key={p.id}>
+                                   <td className="py-1 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
+                                   <td className="py-1 text-center font-bold">({p.amount.toLocaleString()}) DZD</td>
+                                   <td className="py-1 text-left">({p.remainingAmount.toLocaleString()}) DZD</td>
+                                </tr>
+                             ))}
+                          </tbody>
+                       </table>
+                    </div>
+                 )}
+
+                 <div className="flex flex-col items-center pt-10 border-t-2 border-dashed border-black/20">
+                    <div className="bg-white p-2 border border-black/5">
+                      <img 
+                        className="w-32 h-32" 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${selectedInvoice.id}`} 
+                        alt="QR" 
+                      />
+                    </div>
+                    <p className="mt-4 font-black text-sm">Merci pour votre confiance !</p>
+                 </div>
+              </div>
+            )}
+          </div>
+
           <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
             <DialogContent dir="rtl" className="max-w-md glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[210] flex flex-col h-[90vh]">
                <DialogHeader className="p-4 bg-primary/5 border-b border-border shrink-0">
@@ -507,7 +643,8 @@ export default function InvoiceHistoryPage() {
 
                <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-black/5 custom-scrollbar">
                   <div className="flex flex-col items-center min-h-full py-4">
-                    <div id="invoice-capture-target" className="bg-white text-black w-full max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
+                    {/* Visual UI Preview for User (No Capture Target here anymore) */}
+                    <div className="bg-white text-black w-full max-w-[350px] shadow-2xl p-4 sm:p-6 md:p-8 rounded-sm space-y-4 sm:space-y-6 text-[11px] sm:text-[12px] border border-black/10 select-none mx-auto">
                        <div className="text-center space-y-1 border-b-2 border-black pb-4">
                           <h2 className="text-lg sm:text-2xl font-black leading-none">EXPRESS PHONE</h2>
                           <p className="text-[9px] sm:text-[10px] font-bold">Services & Ventes Mobiles</p>
@@ -590,7 +727,7 @@ export default function InvoiceHistoryPage() {
                                    </tr>
                                 </thead>
                                 <tbody>
-                                   {paymentHistory.map((p, idx) => (
+                                   {paymentHistory.map((p) => (
                                       <tr key={p.id} className="opacity-80">
                                          <td className="py-1 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
                                          <td className="py-1 text-center font-bold">({p.amount.toLocaleString()})</td>
