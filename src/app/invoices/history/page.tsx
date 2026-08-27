@@ -185,7 +185,7 @@ export default function InvoiceHistoryPage() {
           description: "Le stock a été mis à jour avec succès" 
         })
       } catch (error) {
-        // Errors are handled by non-blocking calls or standard catch
+        // Handled centrally
       }
     }
   }
@@ -200,7 +200,7 @@ export default function InvoiceHistoryPage() {
     setCustomerFullData(null)
 
     try {
-      // 1. Fetch Items (Directly from Firestore for freshness)
+      // 1. Fetch Items
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const itemsSnap = await getDocs(itemsRef).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -222,43 +222,38 @@ export default function InvoiceHistoryPage() {
       });
       setInvoiceItems(items)
 
-      // 2. Fetch Payments
-      const paymentsRef = collection(db, "invoices", invoice.id, "payments")
-      const paymentsSnap = await getDocs(paymentsRef).catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: paymentsRef.path,
-          operation: 'list'
-        }));
-        throw err;
-      });
-      const payments = paymentsSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })).sort((a: any, b: any) => {
-        const tA = a.createdAt?.seconds || 0;
-        const tB = b.createdAt?.seconds || 0;
-        return tA - tB;
-      });
-      setPaymentHistory(payments)
+      // 2. Fetch Payments (Try/catch for robustness)
+      try {
+        const paymentsRef = collection(db, "invoices", invoice.id, "payments")
+        const paymentsSnap = await getDocs(paymentsRef);
+        const payments = paymentsSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        })).sort((a: any, b: any) => {
+          const tA = a.createdAt?.seconds || 0;
+          const tB = b.createdAt?.seconds || 0;
+          return tA - tB;
+        });
+        setPaymentHistory(payments)
+      } catch (payErr) {
+        console.warn("Could not fetch payments history", payErr);
+      }
 
       // 3. Fetch Customer Data
       if (invoice.customerId && invoice.customerId !== 'walk-in') {
-         const custRef = doc(db, "customers", invoice.customerId);
-         const custSnap = await getDoc(custRef).catch(err => {
-           errorEmitter.emit('permission-error', new FirestorePermissionError({
-             path: custRef.path,
-             operation: 'get'
-           }));
-           throw err;
-         });
-         if (custSnap.exists()) {
-            setCustomerFullData({ id: custSnap.id, ...custSnap.data() });
+         try {
+           const custRef = doc(db, "customers", invoice.customerId);
+           const custSnap = await getDoc(custRef);
+           if (custSnap.exists()) {
+              setCustomerFullData({ id: custSnap.id, ...custSnap.data() });
+           }
+         } catch (custErr) {
+           console.warn("Could not fetch customer details", custErr);
          }
       }
 
-      return { items, payments };
+      return { items, payments: paymentHistory };
     } catch (error) {
-      // Standard logging is avoided, error emitter handles contextual UI feedback
       return { items: [], payments: [] };
     } finally {
       setIsLoadingItems(false)
@@ -270,7 +265,6 @@ export default function InvoiceHistoryPage() {
     setIsSharingPDF(true);
     
     try {
-      // 1. Fetch all required data
       const freshData = await handleViewDetails(invoice);
       
       if (!freshData || !freshData.items || freshData.items.length === 0) {
@@ -283,36 +277,23 @@ export default function InvoiceHistoryPage() {
         return;
       }
 
-      // 2. Short wait for React to update the hidden template DOM
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const element = document.getElementById("pdf-capture-template");
-      if (!element) {
-        throw new Error("Template de capture introuvable");
-      }
+      if (!element) throw new Error("Template introuvable");
 
-      // 3. Dynamic Load libraries
-      // @ts-ignore
+      // Dynamic load
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
-      // 4. Capture Canvas
       const canvas = await html2canvas(element, {
         scale: 2, 
         useCORS: true,
-        allowTaint: true,
         backgroundColor: "#ffffff",
-        logging: false,
-        imageTimeout: 5000,
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
@@ -321,7 +302,6 @@ export default function InvoiceHistoryPage() {
       const fileName = `Facture_${invoice.id.slice(0, 8)}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // 5. Native Share or Download
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -343,11 +323,7 @@ export default function InvoiceHistoryPage() {
       }
 
     } catch (error: any) {
-      toast({ 
-        title: "Erreur PDF", 
-        description: "Échec de génération du fichier. Vérifiez votre connexion.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Erreur PDF", description: "Échec de génération du fichier.", variant: "destructive" });
     } finally {
       setIsSharingPDF(false);
     }
@@ -422,7 +398,7 @@ export default function InvoiceHistoryPage() {
             </div>
           </div>
 
-          <Card className="border-none glass shadow-2xl overflow-hidden rounded-[2.5rem] card-3d">
+          <Card className="border-none glass shadow-2xl overflow-hidden rounded-[2.5rem]">
             <CardContent className="p-0">
               <div className="table-container">
                 <Table>
@@ -437,7 +413,7 @@ export default function InvoiceHistoryPage() {
                         <div className="flex items-center justify-center gap-2">Date <SortIcon column="createdAt" /></div>
                       </TableHead>
                       <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('totalAmount')}>
-                        <div className="flex items-center justify-center gap-2"><SortIcon column="totalAmount" /> Montant Total</div>
+                        <div className="flex items-center justify-center gap-2">Montant Total <SortIcon column="totalAmount" /></div>
                       </TableHead>
                       <TableHead className="font-black cursor-pointer select-none group text-center" onClick={() => handleSort('remainingDebt')}>
                         <div className="flex items-center justify-center gap-2">Reste (Dette) <SortIcon column="remainingDebt" /></div>
@@ -456,7 +432,6 @@ export default function InvoiceHistoryPage() {
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-20">
                           <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-20" />
-                          <p className="text-sm font-bold text-muted-foreground mt-4">Chargement en cours...</p>
                         </TableCell>
                       </TableRow>
                     ) : sortedInvoices.length === 0 ? (
@@ -473,7 +448,7 @@ export default function InvoiceHistoryPage() {
                         <TableRow 
                           key={inv.id} 
                           id={`inv-${inv.id}`}
-                          className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group target:bg-primary/10 target:animate-pulse"
+                          className="border-b border-white/5 hover:bg-white/30 transition-all duration-300 group"
                         >
                           <TableCell className="text-center">
                             <div 
@@ -481,9 +456,6 @@ export default function InvoiceHistoryPage() {
                               onClick={() => setZoomQR({ id: inv.id, code: inv.id })}
                             >
                               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${inv.id}`} className="w-full h-full" alt="INV QR" />
-                              <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/qr-cell:opacity-100 transition-opacity">
-                                 <Maximize2 className="h-3 w-3 text-white" />
-                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
@@ -496,7 +468,6 @@ export default function InvoiceHistoryPage() {
                           </TableCell>
                           <TableCell className="text-center">
                              <div className="flex flex-col items-center justify-center">
-                                <span className="text-[10px] font-black text-muted-foreground/60 uppercase">Par</span>
                                 <div className="flex items-center gap-1 mt-0.5">
                                    <UserCog className="h-3 w-3 text-muted-foreground" />
                                    <span className="text-[11px] font-black">{inv.generatedByUserName || "Inconnu"}</span>
@@ -506,7 +477,7 @@ export default function InvoiceHistoryPage() {
                           <TableCell className="text-muted-foreground font-bold text-xs tabular-nums text-center">
                             {inv.createdAt?.toDate 
                               ? format(inv.createdAt.toDate(), "dd MMMM yyyy - HH:mm", { locale: fr }) 
-                              : (inv.createdAt instanceof Date ? format(inv.createdAt, "dd MMMM yyyy - HH:mm", { locale: fr }) : "---")}
+                              : "---"}
                           </TableCell>
                           <TableCell className="text-center font-black tabular-nums text-lg text-primary">
                             {inv.totalAmount.toLocaleString()} DZD
@@ -529,14 +500,13 @@ export default function InvoiceHistoryPage() {
                           </TableCell>
                           <TableCell className="font-black tabular-nums text-primary text-center">#{inv.id.slice(0, 8)}</TableCell>
                           <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-40 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-center gap-2">
                                <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-9 w-9 rounded-xl bg-white/50 hover:bg-emerald-500 hover:text-white text-emerald-600"
                                 onClick={() => handleSharePDF(inv)}
                                 disabled={isSharingPDF && selectedInvoice?.id === inv.id}
-                                title="Partager PDF via WhatsApp"
                                >
                                  {isSharingPDF && selectedInvoice?.id === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
                                </Button>
@@ -545,7 +515,6 @@ export default function InvoiceHistoryPage() {
                                 size="icon" 
                                 className="h-9 w-9 rounded-xl bg-white/50 hover:bg-primary hover:text-white"
                                 onClick={() => handleViewDetails(inv)}
-                                title="Détails"
                                >
                                  <Eye className="h-4 w-4" />
                                </Button>
@@ -554,7 +523,6 @@ export default function InvoiceHistoryPage() {
                                 size="icon" 
                                 className="h-9 w-9 rounded-xl bg-white/50 hover:bg-orange-500 hover:text-white"
                                 onClick={() => router.push(`/invoices?editId=${inv.id}`)}
-                                title="Modifier"
                                >
                                  <Edit3 className="h-4 w-4" />
                                </Button>
@@ -563,7 +531,6 @@ export default function InvoiceHistoryPage() {
                                 size="icon" 
                                 className="h-9 w-9 rounded-xl bg-white/50 hover:bg-destructive hover:text-white"
                                 onClick={() => handleDeleteInvoice(inv.id)}
-                                title="Supprimer"
                                >
                                  <Trash2 className="h-4 w-4" />
                                </Button>
@@ -578,7 +545,7 @@ export default function InvoiceHistoryPage() {
             </CardContent>
           </Card>
 
-          {/* Dedicated Hidden Template for PDF Capture (Optimized for speed) */}
+          {/* Dedicated Hidden Template for PDF Capture */}
           <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -1 }}>
             {selectedInvoice && (
               <div id="pdf-capture-template" className="bg-white text-black w-[750px] p-8 space-y-6 font-sans">
@@ -642,24 +609,8 @@ export default function InvoiceHistoryPage() {
                           <span>Versé:</span> 
                           <span className="tabular-nums">({(selectedInvoice.paidAmount || 0).toLocaleString()})</span>
                        </div>
-                       {(selectedInvoice.totalAmount - selectedInvoice.paidAmount) > 0 && (
-                          <div className="flex justify-between text-sm text-red-600 font-black border-t border-dashed border-red-200 pt-2">
-                             <span>RESTE:</span> 
-                             <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()})</span>
-                          </div>
-                       )}
                     </div>
                  </div>
-
-                 {customerFullData && customerFullData.debt > 0 && (
-                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
-                       <h3 className="text-xs font-black text-red-700 uppercase mb-2">Relevé de Compte Global</h3>
-                       <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-red-400">SOLDE TOTAL ACTUEL À RÉGLER:</span>
-                          <span className="text-lg font-black text-red-600 tabular-nums">({(customerFullData.debt).toLocaleString()}) DZD</span>
-                       </div>
-                    </div>
-                 )}
 
                  <div className="flex flex-col items-center pt-6 border-t border-dashed border-black/10">
                     <img 
@@ -688,21 +639,13 @@ export default function InvoiceHistoryPage() {
                           <p className="text-[9px] sm:text-[10px] tabular-nums">
                             {selectedInvoice?.createdAt?.toDate 
                               ? format(selectedInvoice.createdAt.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) 
-                              : (selectedInvoice?.createdAt instanceof Date ? format(selectedInvoice.createdAt, "dd/MM/yyyy HH:mm", { locale: fr }) : "---")}
+                              : "---"}
                           </p>
                        </div>
 
                        <div className="space-y-1">
                           <p className="font-bold">N° Facture: <span className="tabular-nums">#{selectedInvoice?.id.slice(0, 8)}</span></p>
                           <p>Client: {selectedInvoice?.customerName || "Passant"}</p>
-                          <p>Employé: {selectedInvoice?.generatedByUserName || "Inconnu"}</p>
-                          <p className="flex items-center gap-2">Statut: 
-                             <Badge className={cn("px-2 py-0 h-5 text-[9px] font-black border-none", 
-                                selectedInvoice?.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 
-                                selectedInvoice?.status === 'Partial' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700')}>
-                                {selectedInvoice?.status === 'Paid' ? 'Payée' : selectedInvoice?.status === 'Partial' ? 'Partielle' : 'Impayée'}
-                             </Badge>
-                          </p>
                        </div>
 
                        <table className="w-full text-left">
@@ -727,16 +670,6 @@ export default function InvoiceHistoryPage() {
                        </table>
 
                        <div className="space-y-1 border-t border-black pt-4">
-                          <div className="flex justify-between">
-                            <span>Sous-total:</span> 
-                            <span className="tabular-nums">({(selectedInvoice?.totalAmount + (selectedInvoice?.discount || 0)).toLocaleString()}) DZD</span>
-                          </div>
-                          {selectedInvoice?.discount > 0 && (
-                            <div className="flex justify-between text-red-600">
-                              <span>Remise:</span> 
-                              <span className="tabular-nums">(-{selectedInvoice.discount.toLocaleString()}) DZD</span>
-                            </div>
-                          )}
                           <div className="flex justify-between font-black text-sm sm:text-base border-t-2 border-double border-black pt-2">
                              <span>NET À PAYER:</span> <span className="tabular-nums">({selectedInvoice?.totalAmount.toLocaleString()}) DZD</span>
                           </div>
@@ -744,15 +677,9 @@ export default function InvoiceHistoryPage() {
                             <span>Cumul Versé:</span> 
                             <span className="tabular-nums font-bold">({selectedInvoice?.paidAmount?.toLocaleString()}) DZD</span>
                           </div>
-                          {(selectedInvoice?.totalAmount - selectedInvoice?.paidAmount) > 0 && (
-                            <div className="flex justify-between text-red-600 font-bold border-t border-dashed border-red-200 mt-2 pt-2">
-                              <span>Reste (Dette):</span> 
-                              <span className="tabular-nums">({(selectedInvoice.totalAmount - selectedInvoice.paidAmount).toLocaleString()}) DZD</span>
-                            </div>
-                          )}
                        </div>
 
-                       {paymentHistory.length > 1 && (
+                       {paymentHistory.length > 0 && (
                           <div className="pt-4 border-t border-black space-y-2">
                              <p className="font-black text-[10px] uppercase text-center border-b border-dashed border-black pb-1">Historique des versements</p>
                              <table className="w-full text-[9px]">
@@ -760,7 +687,6 @@ export default function InvoiceHistoryPage() {
                                    <tr className="border-b border-black/10">
                                       <th className="py-1 text-right">Date</th>
                                       <th className="py-1 text-center">Montant</th>
-                                      <th className="py-1 text-left">Reste</th>
                                    </tr>
                                 </thead>
                                 <tbody>
@@ -768,7 +694,6 @@ export default function InvoiceHistoryPage() {
                                       <tr key={p.id} className="opacity-80">
                                          <td className="py-1 text-right">{p.createdAt?.toDate ? format(p.createdAt.toDate(), "dd/MM/yy HH:mm", { locale: fr }) : "---"}</td>
                                          <td className="py-1 text-center font-bold">({p.amount.toLocaleString()})</td>
-                                         <td className="py-1 text-left">({p.remainingAmount.toLocaleString()})</td>
                                       </tr>
                                    ))}
                                 </tbody>
@@ -810,10 +735,6 @@ export default function InvoiceHistoryPage() {
                <div className="p-10 flex flex-col items-center gap-6 bg-white">
                   <div className="p-4 bg-white rounded-3xl shadow-2xl border border-black/5">
                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${typeof window !== 'undefined' ? window.location.origin : ''}/invoices/history#inv-${zoomQR?.id}`} className="h-64 w-64" alt="Enlarged QR" />
-                  </div>
-                  <div className="flex flex-col items-center">
-                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Scanneز لفتح الفاتورة</p>
-                     <p className="text-lg font-mono font-black text-primary mt-2 text-center">#{zoomQR?.id.slice(0, 15)}</p>
                   </div>
                </div>
                <div className="p-6 bg-black/5 flex justify-center">
