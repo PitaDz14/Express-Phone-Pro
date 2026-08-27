@@ -209,20 +209,29 @@ export default function InvoiceHistoryPage() {
         }));
         throw err;
       });
-      const items = itemsSnap.docs.map(d => {
+      
+      // Deduplication Logic: Group by Product ID or Name to fix potential double-save bugs
+      const itemsMap = new Map();
+      itemsSnap.docs.forEach(d => {
         const data = d.data();
-        return {
-          id: d.id,
-          productName: data.productName,
-          quantity: data.quantity,
-          unitPrice: data.unitPrice,
-          itemTotal: data.itemTotal || (data.quantity * data.unitPrice),
-          ...data
+        const key = data.productId || data.productName;
+        // In case of duplication, we only take the first document to match stats correctly
+        if (!itemsMap.has(key)) {
+          itemsMap.set(key, {
+            id: d.id,
+            productName: data.productName,
+            quantity: data.quantity,
+            unitPrice: data.unitPrice,
+            itemTotal: data.itemTotal || (data.quantity * data.unitPrice),
+            ...data
+          });
         }
       });
+      
+      const items = Array.from(itemsMap.values());
       setInvoiceItems(items)
 
-      // 2. Fetch Payments (Try/catch for robustness)
+      // 2. Fetch Payments
       try {
         const paymentsRef = collection(db, "invoices", invoice.id, "payments")
         const paymentsSnap = await getDocs(paymentsRef);
@@ -282,7 +291,6 @@ export default function InvoiceHistoryPage() {
       const element = document.getElementById("pdf-capture-template");
       if (!element) throw new Error("Template introuvable");
 
-      // Dynamic load
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
@@ -290,6 +298,7 @@ export default function InvoiceHistoryPage() {
         scale: 2, 
         useCORS: true,
         backgroundColor: "#ffffff",
+        logging: false,
       });
 
       const imgData = canvas.toDataURL('image/png');

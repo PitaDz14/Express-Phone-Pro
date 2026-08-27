@@ -294,7 +294,9 @@ export default function InvoicesPage() {
   }
 
   const handleProcessInvoice = async () => {
-    if (cart.length === 0 || !user) return
+    // Safety check: Prevent double execution
+    if (isProcessing || cart.length === 0 || !user) return
+    
     const finalCustomerName = selectedCustomer ? selectedCustomer.name : "Client de passage"
     
     if (debtAmount > 0 && (!selectedCustomer || selectedCustomer.id === 'walk-in')) {
@@ -422,17 +424,18 @@ export default function InvoicesPage() {
       toast({ title: editId ? "Facture mise à jour" : "Facture enregistrée" })
       playSystemSound('success')
       
-      if (editId) {
-        router.push('/invoices/history');
-      } else {
-        setShowSuccessDialog(true);
-      }
-      
+      // Cleanup to prevent duplicate ID issues
       setCart([]); 
       setSelectedCustomer(null); 
       setSearchFilter("");
       setShowPreview(false); 
       setPendingId(""); 
+
+      if (editId) {
+        router.push('/invoices/history');
+      } else {
+        setShowSuccessDialog(true);
+      }
       
     } catch (error) {
       console.error("Save Error:", error);
@@ -444,13 +447,10 @@ export default function InvoicesPage() {
   }
 
   const handleSendWhatsApp = () => {
-    // Legacy support for text while PDF is ready
     if (!lastSavedInvoice || !lastSavedInvoice.items) {
       toast({ title: "Données manquantes", variant: "destructive" });
       return;
     }
-    
-    // Redirect to history for better PDF sharing context
     router.push(`/invoices/history#inv-${lastSavedInvoice.id}`);
     setShowSuccessDialog(false);
   }
@@ -878,7 +878,7 @@ export default function InvoicesPage() {
                     <MessageCircle className="h-6 w-6" /> Envoyer la facture
                  </Button>
               </div>
-              <Button variant="ghost" className="w-full font-black text-slate-400" onClick={() => setShowSuccessDialog(false)}>Fermer</Button>
+              <Button variant="ghost" className="w-full font-black text-slate-400" onClick={() => setShowSuccessDialog(false)}>Fمرر</Button>
            </DialogContent>
         </Dialog>
     </div>

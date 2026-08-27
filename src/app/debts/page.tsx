@@ -148,8 +148,17 @@ export default function DebtsPage() {
         
         message += `*Facture:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
         
+        // Deduplicate items for WhatsApp text
+        const uniqueItems: any[] = [];
         itemsSnap.docs.forEach(d => {
-          const item = d.data();
+           const data = d.data();
+           const key = data.productId || data.productName;
+           if (!uniqueItems.some(u => (u.productId && u.productId === data.productId) || u.productName === data.productName)) {
+              uniqueItems.push(data);
+           }
+        });
+
+        uniqueItems.forEach(item => {
           message += `- ${item.productName} (${item.quantity} pièce(s))\n`;
         });
 
@@ -216,7 +225,7 @@ export default function DebtsPage() {
   }
 
   const handleProcessBulkPayment = async () => {
-    if (!selectedCustomer || !bulkAmount || Number(bulkAmount) <= 0) return
+    if (!selectedCustomer || !bulkAmount || Number(bulkAmount) <= 0 || isProcessingBulk) return
     
     setIsProcessingBulk(true)
     const amountToApply = Number(bulkAmount)
@@ -312,16 +321,21 @@ export default function DebtsPage() {
         throw err;
       });
       
-      const items = snapshot.docs.map(d => {
+      // Deduplicate items to fix duplication issues in preview
+      const itemsMap = new Map();
+      snapshot.docs.forEach(d => {
         const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          itemTotal: data.itemTotal || (data.quantity * data.unitPrice) || 0
-        };
+        const key = data.productId || data.productName;
+        if (!itemsMap.has(key)) {
+          itemsMap.set(key, {
+            id: d.id,
+            ...data,
+            itemTotal: data.itemTotal || (data.quantity * data.unitPrice) || 0
+          });
+        }
       });
       
-      setInvoiceItems(items)
+      setInvoiceItems(Array.from(itemsMap.values()))
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de récupérer les articles." })
     } finally {
@@ -618,124 +632,3 @@ export default function DebtsPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
-         <DialogContent dir="rtl" className="glass border-none rounded-[2.5rem] shadow-2xl z-[300] max-w-md w-[95%]">
-            <DialogHeader>
-               <DialogTitle className="text-2xl font-black text-gradient-premium flex items-center justify-center gap-3">
-                  <Coins className="h-6 w-6 text-emerald-500" /> Versement Global
-               </DialogTitle>
-               <DialogDescription className="font-bold text-xs mt-2 text-center">
-                  Le montant sera répartي automatiquement sur les factures de {selectedCustomer?.name} en commençant par les plus récentes.
-               </DialogDescription>
-            </DialogHeader>
-
-            <div className="py-6 space-y-6">
-               <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex justify-between items-center">
-                  <span className="text-xs font-black text-emerald-600">Dette totale client :</span>
-                  <span className="text-lg font-black text-red-600 tabular-nums">({(selectedCustomer?.debt || 0).toLocaleString()}) DZD</span>
-               </div>
-
-               <div className="space-y-2">
-                  <Label className="font-black text-[10px] text-primary uppercase px-1 text-center block">Montant reçu</Label>
-                  <Input 
-                    type="number" 
-                    value={bulkAmount} 
-                    onChange={(e) => setBulkAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="h-14 glass border-none rounded-2xl font-black text-2xl text-emerald-600 text-center focus:ring-emerald-500" 
-                    placeholder="0.00"
-                    autoFocus
-                  />
-               </div>
-
-               {bulkAmount !== "" && Number(bulkAmount) > 0 && (
-                  <div className="p-4 rounded-2xl bg-black/5 space-y-2">
-                     <div className="flex justify-between text-[10px] font-bold">
-                        <span>Montant à répartير :</span>
-                        <span className="tabular-nums">({Number(bulkAmount).toLocaleString()}) DZD</span>
-                     </div>
-                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                        <span>Solde final après versement :</span>
-                        <span className="tabular-nums">({Math.max(0, (selectedCustomer?.debt || 0) - Number(bulkAmount)).toLocaleString()}) DZD</span>
-                     </div>
-                  </div>
-               )}
-            </div>
-
-            <DialogFooter className="gap-2">
-               <Button variant="outline" className="rounded-xl h-12 font-bold flex-1" onClick={() => setIsBulkOpen(false)}>Annuler</Button>
-               <Button 
-                onClick={handleProcessBulkPayment} 
-                disabled={isProcessingBulk || !bulkAmount || Number(bulkAmount) <= 0}
-                className="rounded-xl h-12 font-black bg-emerald-600 text-white flex-1 shadow-lg shadow-emerald-500/20"
-               >
-                  {isProcessingBulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Confirmer le paiement
-               </Button>
-            </DialogFooter>
-         </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!selectedInvoiceForItems} onOpenChange={() => setSelectedInvoiceForItems(null)}>
-        <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2.5rem] shadow-2xl p-0 overflow-hidden z-[220]">
-          <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
-            <DialogTitle className="text-xl md:text-2xl font-black text-gradient-premium flex items-center justify-center gap-3">
-              <FileText className="h-6 w-6 text-primary" />
-              Contenu Facture #{selectedInvoiceForItems?.id.slice(0, 8)}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-2 gap-4 glass p-4 rounded-2xl border-white/10">
-                <div className="text-center">
-                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Client</p>
-                   <p className="font-bold text-foreground text-xs md:sm">{selectedInvoiceForItems?.customerName}</p>
-                </div>
-                <div className="text-center border-r border-white/10">
-                   <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Date</p>
-                   <p className="font-bold text-[10px] md:text-xs text-foreground">
-                    {selectedInvoiceForItems?.createdAt?.toDate ? format(selectedInvoiceForItems.createdAt.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "---"}
-                   </p>
-                </div>
-             </div>
-
-             <div className="space-y-3">
-                <p className="font-black text-xs text-primary px-2 uppercase tracking-widest text-center">Produits inclus</p>
-                <div className="space-y-2">
-                   {isLoadingItems ? (
-                     <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>
-                   ) : invoiceItems.length === 0 ? (
-                     <div className="py-10 text-center opacity-30 italic font-black text-xs">Aucun élément</div>
-                   ) : invoiceItems.map((item) => (
-                     <div key={item.id} className="flex items-center justify-between p-4 glass rounded-xl border-white/10">
-                        <div className="flex items-center gap-3">
-                           <div className="h-9 w-9 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
-                              <ShoppingBag className="h-4 w-4" />
-                           </div>
-                           <div className="flex flex-col text-right">
-                              <p className="text-xs font-black text-foreground">{item.productName}</p>
-                              <p className="text-[9px] text-muted-foreground font-bold tabular-nums">
-                                {item.quantity} × ({(item.unitPrice || 0).toLocaleString()}) DZD
-                              </p>
-                           </div>
-                        </div>
-                        <p className="font-black text-xs md:sm text-primary tabular-nums">({(item.itemTotal || 0).toLocaleString()}) DZD</p>
-                     </div>
-                   ))}
-                </div>
-             </div>
-
-             <div className="pt-6 border-t border-white/10 flex justify-between items-center px-2">
-                <span className="text-sm md:text-lg font-black text-foreground">Total Facture :</span>
-                <span className="text-lg md:text-2xl font-black text-primary tabular-nums">({(selectedInvoiceForItems?.totalAmount || 0).toLocaleString()}) DZD</span>
-             </div>
-          </div>
-
-          <div className="p-6 bg-black/5 text-center">
-             <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setSelectedInvoiceForItems(null)}>Fermer l'aperçu</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}

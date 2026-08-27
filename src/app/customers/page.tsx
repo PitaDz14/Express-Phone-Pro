@@ -161,7 +161,7 @@ export default function CustomersPage() {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       setHistoryInvoices(data)
     } catch (e) {
-      // Handled by emitter
+      // Handled
     } finally {
       setIsHistoryLoading(false)
     }
@@ -199,18 +199,23 @@ export default function CustomersPage() {
         throw err;
       });
       
-      const items = snapshot.docs.map(d => {
+      // Deduplicate items visually to fix display bugs
+      const itemsMap = new Map();
+      snapshot.docs.forEach(d => {
         const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          itemTotal: data.itemTotal || (data.quantity * data.unitPrice) || 0
-        };
+        const key = data.productId || data.productName;
+        if (!itemsMap.has(key)) {
+          itemsMap.set(key, {
+            id: d.id,
+            ...data,
+            itemTotal: data.itemTotal || (data.quantity * data.unitPrice) || 0
+          });
+        }
       });
       
-      setPreviewItems(items)
+      setPreviewItems(Array.from(itemsMap.values()))
     } catch (e) {
-      // Handled by emitter
+      // Handled
     } finally {
       setIsPreviewLoading(false)
     }
