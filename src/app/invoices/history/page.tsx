@@ -184,6 +184,8 @@ export default function InvoiceHistoryPage() {
   }
 
   const handleViewDetails = async (invoice: any) => {
+    if (!invoice || !invoice.id) return { items: [], payments: [] };
+
     setSelectedInvoice(invoice)
     setIsLoadingItems(true)
     setInvoiceItems([])
@@ -230,7 +232,7 @@ export default function InvoiceHistoryPage() {
 
       return { items, payments };
     } catch (error) {
-      console.error("Error fetching invoice items:", error)
+      console.error("Error fetching invoice details:", error)
       return { items: [], payments: [] };
     } finally {
       setIsLoadingItems(false)
@@ -238,23 +240,29 @@ export default function InvoiceHistoryPage() {
   }
 
   const handleSharePDF = async (invoice: any) => {
-    if (isSharingPDF) return;
+    if (isSharingPDF || !invoice) return;
     setIsSharingPDF(true);
     
     try {
-      // 1. Fetch all required data in ONE go (Sync and await)
+      // 1. Fetch all required data
       const freshData = await handleViewDetails(invoice);
       
-      if (!freshData.items || freshData.items.length === 0) {
-        throw new Error("Empty items list");
+      if (!freshData || !freshData.items || freshData.items.length === 0) {
+        toast({ 
+          variant: "destructive", 
+          title: "Détails non trouvés", 
+          description: "Impossible de générer le PDF : les articles de cette facture sont introuvables." 
+        });
+        setIsSharingPDF(false);
+        return;
       }
 
       // 2. Short wait for React to update the hidden template DOM
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const element = document.getElementById("pdf-capture-template");
       if (!element) {
-        throw new Error("Template non trouvé");
+        throw new Error("Template de capture introuvable");
       }
 
       // 3. Dynamic Load libraries
@@ -262,7 +270,7 @@ export default function InvoiceHistoryPage() {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
-      // 4. Capture Canvas - Reduced scale for SPEED (2 is enough for mobile)
+      // 4. Capture Canvas
       const canvas = await html2canvas(element, {
         scale: 2, 
         useCORS: true,
@@ -284,7 +292,7 @@ export default function InvoiceHistoryPage() {
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
       const pdfBlob = pdf.output('blob');
-      const fileName = `INV_${invoice.id.slice(0, 8)}.pdf`;
+      const fileName = `Facture_${invoice.id.slice(0, 8)}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       // 5. Native Share or Download
@@ -293,7 +301,7 @@ export default function InvoiceHistoryPage() {
           await navigator.share({
             files: [file],
             title: `Facture ${invoice.id.slice(0, 8)}`,
-            text: `Bonjour ${invoice.customerName}, votre facture Express Phone.`
+            text: `Bonjour ${invoice.customerName}, voici votre facture Express Phone Pro.`
           });
         } catch (shareErr: any) {
           if (shareErr.name !== 'AbortError') throw shareErr;
@@ -312,7 +320,7 @@ export default function InvoiceHistoryPage() {
       console.error("PDF generation failed:", error);
       toast({ 
         title: "Erreur PDF", 
-        description: "Échec de génération. Vérifiez les données ou la connexion.", 
+        description: "Échec de génération du fichier. Vérifiez votre connexion.", 
         variant: "destructive" 
       });
     } finally {
