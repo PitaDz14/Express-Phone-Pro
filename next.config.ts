@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Fix for jspdf/canvg/core-js related build errors in Next.js 15 / Turbopack
+  // This ensures dependencies with internal resolution issues are correctly handled during build.
+  transpilePackages: ['jspdf', 'html2canvas', 'canvg', 'core-js'],
   images: {
     remotePatterns: [
       {
