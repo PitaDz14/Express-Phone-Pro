@@ -210,12 +210,11 @@ export default function InvoiceHistoryPage() {
         throw err;
       });
       
-      // Deduplication Logic: Group by Product ID or Name to fix potential double-save bugs
+      // Deduplicate items
       const itemsMap = new Map();
       itemsSnap.docs.forEach(d => {
         const data = d.data();
         const key = data.productId || data.productName;
-        // In case of duplication, we only take the first document to match stats correctly
         if (!itemsMap.has(key)) {
           itemsMap.set(key, {
             id: d.id,
@@ -286,12 +285,15 @@ export default function InvoiceHistoryPage() {
         return;
       }
 
+      // Ensure React has updated the hidden template DOM
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const element = document.getElementById("pdf-capture-template");
       if (!element) throw new Error("Template introuvable");
 
-      const html2canvas = (await import("html2canvas")).default;
+      // DYNAMIC IMPORTS to prevent Build module resolution errors
+      const html2canvasModule = await import("html2canvas");
+      const html2canvas = html2canvasModule.default || html2canvasModule;
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
@@ -332,7 +334,8 @@ export default function InvoiceHistoryPage() {
       }
 
     } catch (error: any) {
-      toast({ title: "Erreur PDF", description: "Échec de génération du fichier.", variant: "destructive" });
+      console.error("PDF Capture Error:", error);
+      toast({ title: "Erreur PDF", description: "Échec de génération du ملف. يرجى المحاولة لاحقاً.", variant: "destructive" });
     } finally {
       setIsSharingPDF(false);
     }
