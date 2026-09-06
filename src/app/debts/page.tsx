@@ -149,16 +149,16 @@ export default function DebtsPage() {
         
         message += `*Facture:* #${inv.id.slice(0, 8)} (${dateStr})\n`;
         
-        // Deduplicate items for WhatsApp text
-        const uniqueItems: any[] = [];
+        const itemsMap = new Map();
         itemsSnap.docs.forEach(d => {
-           const data = d.data();
-           if (!uniqueItems.some(u => (u.productId && u.productId === data.productId) || u.productName === data.productName)) {
-              uniqueItems.push(data);
-           }
+          const data = d.data();
+          const key = data.productId || data.productName;
+          if (!itemsMap.has(key)) {
+            itemsMap.set(key, data);
+          }
         });
 
-        uniqueItems.forEach(item => {
+        Array.from(itemsMap.values()).forEach(item => {
           message += `- ${item.productName} (${item.quantity} pièce(s))\n`;
         });
 
@@ -627,7 +627,6 @@ export default function DebtsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Payment Dialog */}
       <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
         <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl z-[300] max-w-md w-[95%]">
           <DialogHeader>
@@ -659,7 +658,6 @@ export default function DebtsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Invoice Items Dialog */}
       <Dialog open={!!selectedInvoiceForItems} onOpenChange={() => setSelectedInvoiceForItems(null)}>
         <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[350]">
            <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">

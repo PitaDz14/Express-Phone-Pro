@@ -185,7 +185,7 @@ export default function InvoiceHistoryPage() {
           description: "Le stock a été mis à jour avec succès" 
         })
       } catch (error) {
-        // Handled centrally
+        // Handled
       }
     }
   }
@@ -200,7 +200,6 @@ export default function InvoiceHistoryPage() {
     setCustomerFullData(null)
 
     try {
-      // 1. Fetch Items
       const itemsRef = collection(db, "invoices", invoice.id, "items")
       const itemsSnap = await getDocs(itemsRef).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -210,7 +209,6 @@ export default function InvoiceHistoryPage() {
         throw err;
       });
       
-      // Deduplicate items
       const itemsMap = new Map();
       itemsSnap.docs.forEach(d => {
         const data = d.data();
@@ -218,11 +216,8 @@ export default function InvoiceHistoryPage() {
         if (!itemsMap.has(key)) {
           itemsMap.set(key, {
             id: d.id,
-            productName: data.productName,
-            quantity: data.quantity,
-            unitPrice: data.unitPrice,
-            itemTotal: data.itemTotal || (data.quantity * data.unitPrice),
-            ...data
+            ...data,
+            itemTotal: data.itemTotal || (data.quantity * data.unitPrice)
           });
         }
       });
@@ -230,7 +225,6 @@ export default function InvoiceHistoryPage() {
       const items = Array.from(itemsMap.values());
       setInvoiceItems(items)
 
-      // 2. Fetch Payments
       try {
         const paymentsRef = collection(db, "invoices", invoice.id, "payments")
         const paymentsSnap = await getDocs(paymentsRef);
@@ -247,7 +241,6 @@ export default function InvoiceHistoryPage() {
         console.warn("Could not fetch payments history", payErr);
       }
 
-      // 3. Fetch Customer Data
       if (invoice.customerId && invoice.customerId !== 'walk-in') {
          try {
            const custRef = doc(db, "customers", invoice.customerId);
@@ -285,13 +278,12 @@ export default function InvoiceHistoryPage() {
         return;
       }
 
-      // Ensure React has updated the hidden template DOM
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const element = document.getElementById("pdf-capture-template");
       if (!element) throw new Error("Template introuvable");
 
-      // DYNAMIC IMPORTS to prevent Build module resolution errors
+      // DYNAMIC IMPORTS
       const html2canvasModule = await import("html2canvas");
       const html2canvas = html2canvasModule.default || html2canvasModule;
       const { jsPDF } = await import("jspdf");
@@ -335,7 +327,7 @@ export default function InvoiceHistoryPage() {
 
     } catch (error: any) {
       console.error("PDF Capture Error:", error);
-      toast({ title: "Erreur PDF", description: "Échec de génération du ملف. يرجى المحاولة لاحقاً.", variant: "destructive" });
+      toast({ title: "Erreur PDF", description: "Échec de génération du ملف.", variant: "destructive" });
     } finally {
       setIsSharingPDF(false);
     }
