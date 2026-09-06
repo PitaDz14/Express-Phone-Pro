@@ -20,7 +20,8 @@ import {
   Plus,
   Coins,
   CheckCircle2,
-  MessageCircle
+  MessageCircle,
+  Package
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -152,7 +153,6 @@ export default function DebtsPage() {
         const uniqueItems: any[] = [];
         itemsSnap.docs.forEach(d => {
            const data = d.data();
-           const key = data.productId || data.productName;
            if (!uniqueItems.some(u => (u.productId && u.productId === data.productId) || u.productName === data.productName)) {
               uniqueItems.push(data);
            }
@@ -250,7 +250,7 @@ export default function DebtsPage() {
         .sort((a, b) => {
           const tA = a.createdAt?.seconds || 0
           const tB = b.createdAt?.seconds || 0
-          return tB - tA 
+          return tA - tB // Process oldest first
         })
 
       let remaining = amountToApply
@@ -321,7 +321,6 @@ export default function DebtsPage() {
         throw err;
       });
       
-      // Deduplicate items to fix duplication issues in preview
       const itemsMap = new Map();
       snapshot.docs.forEach(d => {
         const data = d.data();
@@ -561,10 +560,6 @@ export default function DebtsPage() {
               <div className="py-20 text-center opacity-30 italic font-black text-foreground">Aucun impayé trouvé</div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Information</p>
-                   <p className="text-xs font-bold text-muted-foreground leading-relaxed italic text-center">Les factures sont classées de la plus récente à la plus ancienne.</p>
-                </div>
                 {customerInvoices.map((inv) => (
                   <div key={inv.id} className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] glass border-white/10 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-white/40 transition-all gap-4 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-8 flex-1">
@@ -626,9 +621,79 @@ export default function DebtsPage() {
               </div>
             )}
           </div>
-          
           <div className="p-6 bg-black/5 text-center shrink-0">
              <Button className="rounded-2xl px-12 h-12 font-black shadow-lg" onClick={() => setSelectedCustomer(null)}>Fermer l'Historique</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Payment Dialog */}
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
+        <DialogContent dir="rtl" className="glass border-none rounded-[2rem] shadow-2xl z-[300] max-w-md w-[95%]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-gradient-premium">Paiement Global (Versement Direct)</DialogTitle>
+            <DialogDescription className="font-bold text-xs">Saisissez le montant versé par {selectedCustomer?.name}. Le système l'attribuera automatiquement aux factures les plus anciennes.</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+               <Label className="font-black text-xs text-primary px-1">Montant à verser (DZD)</Label>
+               <Input 
+                 type="number" 
+                 className="h-14 glass border-none rounded-2xl font-black text-2xl text-center text-emerald-600 shadow-inner" 
+                 placeholder="0.00"
+                 value={bulkAmount}
+                 onChange={(e) => setBulkAmount(e.target.value === "" ? "" : Number(e.target.value))}
+               />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl h-12 font-bold flex-1" onClick={() => setIsBulkOpen(false)}>Annuler</Button>
+            <Button 
+              className="rounded-xl h-12 font-black bg-emerald-600 text-white flex-1 shadow-lg" 
+              disabled={!bulkAmount || Number(bulkAmount) <= 0 || isProcessingBulk}
+              onClick={handleProcessBulkPayment}
+            >
+              {isProcessingBulk ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirmer le versement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Items Dialog */}
+      <Dialog open={!!selectedInvoiceForItems} onOpenChange={() => setSelectedInvoiceForItems(null)}>
+        <DialogContent dir="rtl" className="max-w-2xl w-[90%] glass border-none rounded-[2rem] shadow-2xl p-0 overflow-hidden z-[350]">
+           <DialogHeader className="p-6 md:p-8 bg-accent/5 border-b border-border">
+              <DialogTitle className="text-lg md:text-xl font-black text-gradient-premium flex items-center justify-center gap-3">
+                 <FileText className="h-6 w-6 text-primary" /> Détails des articles
+              </DialogTitle>
+           </DialogHeader>
+           <div className="p-6 md:p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-2">
+                {isLoadingItems ? (
+                  <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>
+                ) : invoiceItems.length === 0 ? (
+                  <div className="py-10 text-center opacity-30 italic font-black">Aucun article trouvé</div>
+                ) : invoiceItems.map((item) => (
+                  <div key={item.id} className="p-4 rounded-2xl glass border-white/5 flex items-center justify-between group hover:bg-white/40 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                            <Package className="h-5 w-5" />
+                        </div>
+                        <div className="flex flex-col">
+                            <p className="font-black text-xs md:text-sm">{item.productName}</p>
+                            <p className="text-[10px] text-muted-foreground font-bold tabular-nums">Qté: {item.quantity} × {item.unitPrice.toLocaleString()} DZD</p>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs md:text-sm tabular-nums text-primary">{(item.quantity * item.unitPrice).toLocaleString()} DZD</span>
+                  </div>
+                ))}
+              </div>
+           </div>
+           <div className="p-6 bg-black/5 text-center">
+              <Button variant="outline" className="rounded-xl px-12 h-11 font-black" onClick={() => setSelectedInvoiceForItems(null)}>Fermer l'aperçu</Button>
+           </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
